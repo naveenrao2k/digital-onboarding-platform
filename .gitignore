@@ -1,0 +1,32 @@
+# Node modules
+node_modules/
+
+# Build output
+.next/
+out/
+
+# Production environment variables
+.env.local
+.env.production
+.env.development
+.env.test
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Optional: VSCode settings (if using VSCode and want to ignore settings folder)
+.vscode/
+
+# Optional: Coverage reports
+coverage/
+
+# Optional: Dependency directories for specific package managers
+.pnpm/
+.cache/

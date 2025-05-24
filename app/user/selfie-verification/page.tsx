@@ -3,13 +3,27 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Video, Check, ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
+import { uploadSelfieVerification, getVerificationStatus } from '@/lib/file-upload-service';
 
 const SelfieVerificationPage = () => {
   const router = useRouter();
+  const { user, loading } = useAuth();
   const [step, setStep] = useState('instructions'); // instructions, camera, verifying, completed
   const [instruction, setInstruction] = useState('');
+  const [error, setError] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  // Check if user is authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/signin');
+    }
+  }, [user, loading, router]);
   
   // Handle camera setup and cleanup
   useEffect(() => {
@@ -21,8 +35,7 @@ const SelfieVerificationPage = () => {
       stopCamera();
     };
   }, [step]);
-  
-  // Sequence of instructions for the user
+    // Sequence of instructions for the user
   useEffect(() => {
     if (step !== 'camera') return;
     
@@ -43,11 +56,8 @@ const SelfieVerificationPage = () => {
         setInstruction(instructions[currentIndex].text);
       } else {
         clearInterval(intervalId);
-        // Verification complete
-        setStep('verifying');
-        setTimeout(() => {
-          setStep('completed');
-        }, 2000);
+        // Capture and upload the selfie
+        captureAndUploadSelfie();
       }
     }, instructions[currentIndex].duration);
     
@@ -55,8 +65,7 @@ const SelfieVerificationPage = () => {
       clearInterval(intervalId);
     };
   }, [step]);
-  
-  const startCamera = async () => {
+    const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'user' },
@@ -70,7 +79,7 @@ const SelfieVerificationPage = () => {
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
-      alert('Unable to access your camera. Please ensure you have granted permission.');
+      setError('Unable to access your camera. Please ensure you have granted permission.');
       setStep('instructions');
     }
   };
@@ -81,6 +90,69 @@ const SelfieVerificationPage = () => {
       streamRef.current = null;
     }
   };
+    const captureAndUploadSelfie = async () => {
+    try {
+      setError('');
+      setIsUploading(true);
+      
+      // Create a canvas element if it doesn't exist
+      if (!canvasRef.current) {
+        const canvas = document.createElement('canvas');
+        canvasRef.current = canvas;
+      }
+      
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      
+      if (!video) {
+        throw new Error('Video element not found');
+      }
+      
+      // Set canvas dimensions to match video
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      // Draw the current video frame to the canvas
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error('Could not get canvas context');
+      }
+      
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Convert the canvas to a blob
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('Failed to convert canvas to blob'));
+          }
+        }, 'image/jpeg', 0.8);
+      });
+      
+      // Create a File object from the blob
+      const selfieFile = new File([blob], 'selfie.jpg', { type: 'image/jpeg' });
+      
+      // Upload the selfie via our API with progress tracking
+      await uploadSelfieVerification(selfieFile, (progress) => {
+        setUploadProgress(progress);
+      });
+      
+      // Continue with verification flow
+      setStep('verifying');
+      setTimeout(() => {
+        setStep('completed');
+      }, 2000);
+      
+    } catch (err: any) {
+      console.error('Error capturing or uploading selfie:', err);
+      setError(err.message || 'Failed to capture or upload selfie');
+      setStep('error'); // Go to error step instead of back to camera
+    } finally {
+      setIsUploading(false);
+    }
+  };
   
   const startVerification = () => {
     setStep('camera');
@@ -89,16 +161,24 @@ const SelfieVerificationPage = () => {
   const handleBack = () => {
     router.back();
   };
-  
-  const handleContinue = () => {
-    // Save verification status to localStorage
-    localStorage.setItem('selfieVerification', JSON.stringify({
-      completed: true,
-      timestamp: new Date().toISOString()
-    }));
-    
-    // Navigate to verification status page
-    router.push('/user/verification-status');
+    const handleContinue = async () => {
+    try {
+      // Save verification status to localStorage for UI state persistence
+      localStorage.setItem('selfieVerification', JSON.stringify({
+        completed: true,
+        timestamp: new Date().toISOString()
+      }));
+      
+      // Fetch the updated verification status to ensure it's properly synced
+      await getVerificationStatus();
+      
+      // Navigate to verification status page
+      router.push('/user/verification-status');
+    } catch (err) {
+      console.error('Error updating verification status:', err);
+      // Still navigate even if there's an error fetching the status
+      router.push('/user/verification-status');
+    }
   };
   
   return (
@@ -170,8 +250,7 @@ const SelfieVerificationPage = () => {
             </button>
           </>
         )}
-        
-        {step === 'camera' && (
+          {step === 'camera' && (
           <div className="mb-8">
             <div className="relative">
               <video
@@ -185,33 +264,113 @@ const SelfieVerificationPage = () => {
                 <div className="w-48 h-48 border-2 border-white rounded-full opacity-50"></div>
               </div>
               <div className="absolute bottom-0 left-0 right-0 bg-blue-600 text-white p-3 text-center rounded-b-lg">
-                {instruction}
+                {isUploading ? `Uploading... ${uploadProgress}%` : instruction}
               </div>
             </div>
+            
+            {isUploading && (
+              <div className="mt-4">
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div 
+                    className="bg-blue-600 h-2.5 rounded-full" 
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
           </div>
         )}
         
-        {step === 'verifying' && (
+        {step === 'error' && (
+          <>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
+              <div className="flex items-start">
+                <AlertCircle className="text-red-500 h-5 w-5 mt-0.5 mr-2 flex-shrink-0" />
+                <div>
+                  <p className="font-medium text-red-700">Verification Error</p>
+                  <p className="text-red-700">
+                    {error || "There was an error processing your verification. Please try again."}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex space-x-4">
+              <button
+                onClick={() => setStep('camera')}
+                className="flex-1 py-3 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Try Again
+              </button>
+              
+              <button
+                onClick={() => setStep('instructions')}
+                className="flex-1 py-3 px-4 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+              >
+                Back to Instructions
+              </button>
+            </div>
+          </>
+        )}
+          {step === 'verifying' && (
           <div className="text-center py-12 mb-8">
-            <div className="animate-pulse mb-4">
+            <div className="mb-4">
               <div className="h-24 w-24 rounded-full bg-blue-100 flex items-center justify-center mx-auto">
-                <Video className="h-12 w-12 text-blue-600" />
+                <div className="h-16 w-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
               </div>
             </div>
             <p className="text-lg font-medium text-gray-800 mb-2">Processing your verification...</p>
-            <p className="text-gray-600">This will only take a moment</p>
+            <p className="text-gray-600">We're analyzing your selfie verification</p>
+            <div className="max-w-xs mx-auto mt-4">
+              <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1">
+                <div className="bg-blue-600 h-1.5 rounded-full animate-pulse"></div>
+              </div>
+              <p className="text-xs text-gray-500">This may take up to 15 seconds</p>
+            </div>
           </div>
         )}
-        
-        {step === 'completed' && (
+          {step === 'completed' && (
           <>
-            <div className="bg-blue-600 rounded-lg p-12 mb-8 flex items-center justify-center">
+            <div className="bg-green-600 rounded-lg p-12 mb-8 flex items-center justify-center">
               <div className="text-center">
-                <div className="bg-blue-400 bg-opacity-30 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="bg-green-400 bg-opacity-30 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle className="h-10 w-10 text-white" />
                 </div>
                 <p className="text-white text-xl font-medium">Your selfie has been submitted!</p>
+                <p className="text-green-100 mt-2">
+                  Your identity verification is now being processed
+                </p>
               </div>
+            </div>
+            
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-8">
+              <h3 className="font-medium text-gray-800 mb-2">What happens next?</h3>
+              <ul className="space-y-2">
+                <li className="flex items-start">
+                  <div className="h-5 w-5 rounded-full bg-blue-100 flex items-center justify-center mt-0.5 mr-2 flex-shrink-0">
+                    <span className="text-xs text-blue-600 font-medium">1</span>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Our system will automatically verify your selfie against your submitted ID documents
+                  </p>
+                </li>
+                <li className="flex items-start">
+                  <div className="h-5 w-5 rounded-full bg-blue-100 flex items-center justify-center mt-0.5 mr-2 flex-shrink-0">
+                    <span className="text-xs text-blue-600 font-medium">2</span>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    You'll receive a notification once verification is complete (typically within 24-48 hours)
+                  </p>
+                </li>
+                <li className="flex items-start">
+                  <div className="h-5 w-5 rounded-full bg-blue-100 flex items-center justify-center mt-0.5 mr-2 flex-shrink-0">
+                    <span className="text-xs text-blue-600 font-medium">3</span>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    You can check your verification status anytime from your dashboard
+                  </p>
+                </li>
+              </ul>
             </div>
             
             <button

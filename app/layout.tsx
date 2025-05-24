@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   description: 'A platform for digital onboarding of new users',
 }
 
+import { AuthProvider } from '@/lib/auth-context'
+
 export default function RootLayout({
   children,
 }: {
@@ -17,7 +19,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <main>{children}</main>
+        <AuthProvider>
+          <main className="min-h-screen">{children}</main>
+        </AuthProvider>
       </body>
     </html>
   )

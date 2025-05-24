@@ -1,17 +1,51 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Upload, CheckCircle, User, Building, Building2, FileText } from 'lucide-react';
-import { div } from 'framer-motion/client';
+import { useAuth } from '@/lib/auth-context';
+import { uploadKycDocument } from '@/lib/file-upload-service';
+import { DocumentType } from '@/app/generated/prisma';
 
-
+// Helper function to convert form docType to valid DocumentType enum
+const docTypeToEnumMapping = (docType: string): DocumentType => {
+  const mapping: {[key: string]: DocumentType} = {
+    // Individual documents
+    idCard: DocumentType.ID_CARD,
+    passport: DocumentType.PASSPORT,
+    utilityBill: DocumentType.UTILITY_BILL,
+    
+    // Partnership documents
+    certificateOfRegistration: DocumentType.CERTIFICATE_OF_REGISTRATION,
+    formOfApplication: DocumentType.FORM_OF_APPLICATION,
+    validIdOfPartners: DocumentType.VALID_ID_OF_PARTNERS,
+    proofOfAddress: DocumentType.PROOF_OF_ADDRESS,
+    
+    // Enterprise documents
+    passportPhotos: DocumentType.PASSPORT_PHOTOS,
+    utilityReceipt: DocumentType.UTILITY_RECEIPT,
+    businessOwnerID: DocumentType.ID_CARD,
+    
+    // LLC documents
+    certificateOfIncorporation: DocumentType.CERTIFICATE_OF_INCORPORATION,
+    memorandumArticles: DocumentType.MEMORANDUM_ARTICLES,
+    boardResolution: DocumentType.BOARD_RESOLUTION,
+    directorsID: DocumentType.DIRECTORS_ID
+  };
+  
+  return mapping[docType] || DocumentType.ID_CARD; // Default to ID_CARD if not found
+};
 
 const UploadKYCDocumentsPage = () => {
   const router = useRouter();
+  const { user, loading } = useAuth();
   const [accountType, setAccountType] = useState('individual');
   const [showAccountOptions, setShowAccountOptions] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [error, setError] = useState('');
+  const [uploadProgress, setUploadProgress] = useState<{[key: string]: number}>({});
+  const [uploadStatus, setUploadStatus] = useState<{[key: string]: 'idle' | 'uploading' | 'success' | 'error'}>({});
 
   // Individual account documents
   const [individualDocuments, setIndividualDocuments] = useState({
@@ -156,72 +190,138 @@ const UploadKYCDocumentsPage = () => {
     const { name, value } = e.target;
     setTaxInfo(prev => ({ ...prev, [name]: value }));
   };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Save data to local storage based on account type
-    let documentsToSave = {};
-
-    switch (accountType) {
-      case 'individual':
-        documentsToSave = {
-          accountType,
-          documents: {
-            idCard: individualDocuments.idCard ? individualDocuments.idCard.name : null,
-            passport: individualDocuments.passport ? individualDocuments.passport.name : null,
-            utilityBill: individualDocuments.utilityBill ? individualDocuments.utilityBill.name : null,
+    setIsSubmitting(true);
+    setError('');
+    
+    try {
+      // Upload documents based on account type
+      let uploadPromises: Promise<any>[] = [];
+      let documentsToSave: any = {
+        accountType,
+        documents: {}
+      };      switch (accountType) {
+        case 'individual':
+          if (individualDocuments.idCard) {
+            uploadPromises.push(uploadKycDocument(DocumentType.ID_CARD, individualDocuments.idCard));
+            documentsToSave.documents.idCard = individualDocuments.idCard.name;
           }
-        };
-        break;
-      case 'partnership':
-        documentsToSave = {
-          accountType,
-          documents: {
-            certificateOfRegistration: partnershipDocuments.certificateOfRegistration ? partnershipDocuments.certificateOfRegistration.name : null,
-            formOfApplication: partnershipDocuments.formOfApplication ? partnershipDocuments.formOfApplication.name : null,
-            validIdOfPartners: partnershipDocuments.validIdOfPartners ? partnershipDocuments.validIdOfPartners.name : null,
-            proofOfAddress: partnershipDocuments.proofOfAddress ? partnershipDocuments.proofOfAddress.name : null,
-          },
-          references
-        };
-        break;
-      case 'enterprise':
-        documentsToSave = {
-          accountType,
-          documents: {
-            certificateOfRegistration: enterpriseDocuments.certificateOfRegistration ? enterpriseDocuments.certificateOfRegistration.name : null,
-            formOfApplication: enterpriseDocuments.formOfApplication ? enterpriseDocuments.formOfApplication.name : null,
-            passportPhotos: enterpriseDocuments.passportPhotos ? enterpriseDocuments.passportPhotos.name : null,
-            utilityReceipt: enterpriseDocuments.utilityReceipt ? enterpriseDocuments.utilityReceipt.name : null,
-            businessOwnerID: enterpriseDocuments.businessOwnerID ? enterpriseDocuments.businessOwnerID.name : null,
-          },
-          businessAddress,
-          references
-        };
-        break;
-      case 'llc':
-        documentsToSave = {
-          accountType,
-          documents: {
-            certificateOfIncorporation: llcDocuments.certificateOfIncorporation ? llcDocuments.certificateOfIncorporation.name : null,
-            memorandumArticles: llcDocuments.memorandumArticles ? llcDocuments.memorandumArticles.name : null,
-            boardResolution: llcDocuments.boardResolution ? llcDocuments.boardResolution.name : null,
-            directorsID: llcDocuments.directorsID ? llcDocuments.directorsID.name : null,
-            proofOfAddress: llcDocuments.proofOfAddress ? llcDocuments.proofOfAddress.name : null,
-          },
-          taxInfo,
-          businessAddress,
-          references
-        };
-        break;
+          
+          if (individualDocuments.passport) {
+            uploadPromises.push(uploadKycDocument(DocumentType.PASSPORT, individualDocuments.passport));
+            documentsToSave.documents.passport = individualDocuments.passport.name;
+          }
+          
+          if (individualDocuments.utilityBill) {
+            uploadPromises.push(uploadKycDocument(DocumentType.UTILITY_BILL, individualDocuments.utilityBill));
+            documentsToSave.documents.utilityBill = individualDocuments.utilityBill.name;
+          }
+          break;
+            case 'partnership':
+          if (partnershipDocuments.certificateOfRegistration) {
+            uploadPromises.push(uploadKycDocument(DocumentType.CERTIFICATE_OF_REGISTRATION, partnershipDocuments.certificateOfRegistration));
+            documentsToSave.documents.certificateOfRegistration = partnershipDocuments.certificateOfRegistration.name;
+          }
+          
+          if (partnershipDocuments.formOfApplication) {
+            uploadPromises.push(uploadKycDocument(DocumentType.FORM_OF_APPLICATION, partnershipDocuments.formOfApplication));
+            documentsToSave.documents.formOfApplication = partnershipDocuments.formOfApplication.name;
+          }
+          
+          if (partnershipDocuments.validIdOfPartners) {
+            uploadPromises.push(uploadKycDocument(DocumentType.VALID_ID_OF_PARTNERS, partnershipDocuments.validIdOfPartners));
+            documentsToSave.documents.validIdOfPartners = partnershipDocuments.validIdOfPartners.name;
+          }
+          
+          if (partnershipDocuments.proofOfAddress) {
+            uploadPromises.push(uploadKycDocument(DocumentType.PROOF_OF_ADDRESS, partnershipDocuments.proofOfAddress));
+            documentsToSave.documents.proofOfAddress = partnershipDocuments.proofOfAddress.name;
+          }
+          
+          documentsToSave.references = references;
+          break;
+          
+        case 'enterprise':          if (enterpriseDocuments.certificateOfRegistration) {
+            uploadPromises.push(uploadKycDocument(DocumentType.CERTIFICATE_OF_REGISTRATION, enterpriseDocuments.certificateOfRegistration));
+            documentsToSave.documents.certificateOfRegistration = enterpriseDocuments.certificateOfRegistration.name;
+          }
+          
+          if (enterpriseDocuments.formOfApplication) {
+            uploadPromises.push(uploadKycDocument(DocumentType.FORM_OF_APPLICATION, enterpriseDocuments.formOfApplication));
+            documentsToSave.documents.formOfApplication = enterpriseDocuments.formOfApplication.name;
+          }            if (enterpriseDocuments.passportPhotos) {
+            uploadPromises.push(uploadKycDocument(DocumentType.PASSPORT_PHOTOS, enterpriseDocuments.passportPhotos));
+            documentsToSave.documents.passportPhotos = enterpriseDocuments.passportPhotos.name;
+          }
+          
+          if (enterpriseDocuments.utilityReceipt) {
+            uploadPromises.push(uploadKycDocument(DocumentType.UTILITY_BILL, enterpriseDocuments.utilityReceipt));
+            documentsToSave.documents.utilityReceipt = enterpriseDocuments.utilityReceipt.name;
+          }
+          
+          if (enterpriseDocuments.businessOwnerID) {
+            uploadPromises.push(uploadKycDocument(DocumentType.ID_CARD, enterpriseDocuments.businessOwnerID));
+            documentsToSave.documents.businessOwnerID = enterpriseDocuments.businessOwnerID.name;
+          }
+          
+          documentsToSave.businessAddress = businessAddress;
+          documentsToSave.references = references;
+          break;
+            case 'llc':
+          if (llcDocuments.certificateOfIncorporation) {
+            uploadPromises.push(uploadKycDocument(DocumentType.CERTIFICATE_OF_INCORPORATION, llcDocuments.certificateOfIncorporation));
+            documentsToSave.documents.certificateOfIncorporation = llcDocuments.certificateOfIncorporation.name;
+          }
+          
+          if (llcDocuments.memorandumArticles) {
+            uploadPromises.push(uploadKycDocument(DocumentType.MEMORANDUM_ARTICLES, llcDocuments.memorandumArticles));
+            documentsToSave.documents.memorandumArticles = llcDocuments.memorandumArticles.name;
+          }
+          
+          if (llcDocuments.boardResolution) {
+            uploadPromises.push(uploadKycDocument(DocumentType.BOARD_RESOLUTION, llcDocuments.boardResolution));
+            documentsToSave.documents.boardResolution = llcDocuments.boardResolution.name;
+          }
+            if (llcDocuments.directorsID) {
+            uploadPromises.push(uploadKycDocument(DocumentType.DIRECTORS_ID, llcDocuments.directorsID));
+            documentsToSave.documents.directorsID = llcDocuments.directorsID.name;
+          }
+          
+          if (llcDocuments.proofOfAddress) {
+            uploadPromises.push(uploadKycDocument(DocumentType.PROOF_OF_ADDRESS, llcDocuments.proofOfAddress));
+            documentsToSave.documents.proofOfAddress = llcDocuments.proofOfAddress.name;
+          }
+          
+          documentsToSave.taxInfo = taxInfo;
+          documentsToSave.businessAddress = businessAddress;
+          documentsToSave.references = references;
+          break;
+      }
+
+      // Check if there are any documents to upload
+      if (uploadPromises.length === 0) {
+        setError('Please upload at least one document');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Wait for all uploads to complete
+      await Promise.all(uploadPromises);
+      
+      // Save metadata to localStorage (for reference and UI state persistence)
+      localStorage.setItem('kycDocuments', JSON.stringify(documentsToSave));
+      
+      // Set submission as complete
+      setIsSubmitted(true);
+      
+    } catch (err) {
+      console.error('Document upload error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to upload documents. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    localStorage.setItem('kycDocuments', JSON.stringify(documentsToSave));
-    setIsSubmitted(true);
-    // We'll handle navigation in the success screen component
   };
-
   // File upload component
   const FileUploadBox = ({
     docType,
@@ -254,20 +354,112 @@ const UploadKYCDocumentsPage = () => {
     }
 
     fileName = fileNames[docType as keyof typeof fileNames];
+    const progress = uploadProgress[docType] || 0;
+    const status = uploadStatus[docType] || 'idle';
+      // Function to handle manual upload of a single document
+    const handleSingleUpload = async () => {
+      const file = getFileByType(accountTypeKey, docType);
+      if (!file) return;
+      
+      try {
+        setUploadStatus(prev => ({ ...prev, [docType]: 'uploading' }));
+        
+        // Convert docType to proper DocumentType enum format
+        let documentType = docTypeToEnumMapping(docType);
+        
+        // Call the upload function with progress tracking
+        await uploadKycDocument(
+          documentType, 
+          file,
+          (progress) => {
+            setUploadProgress(prev => ({ ...prev, [docType]: progress }));
+          }
+        );
+        
+        setUploadStatus(prev => ({ ...prev, [docType]: 'success' }));
+      } catch (err) {
+        console.error(`Error uploading ${docType}:`, err);
+        setUploadStatus(prev => ({ ...prev, [docType]: 'error' }));
+        setError(`Failed to upload ${label}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
+    };
+    
+    // Helper function to get the file by type and account type
+    const getFileByType = (accountType: string, docType: string): File | null => {
+      switch (accountType) {
+        case 'individual':
+          return individualDocuments[docType as keyof typeof individualDocuments];
+        case 'partnership':
+          return partnershipDocuments[docType as keyof typeof partnershipDocuments];
+        case 'enterprise':
+          return enterpriseDocuments[docType as keyof typeof enterpriseDocuments];
+        case 'llc':
+          return llcDocuments[docType as keyof typeof llcDocuments];
+        default:
+          return null;
+      }
+    };
 
     return (
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-2">
           {label}
         </label>
-        <div className={`border-2 border-dashed rounded-lg p-6 ${isFileUploaded ? 'border-green-200 bg-green-50' : 'border-slate-200 hover:border-blue-400'}`}>
-          {isFileUploaded ? (
+        <div 
+          className={`border-2 border-dashed rounded-lg p-6 ${
+            status === 'success' ? 'border-green-200 bg-green-50' : 
+            status === 'error' ? 'border-red-200 bg-red-50' : 
+            isFileUploaded ? 'border-blue-200 bg-blue-50' : 
+            'border-slate-200 hover:border-blue-400'
+          }`}
+        >
+          {status === 'uploading' ? (
+            <div className="flex flex-col items-center">
+              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center mb-2">
+                <div className="h-8 w-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+              <p className="text-sm text-slate-600 text-center">{fileName}</p>
+              <div className="w-full max-w-xs mt-2 bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
+              </div>
+              <p className="text-sm text-blue-600 mt-1">Uploading... {progress}%</p>
+            </div>
+          ) : status === 'success' ? (
             <div className="flex flex-col items-center">
               <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center mb-2">
                 <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
               <p className="text-sm text-slate-600 text-center">{fileName}</p>
               <p className="text-sm text-green-600 mt-1">File uploaded successfully</p>
+            </div>
+          ) : status === 'error' ? (
+            <div className="flex flex-col items-center">
+              <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center mb-2">
+                <AlertCircle className="h-6 w-6 text-red-600" />
+              </div>
+              <p className="text-sm text-slate-600 text-center">{fileName}</p>
+              <p className="text-sm text-red-600 mt-1">Upload failed</p>
+              <button
+                type="button"
+                className="mt-2 px-4 py-2 bg-red-50 border border-red-300 rounded-md text-sm font-medium text-red-700 hover:bg-red-100"
+                onClick={() => fileRef.current?.click()}
+              >
+                Try Again
+              </button>
+            </div>
+          ) : isFileUploaded ? (
+            <div className="flex flex-col items-center">
+              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center mb-2">
+                <CheckCircle className="h-6 w-6 text-blue-600" />
+              </div>
+              <p className="text-sm text-slate-600 text-center">{fileName}</p>
+              <button
+                type="button"
+                className="mt-2 px-4 py-2 bg-blue-50 border border-blue-300 rounded-md text-sm font-medium text-blue-700 hover:bg-blue-100"
+                onClick={handleSingleUpload}
+              >
+                Upload Now
+              </button>
             </div>
           ) : (
             <div
@@ -818,25 +1010,35 @@ const UploadKYCDocumentsPage = () => {
                 </div>
               </div>
             </div>
+          )}          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-start">
+                <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 mr-2" />
+                <div>
+                  <h4 className="text-sm font-medium text-red-800">There was a problem with your submission</h4>
+                  <p className="text-sm text-red-700 mt-1">{error}</p>
+                </div>
+              </div>
+            </div>
           )}
-
+          
           <button
             type="submit"
-            className="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={isSubmitting}
+            className={`w-full py-3 px-4 ${
+              isSubmitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+            } text-white font-medium rounded-lg transition-colors flex items-center justify-center`}
           >
-            Submit Documents
+            {isSubmitting ? (
+              <>
+                <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                Processing...
+              </>
+            ) : 'Submit Documents'}
           </button>
         </form>
       </div>
-
-
     </div>
-
-
-
-
-
-
   );
 };
 

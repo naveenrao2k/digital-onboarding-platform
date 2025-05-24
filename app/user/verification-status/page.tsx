@@ -2,22 +2,55 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Clock, CheckCircle } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
+import { getVerificationStatus } from '@/lib/file-upload-service';
+import { VerificationStatusEnum } from '@/app/generated/prisma';
 
 const VerificationStatusPage = () => {
   const router = useRouter();
-  const [progress, setProgress] = useState(65);
-  const [isVerified, setIsVerified] = useState(false);
-  
-  // Simulate verification progress
+  const { user, loading } = useAuth();
+  const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState<VerificationStatusEnum>(VerificationStatusEnum.PENDING);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+    // Computed value for isVerified based on status
+  const isVerified = status === VerificationStatusEnum.APPROVED;
+
+  // Check if user is authenticated
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setProgress(100);
-      setIsVerified(true);
-    }, 5000);
+    if (!loading && !user) {
+      router.push('/signin');
+    }
+  }, [user, loading, router]);
+  
+  // Fetch verification status
+  useEffect(() => {
+    if (loading || !user) return;
     
-    return () => clearTimeout(timer);
-  }, []);
+    const fetchStatus = async () => {
+      try {
+        setIsLoading(true);
+        const statusData = await getVerificationStatus();
+        setProgress(statusData.progress || 0);
+        setStatus(statusData.overallStatus);
+      } catch (err: any) {
+        console.error('Error fetching verification status:', err);
+        setError(err.message || 'Failed to fetch verification status');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchStatus();
+    
+    // Poll for updates every 30 seconds
+    const intervalId = setInterval(fetchStatus, 30000);
+    
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [user, loading]);
   
   const handleContinue = () => {
     router.push('/user/dashboard');

@@ -11,173 +11,173 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("DIRECT_URL")
 }
 
 // User model - Base user data for authentication and profile
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String?   // Hashed password (may be null if using OAuth)
+  id            String        @id @default(cuid())
+  email         String        @unique
+  password      String? // Hashed password (may be null if using OAuth)
   firstName     String
   lastName      String
   phone         String?
   address       String?
   dateOfBirth   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  role          UserRole  @default(USER)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  role          UserRole      @default(USER)
   accountStatus AccountStatus @default(PENDING)
-  
+
   // Account type
-  accountType   AccountType @default(INDIVIDUAL)
-  
+  accountType AccountType @default(INDIVIDUAL)
+
   // Relations
-  account       Account?
-  kycDocuments  KYCDocument[]
+  account            Account?
+  kycDocuments       KYCDocument[]
   selfieVerification SelfieVerification?
   verificationStatus VerificationStatus?
-  references    Reference[]
-  notifications Notification[]
-  auditLogs     AuditLog[]
+  references         Reference[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
 }
 
 // Account model - Different types of account information
 model Account {
-  id             String      @id @default(cuid())
-  userId         String      @unique
-  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Fields for business accounts
-  businessName   String?
-  businessType   BusinessType?
+  businessName    String?
+  businessType    BusinessType?
   businessAddress String?
-  taxNumber      String?
-  scumlNumber    String?     // Special Control Unit against Money Laundering
-  
+  taxNumber       String?
+  scumlNumber     String? // Special Control Unit against Money Laundering
+
   // For individual accounts
   occupation     String?
   sourceOfIncome String?
-  
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // KYC Documents model - Stores document uploads
 model KYCDocument {
-  id          String    @id @default(cuid())
+  id          String                 @id @default(cuid())
   userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   type        DocumentType
-  fileContent String?   @db.Text  // Base64 encoded file content (for small files)
-  fileSize    Int       // Size in bytes
-  mimeType    String    // File type
-  fileName    String    // Original file name
-  isChunked   Boolean   @default(false)  // Whether the file is stored in chunks
-  chunks      FileChunk[] // For large files stored in chunks
-  uploadedAt  DateTime  @default(now())
-  verified    Boolean   @default(false)
+  fileContent String?                @db.Text // Base64 encoded file content (for small files)
+  fileSize    Int // Size in bytes
+  mimeType    String // File type
+  fileName    String // Original file name
+  isChunked   Boolean                @default(false) // Whether the file is stored in chunks  chunks      FileChunk[] // For large files stored in chunks
+  uploadedAt  DateTime               @default(now())
+  verified    Boolean                @default(false)
   verifiedAt  DateTime?
-  verifiedBy  String?   // Admin ID who verified the document
-  status      VerificationStatus @default(PENDING)
-  notes       String?   // Admin notes on verification
+  verifiedBy  String? // Admin ID who verified the document
+  status      VerificationStatusEnum @default(PENDING)
+  notes       String? // Admin notes on verification
+  FileChunk   FileChunk[]
 }
 
 // Selfie verification model
 model SelfieVerification {
-  id          String    @id @default(cuid())
-  userId      String    @unique
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fileContent String?   @db.Text  // Base64 encoded selfie/video content (for small files)
-  fileName    String    // Original file name
-  fileSize    Int       // Size in bytes
-  mimeType    String    // File type (image/jpeg, video/mp4, etc.)
-  isChunked   Boolean   @default(false)  // Whether the file is stored in chunks
-  chunks      FileChunk[] // For large files stored in chunks
-  capturedAt  DateTime  @default(now())
-  verified    Boolean   @default(false)
+  id          String                 @id @default(cuid())
+  userId      String                 @unique
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileContent String?                @db.Text // Base64 encoded selfie/video content (for small files)
+  fileName    String // Original file name
+  fileSize    Int // Size in bytes
+  mimeType    String // File type (image/jpeg, video/mp4, etc.)
+  isChunked   Boolean                @default(false) // Whether the file is stored in chunks  chunks      FileChunk[] // For large files stored in chunks
+  capturedAt  DateTime               @default(now())
+  verified    Boolean                @default(false)
   verifiedAt  DateTime?
-  verifiedBy  String?   // Admin ID who verified
-  status      VerificationStatus @default(PENDING)
+  verifiedBy  String? // Admin ID who verified
+  status      VerificationStatusEnum @default(PENDING)
   notes       String?
+  FileChunk   FileChunk[]
 }
 
 // Overall verification status model
 model VerificationStatus {
-  id              String    @id @default(cuid())
-  userId          String    @unique
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  kycStatus       VerificationStatus @default(PENDING)
-  selfieStatus    VerificationStatus @default(PENDING)
-  overallStatus   VerificationStatus @default(PENDING)
-  progress        Int       @default(0) // Progress percentage (0-100)
-  updatedAt       DateTime  @updatedAt
-  reviewedBy      String?   // Admin ID
-  notes           String?
+  id            String                 @id @default(cuid())
+  userId        String                 @unique
+  user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kycStatus     VerificationStatusEnum @default(PENDING)
+  selfieStatus  VerificationStatusEnum @default(PENDING)
+  overallStatus VerificationStatusEnum @default(PENDING)
+  progress      Int                    @default(0) // Progress percentage (0-100)
+  updatedAt     DateTime               @updatedAt
+  reviewedBy    String? // Admin ID
+  notes         String?
 }
 
 // References model - For business accounts that require references
 model Reference {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name        String
-  address     String
-  phone       String
-  email       String?
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  address      String
+  phone        String
+  email        String?
   relationship String?
-  verified    Boolean   @default(false)
-  verifiedAt  DateTime?
+  verified     Boolean   @default(false)
+  verifiedAt   DateTime?
 }
 
 // Notifications model
 model Notification {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title       String
-  message     String
-  type        NotificationType
-  read        Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  link        String?   // Optional link to related content
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      NotificationType
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  link      String? // Optional link to related content
 }
 
 // Audit log for tracking admin actions
 model AuditLog {
-  id          String    @id @default(cuid())
-  userId      String    // User who performed the action
-  user        User      @relation(fields: [userId], references: [id])
-  action      String
-  details     String?
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime  @default(now())
-  targetId    String?   // ID of the affected resource
-  targetType  String?   // Type of resource affected
+  id         String   @id @default(cuid())
+  userId     String // User who performed the action
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  details    String?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  targetId   String? // ID of the affected resource
+  targetType String? // Type of resource affected
 }
 
 // System settings
 model SystemSettings {
-  id          String    @id @default(cuid())
-  key         String    @unique
+  id          String   @id @default(cuid())
+  key         String   @unique
   value       String
   description String?
-  updatedAt   DateTime  @updatedAt
-  updatedBy   String?   // Admin ID
+  updatedAt   DateTime @updatedAt
+  updatedBy   String? // Admin ID
 }
 
 // File storage model for very large files that might need to be chunked
 model FileChunk {
-  id                  String    @id @default(cuid())
-  fileId              String    // Parent file ID
-  chunkIndex          Int       // Order of chunks
-  content             String    @db.Text  // Base64 encoded chunk content
-  kycDocument         KYCDocument? @relation(fields: [kycDocumentId], references: [id], onDelete: Cascade)
-  kycDocumentId       String?
-  selfieVerification  SelfieVerification? @relation(fields: [selfieVerificationId], references: [id], onDelete: Cascade)
+  id                   String              @id @default(cuid())
+  fileId               String // Parent file ID
+  chunkIndex           Int // Order of chunks
+  content              String              @db.Text // Base64 encoded chunk content
+  kycDocument          KYCDocument?        @relation(fields: [kycDocumentId], references: [id], onDelete: Cascade)
+  kycDocumentId        String?
+  selfieVerification   SelfieVerification? @relation(fields: [selfieVerificationId], references: [id], onDelete: Cascade)
   selfieVerificationId String?
-  
+
   @@unique([fileId, chunkIndex])
 }
 
@@ -231,7 +231,7 @@ enum DocumentType {
 }
 
 // Verification status enum
-enum VerificationStatus {
+enum VerificationStatusEnum {
   PENDING
   IN_PROGRESS
   APPROVED

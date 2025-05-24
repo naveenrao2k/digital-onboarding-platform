@@ -523,30 +523,32 @@ const UploadKYCDocumentsPage = () => {
   // Success screen component
   const SuccessScreen = () => {
     return (
-      <div className="max-w-md mx-auto rounded-xl shadow-md overflow-hidden">
-        <div className="p-8">
-          <h2 className="text-2xl font-bold mb-2">Documents Submitted</h2>
-          <p className="text-gray-600 mb-8">Your documents have been uploaded successfully.</p>
+      <div className="max-h-screen flex items-center justify-center">
+        <div className="max-w-md w-full mx-auto rounded-xl shadow-md overflow-hidden border">
+          <div className="p-8">
+            <h2 className="text-2xl font-bold mb-2">Documents Submitted</h2>
+            <p className="text-gray-600 mb-8">Your documents have been uploaded successfully.</p>
 
-          <div className="bg-blue-600 rounded-lg p-12 mb-8 flex items-center justify-center">
-            <div className="text-center">
-              <div className="bg-blue-400 bg-opacity-30 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="h-10 w-10 text-white" />
+            <div className="bg-blue-600 rounded-lg p-12 mb-8 flex items-center justify-center">
+              <div className="text-center">
+                <div className="bg-blue-400 bg-opacity-30 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="h-10 w-10 text-white" />
+                </div>
+                <p className="text-white text-xl font-medium">Thank you!</p>
               </div>
-              <p className="text-white text-xl font-medium">Thank you!</p>
             </div>
+
+            <p className="text-gray-600 mb-6">
+              We've recieved your documents and will begin processing them. Next, we'll need to verify your identity with a quick selfie verification.
+            </p>
+
+            <button
+              onClick={() => router.push('/user/selfie-verification')}
+              className="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Proceed to Selfie Verification
+            </button>
           </div>
-
-          <p className="text-gray-600 mb-6">
-            We've recieved your documents and will begin processing them. Next, we'll need to verify your identity with a quick selfie verification.
-          </p>
-
-          <button
-            onClick={() => router.push('/user/selfie-verification')}
-            className="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Proceed to Selfie Verification
-          </button>
         </div>
       </div>
     );
@@ -558,9 +560,9 @@ const UploadKYCDocumentsPage = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className='rounded-xl shadow-sm p-6 md:p-8'>
-        <div className="bg-blue-600 -m-8 mb-6 p-8 text-white">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 rounded">
+      <div className='rounded-xl shadow-md p-6 md:p-8'>
+        <div className="rounded-t-xl bg-blue-600 -m-8 mb-6 p-8 text-white">
           <h2 className="text-2xl font-bold mb-2">Upload KYC Documents</h2>
           <p>Please upload the required documents for identity verification</p>
         </div>

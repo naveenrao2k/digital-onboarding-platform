@@ -2,18 +2,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  Shield, 
-  Bell, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  FileText, 
-  AlertCircle, 
-  CheckCircle, 
-  Clock, 
-  Headphones, 
+import {
+  Mail,
+  Phone,
+  MapPin,
+  FileText,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Headphones,
   FileQuestion,
+  Shield,
+  Bell,
   Moon,
   Sun,
   LogOut,
@@ -132,8 +132,8 @@ const UserDashboard = () => {
   
   return (
     <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
-      {/* Header with logo and user profile */}
-      <header className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b py-4`}>
+       {/* Header with logo and user profile */}
+       <header className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b py-4`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
@@ -143,7 +143,10 @@ const UserDashboard = () => {
             <div className="flex items-center">
               <button 
                 className={`mr-4 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}
-                onClick={toggleDarkMode}
+                onClick={() => {
+                  setDarkMode(!darkMode);
+                  localStorage.setItem('darkMode', (!darkMode).toString());
+                }}
               >
                 {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               </button>
@@ -152,6 +155,7 @@ const UserDashboard = () => {
                 <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">1</span>
               </button>
               <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium overflow-hidden">
+                <img src={`https://ui-avatars.com/api/?name=${userName}&background=4F46E5&color=fff`} alt="User" className="h-full w-full object-cover" />
                 <img src={`https://ui-avatars.com/api/?name=${userName}&background=4F46E5&color=fff`} alt="User" className="h-full w-full object-cover" />
               </div>
               <button 
@@ -436,3 +440,5 @@ const UserDashboard = () => {
 };
 
 export default UserDashboard;
+
+

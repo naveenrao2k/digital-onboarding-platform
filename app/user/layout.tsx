@@ -7,11 +7,8 @@ import Link from 'next/link';
 const UserLayout = ({ children }: { children: React.ReactNode }) => {
 
     return (
-        <div className="min-h-screen bg-slate-50">
-                {/* Main Content */}
-                <div className="bg-white">
-                    {children}
-                </div>
+        <div className="min-h-screen bg-white">
+            {children}
         </div>
     );
 };

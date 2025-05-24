@@ -30,3 +30,5 @@ coverage/
 # Optional: Dependency directories for specific package managers
 .pnpm/
 .cache/
+
+/app/generated/prisma

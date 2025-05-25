@@ -17,15 +17,13 @@ interface ExternalPortalData {
   phone_number?: string;
 }
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    // Extract data from request - only supporting id, name, and phone_number fields
-    const data: ExternalPortalData = await req.json();
-    const { 
-      id, 
-      name, 
-      phone_number 
-    } = data;
+    // Extract data from URL query parameters - only supporting id, name, and phone_number fields
+    const searchParams = req.nextUrl.searchParams;
+    const id = searchParams.get('id');
+    const name = searchParams.get('name') || undefined;
+    const phone_number = searchParams.get('phone_number') || undefined;
 
     if (!id) {
       return new NextResponse(
@@ -155,11 +153,12 @@ export async function POST(req: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7, // 1 week
-    });    // Determine the redirect URL based on user status
+    });
+    
+    // Determine the redirect URL based on user status
     const redirectUrl = isNewUser ? '/user/upload-kyc-documents' : '/user/dashboard';
     
-    // Check if client wants auto-redirect
-    const searchParams = req.nextUrl.searchParams;
+    // Check if client wants auto-redirect (using the searchParams from earlier)
     const autoRedirect = searchParams.get('autoRedirect') === 'true';
     
     if (autoRedirect) {
@@ -205,3 +204,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

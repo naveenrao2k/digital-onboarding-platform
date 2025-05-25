@@ -58,27 +58,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     fetchCurrentUser();
-  }, []);
-  const accessWithId = async (id: string, name?: string, phoneNumber?: string, autoRedirect: boolean = false) => {
+  }, []);  const accessWithId = async (id: string, name?: string, phoneNumber?: string, autoRedirect: boolean = false) => {
     setLoading(true);
     
     try {
-      // Prepare URL with auto-redirect parameter if needed
-      const url = autoRedirect 
-        ? `/api/auth/access?autoRedirect=true` 
-        : '/api/auth/access';
+      // Build URL with query parameters
+      let url = `/api/auth/access?id=${encodeURIComponent(id)}`;
+      if (name) url += `&name=${encodeURIComponent(name)}`;
+      if (phoneNumber) url += `&phone_number=${encodeURIComponent(phoneNumber)}`;
+      if (autoRedirect) url += '&autoRedirect=true';
       
       // Check if the user exists or create a minimal profile with the provided ID
       const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          id, 
-          name, 
-          phone_number: phoneNumber // Match the expected field name in API
-        }),
+        method: 'GET',
         redirect: autoRedirect ? 'follow' : 'manual', // Allow fetch to follow redirects if autoRedirect is true
       });
 

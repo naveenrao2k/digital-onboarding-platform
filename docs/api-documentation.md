@@ -8,7 +8,7 @@ This endpoint allows external portals to authenticate users with the Digital Onb
 
 **URL**: `/api/auth/access`
 
-**Method**: `POST`
+**Method**: `GET`
 
 **Authentication**: None required (Public API)
 
@@ -16,24 +16,15 @@ This endpoint allows external portals to authenticate users with the Digital Onb
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| autoRedirect | boolean | No | If set to `true`, the API will redirect to the appropriate page instead of returning JSON. Default: `false` |
-
-**Request Body**:
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
 | id | string | Yes | Unique identifier for the user |
 | name | string | No | Full name of the user |
 | phone_number | string | No | Phone number of the user |
+| autoRedirect | boolean | No | If set to `true`, the API will redirect to the appropriate page instead of returning JSON. Default: `false` |
 
-**Example Request**:
+**Example Request URL**:
 
-```json
-{
-  "id": "user123",
-  "name": "John Doe",
-  "phone_number": "+12345678900"
-}
+```
+/api/auth/access?id=user123&name=John%20Doe&phone_number=%2B12345678900
 ```
 
 **Success Response (without autoRedirect)**:

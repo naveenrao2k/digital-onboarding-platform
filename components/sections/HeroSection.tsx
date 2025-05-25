@@ -82,6 +82,7 @@ const HeroSection: React.FC = () => {
       >
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div className="text-center lg:text-left">
+            
             <motion.div
               variants={itemVariants}
               className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-blue-600/10 to-indigo-600/10 border border-blue-100"

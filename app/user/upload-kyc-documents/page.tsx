@@ -4,8 +4,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Upload, CheckCircle, User, Building, Building2, FileText } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { uploadKycDocument } from '@/lib/file-upload-service';
+import { uploadKycDocument, getVerificationStatus } from '@/lib/file-upload-service';
 import { DocumentType } from '@/app/generated/prisma';
+import { useVerificationStore } from '@/lib/verification-store';
 
 // Helper function to convert form docType to valid DocumentType enum
 const docTypeToEnumMapping = (docType: string): DocumentType => {
@@ -40,17 +41,41 @@ const UploadKYCDocumentsPage = () => {
   const router = useRouter();
   const { user, loading } = useAuth();
   const [accountType, setAccountType] = useState('individual');
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
+  const [hasCheckedStatus, setHasCheckedStatus] = useState(false);
   
-  // Check if user is authenticated
+  // Use the verification store for state management
+  const { 
+    documents, 
+    isLoading: isLoadingVerification,
+    fetchVerificationStatus 
+  } = useVerificationStore();
+    // Check if user is authenticated
   useEffect(() => {
     if (!loading && !user) {
       router.push('/access');
+    } else if (user && !hasCheckedStatus) {
+      // Fetch verification status to check if documents have been submitted
+      // But only do this once to prevent endless loops
+      setHasCheckedStatus(true);
+      fetchVerificationStatus(user.id).then(() => {
+        // Check document status but don't redirect automatically
+        // This allows users to upload one of each document type
+        if (documents && documents.length > 0) {
+          setAlreadySubmitted(false); // Don't block new uploads, we'll check per document
+        }
+      });
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, hasCheckedStatus, documents, fetchVerificationStatus]);
+  
+  // We don't need the second effect that redirects automatically
+  // This was causing the issue by preventing multiple document uploads
+  
   const [showAccountOptions, setShowAccountOptions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState('');
+  
   const [uploadProgress, setUploadProgress] = useState<{[key: string]: number}>({});
   const [uploadStatus, setUploadStatus] = useState<{[key: string]: 'idle' | 'uploading' | 'success' | 'error'}>({});
 
@@ -162,9 +187,21 @@ const UploadKYCDocumentsPage = () => {
     { id: 'enterprise', name: 'Enterprise Account', icon: Building2 },
     { id: 'llc', name: 'Limited Liability Account', icon: FileText }
   ];
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, docType: string, accountTypeKey: 'individual' | 'partnership' | 'enterprise' | 'llc') => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, docType: string, accountTypeKey: 'individual' | 'partnership' | 'enterprise' | 'llc') => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+
+      // Check if this specific document type has already been uploaded
+      const documentEnum = docTypeToEnumMapping(docType);
+      const docTypeFormatted = documentEnum.toString().replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+      
+      // Check if this specific document exists in the documents array
+      const hasThisDocType = documents?.some(doc => doc.type === docTypeFormatted);
+      
+      if (hasThisDocType) {
+        setError(`You've already uploaded a ${docType.replace(/([A-Z])/g, ' $1').trim()}. Please use the 'Change File' option to replace it.`);
+        return;
+      }
 
       // Update the appropriate document state based on account type
       switch (accountTypeKey) {
@@ -191,8 +228,7 @@ const UploadKYCDocumentsPage = () => {
         
         // Convert docType to proper DocumentType enum format
         const documentType = docTypeToEnumMapping(docType);
-        
-        // Call the upload function with progress tracking
+          // Call the upload function with progress tracking
         await uploadKycDocument(
           documentType, 
           file,
@@ -200,6 +236,11 @@ const UploadKYCDocumentsPage = () => {
             setUploadProgress(prev => ({ ...prev, [docType]: progress }));
           }
         );
+        
+        // Refresh document list to show the uploaded document
+        if (user) {
+          await fetchVerificationStatus(user.id);
+        }
         
         setUploadStatus(prev => ({ ...prev, [docType]: 'success' }));
       } catch (err) {
@@ -219,10 +260,14 @@ const UploadKYCDocumentsPage = () => {
     const { name, value } = e.target;
     setTaxInfo(prev => ({ ...prev, [name]: value }));
   };
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
+    
+    // We don't need the global alreadySubmitted check anymore since we check per document
+    // just proceed with the upload
     
     try {
       // Upload documents based on account type
@@ -230,7 +275,9 @@ const UploadKYCDocumentsPage = () => {
       let documentsToSave: any = {
         accountType,
         documents: {}
-      };      switch (accountType) {
+      };
+      
+      switch (accountType) {
         case 'individual':
           if (individualDocuments.idCard) {
             uploadPromises.push(uploadKycDocument(DocumentType.ID_CARD, individualDocuments.idCard));
@@ -247,7 +294,8 @@ const UploadKYCDocumentsPage = () => {
             documentsToSave.documents.utilityBill = individualDocuments.utilityBill.name;
           }
           break;
-            case 'partnership':
+          
+        case 'partnership':
           if (partnershipDocuments.certificateOfRegistration) {
             uploadPromises.push(uploadKycDocument(DocumentType.CERTIFICATE_OF_REGISTRATION, partnershipDocuments.certificateOfRegistration));
             documentsToSave.documents.certificateOfRegistration = partnershipDocuments.certificateOfRegistration.name;
@@ -271,7 +319,8 @@ const UploadKYCDocumentsPage = () => {
           documentsToSave.references = references;
           break;
           
-        case 'enterprise':          if (enterpriseDocuments.certificateOfRegistration) {
+        case 'enterprise':
+          if (enterpriseDocuments.certificateOfRegistration) {
             uploadPromises.push(uploadKycDocument(DocumentType.CERTIFICATE_OF_REGISTRATION, enterpriseDocuments.certificateOfRegistration));
             documentsToSave.documents.certificateOfRegistration = enterpriseDocuments.certificateOfRegistration.name;
           }
@@ -279,7 +328,9 @@ const UploadKYCDocumentsPage = () => {
           if (enterpriseDocuments.formOfApplication) {
             uploadPromises.push(uploadKycDocument(DocumentType.FORM_OF_APPLICATION, enterpriseDocuments.formOfApplication));
             documentsToSave.documents.formOfApplication = enterpriseDocuments.formOfApplication.name;
-          }            if (enterpriseDocuments.passportPhotos) {
+          }
+          
+          if (enterpriseDocuments.passportPhotos) {
             uploadPromises.push(uploadKycDocument(DocumentType.PASSPORT_PHOTOS, enterpriseDocuments.passportPhotos));
             documentsToSave.documents.passportPhotos = enterpriseDocuments.passportPhotos.name;
           }
@@ -297,7 +348,8 @@ const UploadKYCDocumentsPage = () => {
           documentsToSave.businessAddress = businessAddress;
           documentsToSave.references = references;
           break;
-            case 'llc':
+          
+        case 'llc':
           if (llcDocuments.certificateOfIncorporation) {
             uploadPromises.push(uploadKycDocument(DocumentType.CERTIFICATE_OF_INCORPORATION, llcDocuments.certificateOfIncorporation));
             documentsToSave.documents.certificateOfIncorporation = llcDocuments.certificateOfIncorporation.name;
@@ -312,7 +364,8 @@ const UploadKYCDocumentsPage = () => {
             uploadPromises.push(uploadKycDocument(DocumentType.BOARD_RESOLUTION, llcDocuments.boardResolution));
             documentsToSave.documents.boardResolution = llcDocuments.boardResolution.name;
           }
-            if (llcDocuments.directorsID) {
+          
+          if (llcDocuments.directorsID) {
             uploadPromises.push(uploadKycDocument(DocumentType.DIRECTORS_ID, llcDocuments.directorsID));
             documentsToSave.documents.directorsID = llcDocuments.directorsID.name;
           }
@@ -343,15 +396,26 @@ const UploadKYCDocumentsPage = () => {
       
       // Set submission as complete
       setIsSubmitted(true);
-      
     } catch (err) {
       console.error('Document upload error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to upload documents. Please try again.');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to upload documents. Please try again.';
+      
+      // Check for specific error about already submitted documents
+      if (errorMessage.includes('Document submission is only allowed once') || 
+          errorMessage.includes('Multiple submissions are not allowed')) {
+        setAlreadySubmitted(true);
+      }
+        // Set the error in a more user-friendly format
+      if (errorMessage.includes('You have already uploaded')) {
+        setError('You can only upload one document of each type. Please use the Change File option to replace an existing document.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
-  // File upload component
+    // File upload component
   const FileUploadBox = ({
     docType,
     label,
@@ -380,9 +444,23 @@ const UploadKYCDocumentsPage = () => {
       case 'llc':
         isFileUploaded = !!llcDocuments[docType as keyof typeof llcDocuments];
         break;
-    }    fileName = fileNames[docType as keyof typeof fileNames];
+    }
+    
+    // Check if this document is already in the server documents list
+    const documentEnum = docTypeToEnumMapping(docType);
+    const docTypeFormatted = documentEnum.toString().replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    const existingServerDoc = documents?.find(doc => doc.type === docTypeFormatted);
+    
+    // If document is already uploaded to server, use its filename
+    if (existingServerDoc) {
+      fileName = existingServerDoc.fileName;
+      isFileUploaded = true;
+    } else {
+      fileName = fileNames[docType as keyof typeof fileNames];
+    }
+    
     const progress = uploadProgress[docType] || 0;
-    const status = uploadStatus[docType] || 'idle';
+    const status = uploadStatus[docType] || (existingServerDoc ? 'success' : 'idle');
     
     // Helper function to get the file by type and account type
     const getFileByType = (accountType: string, docType: string): File | null => {
@@ -446,7 +524,8 @@ const UploadKYCDocumentsPage = () => {
               >
                 Try Again
               </button>
-            </div>          ) : isFileUploaded ? (
+            </div>
+          ) : isFileUploaded ? (
             <div className="flex flex-col items-center">
               <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center mb-2">
                 <CheckCircle className="h-6 w-6 text-blue-600" />
@@ -554,9 +633,48 @@ const UploadKYCDocumentsPage = () => {
     );
   };
 
+  // Already submitted screen component
+  const AlreadySubmittedScreen = () => {
+    return (
+      <div className="max-h-screen flex items-center justify-center">
+        <div className="max-w-md w-full mx-auto rounded-xl shadow-md overflow-hidden border">
+          <div className="p-8">
+            <h2 className="text-2xl font-bold mb-2">Documents Already Submitted</h2>
+            <p className="text-gray-600 mb-8">You have already submitted your KYC documents.</p>
+
+            <div className="bg-amber-600 rounded-lg p-12 mb-8 flex items-center justify-center">
+              <div className="text-center">
+                <div className="bg-amber-400 bg-opacity-30 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="h-10 w-10 text-white" />
+                </div>
+                <p className="text-white text-xl font-medium">Multiple Submissions Not Allowed</p>
+              </div>
+            </div>
+
+            <p className="text-gray-600 mb-6">
+              Our team is currently reviewing your previously submitted documents. You can check your verification status in your dashboard.
+            </p>
+
+            <button
+              onClick={() => router.push('/user/dashboard')}
+              className="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // If documents are submitted, show success screen
   if (isSubmitted) {
     return <SuccessScreen />;
+  }
+
+  // If user has already submitted documents before, show the already submitted screen
+  if (alreadySubmitted) {
+    return <AlreadySubmittedScreen />;
   }
 
   return (
@@ -1012,7 +1130,9 @@ const UploadKYCDocumentsPage = () => {
                 </div>
               </div>
             </div>
-          )}          {error && (
+          )}
+          
+          {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-start">
                 <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 mr-2" />

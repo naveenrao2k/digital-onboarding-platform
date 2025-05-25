@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Clock, CheckCircle, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, AlertCircle, ShieldAlert } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { getVerificationStatus } from '@/lib/file-upload-service';
 import { VerificationStatusEnum } from '@/app/generated/prisma';
@@ -14,17 +14,34 @@ const VerificationStatusPage = () => {
   const [status, setStatus] = useState<VerificationStatusEnum>(VerificationStatusEnum.PENDING);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [redirectedFromUpload, setRedirectedFromUpload] = useState(false);
   
   // Computed value for isVerified based on status
   const isVerified = true;
-
   // Check if user is authenticated
   useEffect(() => {
     if (!loading && !user) {
       router.push('/access');
     }
+    
+    // Check if redirected from upload page
+    if (typeof window !== 'undefined') {
+      // Check URL parameters for redirect reason
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectParam = urlParams.get('redirect');
+      
+      if (redirectParam === 'already_submitted') {
+        setRedirectedFromUpload(true);
+      } else {
+        // Still check referrer as a fallback
+        const referrer = document.referrer;
+        if (referrer && referrer.includes('/upload-kyc-documents')) {
+          setRedirectedFromUpload(true);
+        }
+      }
+    }
   }, [user, loading, router]);
-    // Fetch verification status
+  // Fetch verification status
   useEffect(() => {
     if (loading || !user) return;
     
@@ -34,6 +51,11 @@ const VerificationStatusPage = () => {
         const statusData = await getVerificationStatus(user.id);
         setProgress(statusData.progress || 0);
         setStatus(statusData.overallStatus);
+        
+        // If there are documents in the status, user has submitted documents
+        if (statusData.documents && statusData.documents.length > 0) {
+          setRedirectedFromUpload(true);
+        }
       } catch (err: any) {
         console.error('Error fetching verification status:', err);
         setError(err.message || 'Failed to fetch verification status');
@@ -59,6 +81,18 @@ const VerificationStatusPage = () => {
   return (
     <div className="max-w-md mx-auto">
       <div className="p-8">
+        {redirectedFromUpload && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+            <div className="flex items-start">
+              <AlertTriangle className="text-amber-500 h-5 w-5 mt-0.5 mr-2 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-amber-700">Multiple Submissions Not Allowed</p>
+                <p className="text-amber-700">You've already submitted documents. You can view your verification status here.</p>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div className="bg-blue-600 rounded-lg p-6 mb-6 shadow-md border border-blue-700">
           <div className="text-center mb-6">
             <div className="bg-blue-500 h-12 w-12 rounded-full flex items-center justify-center mx-auto mb-4">

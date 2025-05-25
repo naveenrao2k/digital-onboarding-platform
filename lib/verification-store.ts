@@ -29,9 +29,13 @@ interface VerificationState {
   // Actions
   fetchVerificationStatus: (userId?: string) => Promise<void>;
   resetError: () => void;
+  
+  // Helper methods
+  hasSubmittedDocuments: () => boolean;
 }
 
-export const useVerificationStore = create<VerificationState>((set) => ({
+// Create the store with set AND get parameters
+export const useVerificationStore = create<VerificationState>((set, get) => ({
   // Initial state
   overallStatus: VerificationStatusEnum.PENDING,
   kycStatus: VerificationStatusEnum.PENDING,
@@ -40,7 +44,8 @@ export const useVerificationStore = create<VerificationState>((set) => ({
   documents: [],
   isLoading: false,
   error: null,
-    // Actions
+    
+  // Actions
   fetchVerificationStatus: async (userId?: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -74,5 +79,11 @@ export const useVerificationStore = create<VerificationState>((set) => ({
     }
   },
   
-  resetError: () => set({ error: null })
+  resetError: () => set({ error: null }),
+  
+  // Using the get function provided by Zustand
+  hasSubmittedDocuments: () => {
+    const { documents } = get();
+    return documents.length > 0;
+  }
 }));

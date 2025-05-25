@@ -42,6 +42,7 @@ const UserDashboard = () => {
     phone: '',
     address: ''
   });
+  const [hasSubmittedDocs, setHasSubmittedDocs] = useState(false);
   
   // Use the verification store for state management
   const { 
@@ -74,8 +75,7 @@ const UserDashboard = () => {
     if (hour < 12) setGreeting('Good morning');
     else if (hour < 18) setGreeting('Good afternoon');
     else setGreeting('Good evening');
-  }, []);
-    // Fetch verification status
+  }, []);  // Fetch verification status
   useEffect(() => {
     if (!user) return;
       // Fetch verification status from our store
@@ -91,6 +91,13 @@ const UserDashboard = () => {
     }
     
   }, [user, fetchVerificationStatus]);
+  
+  // Separate effect to handle document changes
+  useEffect(() => {
+    if (documents && documents.length > 0) {
+      setHasSubmittedDocs(true);
+    }
+  }, [documents]);
     
   // Format document type for display
   const formatDocumentType = (type: string): string => {
@@ -179,8 +186,7 @@ const UserDashboard = () => {
               <h1 className="text-2xl font-bold mb-1">{greeting}, {userName}</h1>
               <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>Here's what's happening with your account today.</p>
             </section>
-            
-            {/* Verification status alert */}
+              {/* Verification status alert */}
             {verificationStatus !== 'APPROVED' && (
               <section className="mb-8">
                 <div className={`${darkMode ? 'bg-amber-900/20 border-amber-800' : 'bg-amber-50 border-amber-200'} border rounded-lg p-4`}>
@@ -192,17 +198,23 @@ const UserDashboard = () => {
                           Identity Verification Status: {verificationStatus === 'PENDING' ? 'Pending' : verificationStatus === 'IN_PROGRESS' ? 'In Progress' : 'Rejected'}
                         </p>
                         <Link 
-                          href="/user/verification-status" 
+                          href={documents && documents.length > 0 ? "/user/verification-status" : "/user/upload-kyc-documents"} 
                           className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 inline-block text-center"
                         >
-                          Take Action
+                          {documents && documents.length > 0 ? "View Status" : "Upload Documents"}
                         </Link>
                       </div>
                       <p className={darkMode ? 'text-amber-400/80' : 'text-amber-700'}>
-                        {verificationStatus === 'PENDING' ? 'Your documents need to be submitted' : 
+                        {verificationStatus === 'PENDING' && (!documents || documents.length === 0) ? 'Your documents need to be submitted' : 
+                         verificationStatus === 'PENDING' && documents && documents.length > 0 ? 'Your submitted documents are waiting for review' :
                          verificationStatus === 'IN_PROGRESS' ? 'Your documents are being reviewed' :
                          'Your verification was rejected. Please contact support.'}
                       </p>
+                      {documents && documents.length > 0 && (
+                        <p className={`mt-1 text-xs ${darkMode ? 'text-amber-400/60' : 'text-amber-600'}`}>
+                          Note: Document submission is only allowed once. Our team is reviewing your documents.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -290,27 +302,43 @@ const UserDashboard = () => {
                         </div>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <div className="p-6 text-center">
+                  ))                ) : (                  <div className="p-6 text-center">
                     <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>No documents uploaded yet.</p>
                     <Link 
                       href="/user/upload-kyc-documents" 
-                      className="mt-2 inline-block text-blue-600 hover:underline"
+                      className="mt-4 inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
                     >
                       Upload your documents
                     </Link>
+                    <div className={`mt-3 flex items-center justify-center gap-1`}>
+                      <AlertCircle className={`h-3 w-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                      <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Documents can only be submitted once
+                      </p>
+                    </div>
                   </div>
                 )}
-              </div>
-              
-              <div className="mt-4 text-center">
-                <Link 
-                  href="/user/upload-kyc-documents" 
-                  className={`${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'} text-sm font-medium inline-flex items-center`}
-                >
-                  {documents.length > 0 ? 'Manage documents' : 'Upload documents'} <span className="ml-1">→</span>
-                </Link>
+              </div>                <div className="mt-4 text-center">
+                {documents.length > 0 ? (
+                  <Link 
+                    href="/user/verification-status" 
+                    className={`${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'} text-sm font-medium inline-flex items-center`}
+                  >
+                    View verification status <span className="ml-1">→</span>
+                  </Link>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Link 
+                      href="/user/upload-kyc-documents" 
+                      className={`${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'} text-sm font-medium inline-flex items-center`}
+                    >
+                      Upload documents <span className="ml-1">→</span>
+                    </Link>
+                    <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      Documents can only be submitted once
+                    </span>
+                  </div>
+                )}
               </div>
             </section>
           </div>

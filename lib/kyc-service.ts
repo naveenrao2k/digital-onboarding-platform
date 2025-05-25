@@ -11,7 +11,20 @@ export type KycDocumentUpload = {
 
 export const uploadKycDocument = async ({ userId, documentType, file }: KycDocumentUpload) => {
   try {
-    // Check if this document type already exists for the user
+    // Check if the verification status is approved - in this case, don't allow any changes
+    const verificationStatus = await prisma.verificationStatus.findUnique({
+      where: { userId },
+    });
+    
+    // Only if verification is APPROVED, don't allow new uploads
+    // Allow uploads for PENDING and IN_PROGRESS statuses
+    if (verificationStatus && 
+        verificationStatus.overallStatus === VerificationStatusEnum.APPROVED && 
+        verificationStatus.kycStatus === VerificationStatusEnum.APPROVED) {
+      throw new Error('Your documents have already been approved. No further changes allowed.');
+    }
+    
+    // Check if this specific document type already exists for the user
     const existingDocument = await prisma.kYCDocument.findFirst({
       where: {
         userId,

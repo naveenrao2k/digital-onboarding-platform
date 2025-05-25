@@ -37,11 +37,16 @@ export const uploadKycDocument = async (
               resolve(response);
             } catch (err) {
               reject(new Error('Invalid response format'));
-            }
-          } else {
+            }          } else {
             try {
               const errorResponse = JSON.parse(xhr.responseText);
-              reject(new Error(errorResponse.error || 'Document upload failed'));
+              
+              // Special handling for "already submitted" error
+              if (errorResponse.error && errorResponse.error.includes('Document submission is only allowed once')) {
+                reject(new Error('You have already submitted documents. Multiple submissions are not allowed.'));
+              } else {
+                reject(new Error(errorResponse.error || 'Document upload failed'));
+              }
             } catch (err) {
               reject(new Error(`Upload failed with status ${this.status}`));
             }

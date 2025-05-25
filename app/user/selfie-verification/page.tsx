@@ -5,15 +5,20 @@ import { useRouter } from 'next/navigation';
 import { AlertCircle, Video, Check, ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { uploadSelfieVerification, getVerificationStatus } from '@/lib/file-upload-service';
+import { useVerificationStore } from '@/lib/verification-store';
+import StepCompletionMessage from '@/components/StepCompletionMessage';
+import { VerificationStatusEnum } from '@/app/generated/prisma';
 
 const SelfieVerificationPage = () => {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const { selfieStatus, fetchVerificationStatus } = useVerificationStore();
   const [step, setStep] = useState('instructions'); // instructions, camera, verifying, completed
   const [instruction, setInstruction] = useState('');
   const [error, setError] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [hasCheckedStatus, setHasCheckedStatus] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -21,8 +26,26 @@ const SelfieVerificationPage = () => {
   useEffect(() => {
     if (!loading && !user) {
       router.push('/access');
+    } else if (user && !hasCheckedStatus) {
+      setHasCheckedStatus(true);
+      fetchVerificationStatus(user.id);
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, hasCheckedStatus, fetchVerificationStatus]);
+  
+  // Check for completed selfie verification
+  const isSelfieVerificationComplete = selfieStatus === VerificationStatusEnum.APPROVED;
+
+  // If selfie verification is already complete, show completion message
+  if (isSelfieVerificationComplete) {
+    return (
+      <StepCompletionMessage
+        title="Selfie Verification Complete"
+        message="You have already completed the selfie verification step. Your identity has been verified."
+        backUrl="/user/verification-status"
+        backButtonText="View Verification Status"
+      />
+    );
+  }
   
   // Handle camera setup and cleanup
   useEffect(() => {

@@ -89,17 +89,50 @@ export const getUserProfile = async (userId: string) => {
       include: {
         account: true,
         verificationStatus: true,
-      },
+        kycDocuments: {
+          orderBy: { uploadedAt: 'desc' }
+        },
+        references: true
+      }
     });
 
     if (!user) {
       throw new Error('User not found');
     }
 
-    // Don't return the password
-    const { password: _, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    // Format the response to include only necessary data
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phone: user.phone,
+      address: user.address,
+      dateOfBirth: user.dateOfBirth,
+      accountType: user.accountType,
+      accountStatus: user.accountStatus,
+      account: user.account ? {
+        businessName: user.account.businessName,
+        businessType: user.account.businessType,
+        businessAddress: user.account.businessAddress,
+        taxNumber: user.account.taxNumber,
+        scumlNumber: user.account.scumlNumber,
+        occupation: user.account.occupation,
+        sourceOfIncome: user.account.sourceOfIncome
+      } : null,
+      verificationStatus: user.verificationStatus,
+      documents: user.kycDocuments.map(doc => ({
+        id: doc.id,
+        type: doc.type,
+        fileName: doc.fileName,
+        uploadedAt: doc.uploadedAt,
+        status: doc.status,
+        verified: doc.verified
+      })),
+      references: user.references
+    };
   } catch (error) {
+    console.error('Error fetching user profile:', error);
     throw error;
   }
 };

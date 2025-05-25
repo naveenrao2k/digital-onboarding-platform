@@ -4,9 +4,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Upload, CheckCircle, User, Building, Building2, FileText } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { uploadKycDocument, getVerificationStatus } from '@/lib/file-upload-service';
-import { DocumentType } from '@/app/generated/prisma';
+import { uploadKycDocument } from '@/lib/file-upload-service';
+import { DocumentType, VerificationStatusEnum } from '@/app/generated/prisma';
 import { useVerificationStore } from '@/lib/verification-store';
+import StepCompletionMessage from '@/components/StepCompletionMessage';
 
 // Helper function to convert form docType to valid DocumentType enum
 const docTypeToEnumMapping = (docType: string): DocumentType => {
@@ -40,40 +41,50 @@ const docTypeToEnumMapping = (docType: string): DocumentType => {
 const UploadKYCDocumentsPage = () => {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const [accountType, setAccountType] = useState('individual');
-  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [hasCheckedStatus, setHasCheckedStatus] = useState(false);
   
-  // Use the verification store for state management
   const { 
-    documents, 
-    isLoading: isLoadingVerification,
-    fetchVerificationStatus 
+    documents,
+    kycStatus,
+    fetchVerificationStatus,
+    hasSubmittedDocuments
   } = useVerificationStore();
-    // Check if user is authenticated
+  
+  // Check if documents were already submitted
+  const alreadySubmitted = hasSubmittedDocuments();
+  
+  // Check if user has already completed document upload
+  const isDocumentUploadComplete = kycStatus === VerificationStatusEnum.APPROVED || 
+    (documents && documents.length > 0 && documents.every(doc => doc.verified));
+
   useEffect(() => {
     if (!loading && !user) {
       router.push('/access');
     } else if (user && !hasCheckedStatus) {
-      // Fetch verification status to check if documents have been submitted
-      // But only do this once to prevent endless loops
       setHasCheckedStatus(true);
-      fetchVerificationStatus(user.id).then(() => {
-        // Check document status but don't redirect automatically
-        // This allows users to upload one of each document type
-        if (documents && documents.length > 0) {
-          setAlreadySubmitted(false); // Don't block new uploads, we'll check per document
-        }
-      });
+      fetchVerificationStatus(user.id);
     }
-  }, [user, loading, router, hasCheckedStatus, documents, fetchVerificationStatus]);
-  
+  }, [user, loading, router, hasCheckedStatus, fetchVerificationStatus]);
+
+  // If documents are already approved, show completion message
+  if (isDocumentUploadComplete) {
+    return (
+      <StepCompletionMessage
+        title="Documents Already Uploaded"
+        message="You have already completed the document upload step. Your documents have been verified."
+        backUrl="/user/verification-status"
+        backButtonText="View Verification Status"
+      />
+    );
+  }
+
   // We don't need the second effect that redirects automatically
   // This was causing the issue by preventing multiple document uploads
   
   const [showAccountOptions, setShowAccountOptions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState('');
   
   const [uploadProgress, setUploadProgress] = useState<{[key: string]: number}>({});
@@ -277,6 +288,13 @@ const UploadKYCDocumentsPage = () => {
         documents: {}
       };
       
+      // Check if user already has documents submitted
+      if (hasSubmittedDocuments()) {
+        setError('You have already submitted documents. Please check your verification status.');
+        setIsSubmitting(false);
+        return;
+      }
+
       switch (accountType) {
         case 'individual':
           if (individualDocuments.idCard) {
@@ -400,12 +418,7 @@ const UploadKYCDocumentsPage = () => {
       console.error('Document upload error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to upload documents. Please try again.';
       
-      // Check for specific error about already submitted documents
-      if (errorMessage.includes('Document submission is only allowed once') || 
-          errorMessage.includes('Multiple submissions are not allowed')) {
-        setAlreadySubmitted(true);
-      }
-        // Set the error in a more user-friendly format
+      // Set the error in a more user-friendly format
       if (errorMessage.includes('You have already uploaded')) {
         setError('You can only upload one document of each type. Please use the Change File option to replace an existing document.');
       } else {

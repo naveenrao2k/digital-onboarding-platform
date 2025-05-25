@@ -16,13 +16,20 @@ const getCurrentUserId = (): string | null => {
   }
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const userId = getCurrentUserId();
+    // Get userId from query param or from session
+    const url = new URL(request.url);
+    let userId = url.searchParams.get('userId');
+    
+    // If no userId in query, fall back to session
+    if (!userId) {
+      userId = getCurrentUserId();
+    }
     
     if (!userId) {
       return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Unauthorized - No user ID provided' }),
         { status: 401 }
       );
     }

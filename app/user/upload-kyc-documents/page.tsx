@@ -40,6 +40,13 @@ const UploadKYCDocumentsPage = () => {
   const router = useRouter();
   const { user, loading } = useAuth();
   const [accountType, setAccountType] = useState('individual');
+  
+  // Check if user is authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/access');
+    }
+  }, [user, loading, router]);
   const [showAccountOptions, setShowAccountOptions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -155,8 +162,7 @@ const UploadKYCDocumentsPage = () => {
     { id: 'enterprise', name: 'Enterprise Account', icon: Building2 },
     { id: 'llc', name: 'Limited Liability Account', icon: FileText }
   ];
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, docType: string, accountTypeKey: 'individual' | 'partnership' | 'enterprise' | 'llc') => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, docType: string, accountTypeKey: 'individual' | 'partnership' | 'enterprise' | 'llc') => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
 
@@ -178,6 +184,29 @@ const UploadKYCDocumentsPage = () => {
 
       // Update file name for display
       setFileNames(prev => ({ ...prev, [docType]: file.name }));
+      
+      // Auto-upload the file immediately after selection
+      try {
+        setUploadStatus(prev => ({ ...prev, [docType]: 'uploading' }));
+        
+        // Convert docType to proper DocumentType enum format
+        const documentType = docTypeToEnumMapping(docType);
+        
+        // Call the upload function with progress tracking
+        await uploadKycDocument(
+          documentType, 
+          file,
+          (progress) => {
+            setUploadProgress(prev => ({ ...prev, [docType]: progress }));
+          }
+        );
+        
+        setUploadStatus(prev => ({ ...prev, [docType]: 'success' }));
+      } catch (err) {
+        console.error(`Error uploading ${docType}:`, err);
+        setUploadStatus(prev => ({ ...prev, [docType]: 'error' }));
+        setError(`Failed to upload ${docType}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
     }
   };
 
@@ -351,38 +380,9 @@ const UploadKYCDocumentsPage = () => {
       case 'llc':
         isFileUploaded = !!llcDocuments[docType as keyof typeof llcDocuments];
         break;
-    }
-
-    fileName = fileNames[docType as keyof typeof fileNames];
+    }    fileName = fileNames[docType as keyof typeof fileNames];
     const progress = uploadProgress[docType] || 0;
     const status = uploadStatus[docType] || 'idle';
-      // Function to handle manual upload of a single document
-    const handleSingleUpload = async () => {
-      const file = getFileByType(accountTypeKey, docType);
-      if (!file) return;
-      
-      try {
-        setUploadStatus(prev => ({ ...prev, [docType]: 'uploading' }));
-        
-        // Convert docType to proper DocumentType enum format
-        let documentType = docTypeToEnumMapping(docType);
-        
-        // Call the upload function with progress tracking
-        await uploadKycDocument(
-          documentType, 
-          file,
-          (progress) => {
-            setUploadProgress(prev => ({ ...prev, [docType]: progress }));
-          }
-        );
-        
-        setUploadStatus(prev => ({ ...prev, [docType]: 'success' }));
-      } catch (err) {
-        console.error(`Error uploading ${docType}:`, err);
-        setUploadStatus(prev => ({ ...prev, [docType]: 'error' }));
-        setError(`Failed to upload ${label}: ${err instanceof Error ? err.message : 'Unknown error'}`);
-      }
-    };
     
     // Helper function to get the file by type and account type
     const getFileByType = (accountType: string, docType: string): File | null => {
@@ -446,19 +446,19 @@ const UploadKYCDocumentsPage = () => {
               >
                 Try Again
               </button>
-            </div>
-          ) : isFileUploaded ? (
+            </div>          ) : isFileUploaded ? (
             <div className="flex flex-col items-center">
               <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center mb-2">
                 <CheckCircle className="h-6 w-6 text-blue-600" />
               </div>
               <p className="text-sm text-slate-600 text-center">{fileName}</p>
+              <p className="text-sm text-blue-600 mt-1">File selected and ready</p>
               <button
                 type="button"
                 className="mt-2 px-4 py-2 bg-blue-50 border border-blue-300 rounded-md text-sm font-medium text-blue-700 hover:bg-blue-100"
-                onClick={handleSingleUpload}
+                onClick={() => fileRef.current?.click()}
               >
-                Upload Now
+                Change File
               </button>
             </div>
           ) : (

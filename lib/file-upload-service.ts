@@ -140,9 +140,16 @@ export const uploadSelfieVerification = async (
   }
 };
 
-export const getVerificationStatus = async () => {
+export const getVerificationStatus = async (userId?: string) => {
   try {
-    const response = await fetch('/api/user/verification-status');
+    let url = '/api/user/verification-status';
+    
+    // If userId is provided, add it as a query parameter
+    if (userId) {
+      url += `?userId=${encodeURIComponent(userId)}`;
+    }
+    
+    const response = await fetch(url);
 
     if (!response.ok) {
       const error = await response.json();

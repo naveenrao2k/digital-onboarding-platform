@@ -57,7 +57,7 @@ const UserDashboard = () => {
   // Check if user is authenticated
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/signin');
+      router.push('/access');
     } else if (user) {
       setUserName(user.firstName);
       setUserProfile(prev => ({
@@ -77,9 +77,8 @@ const UserDashboard = () => {
     // Fetch verification status
   useEffect(() => {
     if (!user) return;
-    
-    // Fetch verification status from our store
-    fetchVerificationStatus();
+      // Fetch verification status from our store
+    fetchVerificationStatus(user.id);
     
     // Get user profile data if available
     if (user.phone) {

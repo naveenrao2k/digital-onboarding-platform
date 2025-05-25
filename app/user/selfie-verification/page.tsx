@@ -17,11 +17,10 @@ const SelfieVerificationPage = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
-  // Check if user is authenticated
+    // Check if user is authenticated
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/signin');
+      router.push('/access');
     }
   }, [user, loading, router]);
   

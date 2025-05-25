@@ -34,13 +34,9 @@ const Navbar: React.FC = () => {
             <a href="#tech-stack" className="text-slate-700 hover:text-blue-600 transition-colors">Technology</a>
             <a href="#faq" className="text-slate-700 hover:text-blue-600 transition-colors">FAQ</a>
           </div>
-          
-          <div className="hidden md:flex items-center space-x-4">
-            <a href="#contact" className="px-4 py-2 rounded-md text-blue-600 border border-blue-600 hover:bg-blue-50 transition-colors">
-              Login
-            </a>
+            <div className="hidden md:flex items-center space-x-4">
             <a href="#cta" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-              Request Demo
+              Access System
             </a>
           </div>
           
@@ -87,21 +83,13 @@ const Navbar: React.FC = () => {
               onClick={() => setIsOpen(false)}
             >
               FAQ
-            </a>
-            <div className="pt-4 flex flex-col space-y-2">
-              <a 
-                href="#contact" 
-                className="px-4 py-2 rounded-md text-blue-600 border border-blue-600 text-center"
-                onClick={() => setIsOpen(false)}
-              >
-                Login
-              </a>
+            </a>            <div className="pt-4 flex flex-col space-y-2">
               <a 
                 href="#cta" 
                 className="px-4 py-2 bg-blue-600 text-white rounded-md text-center"
                 onClick={() => setIsOpen(false)}
               >
-                Request Demo
+                Access System
               </a>
             </div>
           </div>

@@ -67,10 +67,17 @@ export const uploadKycDocument = async ({ userId, documentType, file }: KycDocum
       });
 
       await Promise.all(chunkCreations);
-    }    // Update the verification status
-    await prisma.verificationStatus.update({
+    }    // Upsert the verification status - create if it doesn't exist, update if it does
+    await prisma.verificationStatus.upsert({
       where: { userId },
-      data: {
+      update: {
+        kycStatus: VerificationStatusEnum.IN_PROGRESS,
+        overallStatus: VerificationStatusEnum.IN_PROGRESS,
+        progress: 50,
+        updatedAt: new Date(),
+      },
+      create: {
+        userId,
         kycStatus: VerificationStatusEnum.IN_PROGRESS,
         overallStatus: VerificationStatusEnum.IN_PROGRESS,
         progress: 50,
@@ -137,10 +144,17 @@ export const uploadSelfieVerification = async (userId: string, file: File) => {
       });
 
       await Promise.all(chunkCreations);
-    }    // Update the verification status
-    await prisma.verificationStatus.update({
+    }    // Upsert the verification status - create if it doesn't exist, update if it does
+    await prisma.verificationStatus.upsert({
       where: { userId },
-      data: {
+      update: {
+        selfieStatus: VerificationStatusEnum.IN_PROGRESS,
+        overallStatus: VerificationStatusEnum.IN_PROGRESS,
+        progress: 75,
+        updatedAt: new Date(),
+      },
+      create: {
+        userId,
         selfieStatus: VerificationStatusEnum.IN_PROGRESS,
         overallStatus: VerificationStatusEnum.IN_PROGRESS,
         progress: 75,
@@ -155,12 +169,22 @@ export const uploadSelfieVerification = async (userId: string, file: File) => {
 
 export const getVerificationStatus = async (userId: string) => {
   try {
+    // Try to find the existing status
     const status = await prisma.verificationStatus.findUnique({
       where: { userId },
     });
 
     if (!status) {
-      throw new Error('Verification status not found');
+      // Create a default status if none exists
+      return await prisma.verificationStatus.create({
+        data: {
+          userId,
+          kycStatus: VerificationStatusEnum.PENDING,
+          selfieStatus: VerificationStatusEnum.PENDING,
+          overallStatus: VerificationStatusEnum.PENDING,
+          progress: 0,
+        },
+      });
     }
 
     return status;

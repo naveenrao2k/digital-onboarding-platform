@@ -14,24 +14,24 @@ const VerificationStatusPage = () => {
   const [status, setStatus] = useState<VerificationStatusEnum>(VerificationStatusEnum.PENDING);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-    // Computed value for isVerified based on status
+  
+  // Computed value for isVerified based on status
   const isVerified = status === VerificationStatusEnum.APPROVED;
 
   // Check if user is authenticated
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/signin');
+      router.push('/access');
     }
   }, [user, loading, router]);
-  
-  // Fetch verification status
+    // Fetch verification status
   useEffect(() => {
     if (loading || !user) return;
     
     const fetchStatus = async () => {
       try {
         setIsLoading(true);
-        const statusData = await getVerificationStatus();
+        const statusData = await getVerificationStatus(user.id);
         setProgress(statusData.progress || 0);
         setStatus(statusData.overallStatus);
       } catch (err: any) {

@@ -27,7 +27,7 @@ interface VerificationState {
   error: string | null;
   
   // Actions
-  fetchVerificationStatus: () => Promise<void>;
+  fetchVerificationStatus: (userId?: string) => Promise<void>;
   resetError: () => void;
 }
 
@@ -40,13 +40,12 @@ export const useVerificationStore = create<VerificationState>((set) => ({
   documents: [],
   isLoading: false,
   error: null,
-  
-  // Actions
-  fetchVerificationStatus: async () => {
+    // Actions
+  fetchVerificationStatus: async (userId?: string) => {
     try {
       set({ isLoading: true, error: null });
       
-      const statusData = await getVerificationStatus();
+      const statusData = await getVerificationStatus(userId);
       
       // Format documents if available
       const documents = statusData.documents?.map((doc: any) => ({

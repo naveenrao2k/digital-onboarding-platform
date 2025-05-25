@@ -6,11 +6,11 @@ import { useRouter } from 'next/navigation';
 
 interface User {
   id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-  accountType: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  role?: string;
+  accountType?: string;
   phone?: string;
   address?: string;
   dateOfBirth?: string;
@@ -19,18 +19,8 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (userData: SignUpFormData) => Promise<void>;
+  accessWithId: (id: string, name?: string, phoneNumber?: string) => Promise<void>;
   signOut: () => Promise<void>;
-}
-
-interface SignUpFormData {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  phone?: string;
-  accountType: 'INDIVIDUAL' | 'PARTNERSHIP' | 'ENTERPRISE' | 'LLC';
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -70,57 +60,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fetchCurrentUser();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const accessWithId = async (id: string, name?: string, phoneNumber?: string) => {
     setLoading(true);
     
     try {
-      const response = await fetch('/api/auth/signin', {
+      // Check if the user exists or create a minimal profile with the provided ID
+      const response = await fetch('/api/auth/access', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ id, name, phoneNumber }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Sign in failed');
+        throw new Error(error.error || 'Access failed');
       }
 
       const userData = await response.json();
       setUser(userData);
       
-      // Redirect to dashboard after successful sign in
-      router.push('/user/dashboard');
-    } catch (error: any) {
-      console.error('Sign in error:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const signUp = async (userData: SignUpFormData) => {
-    setLoading(true);
-    
-    try {
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Sign up failed');
+      // Redirect based on user's KYC status
+      if (userData.isNewUser || !userData.hasSubmittedKyc) {
+        router.push('/user/upload-kyc-documents');
+      } else {
+        router.push('/user/dashboard');
       }
-
-      // After signup, sign in automatically
-      await signIn(userData.email, userData.password);
+      
     } catch (error: any) {
-      console.error('Sign up error:', error);
+      console.error('Access error:', error);
       throw error;
     } finally {
       setLoading(false);
@@ -145,7 +114,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, accessWithId, signOut }}>
       {children}
     </AuthContext.Provider>
   );

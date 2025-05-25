@@ -57,7 +57,7 @@ const AdminDashboardPage = () => {
   useEffect(() => {
     if (!loading) {
       if (!user) {
-        router.push('/signin');
+        router.push('/access');
       } else if (user.role !== 'ADMIN') {
         // Redirect non-admin users
         router.push('/user/dashboard');

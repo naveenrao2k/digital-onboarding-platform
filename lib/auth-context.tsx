@@ -20,6 +20,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   accessWithId: (id: string, name?: string, phoneNumber?: string, autoRedirect?: boolean) => Promise<void>;
+  adminLogin: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 

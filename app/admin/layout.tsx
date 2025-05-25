@@ -1,4 +1,5 @@
 import { AuthProvider } from '@/lib/auth-context';
+import AdminSidebar from '@/components/navigation/AdminSidebar';
 
 export default function AdminLayout({
   children,
@@ -7,7 +8,12 @@ export default function AdminLayout({
 }) {
   return (
     <AuthProvider>
-      {children}
+      <div className="flex">
+        <AdminSidebar />
+        <div className="flex-1">
+          {children}
+        </div>
+      </div>
     </AuthProvider>
   );
 }

@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getUserProfile } from '@/lib/auth-service';
 
+// Mark this route as dynamic to handle cookies usage
+export const dynamic = 'force-dynamic';
+
 // Helper to get the current user ID from cookies
 const getCurrentUserId = (): string | null => {
   const sessionCookie = cookies().get('session')?.value;

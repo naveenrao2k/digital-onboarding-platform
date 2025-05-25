@@ -65,6 +65,7 @@ const UserDashboard = () => {
         email: user.email || ''
       }));
     }
+    
   }, [user, loading, router]);
   
   // Set greeting based on time of day

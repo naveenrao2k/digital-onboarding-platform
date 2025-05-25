@@ -59,7 +59,7 @@ const UserDashboard = () => {
     if (!loading && !user) {
       router.push('/access');
     } else if (user) {
-      setUserName(user.firstName);
+      setUserName(user.firstName || 'User'); // Provide a default value if firstName is undefined
       setUserProfile(prev => ({
         ...prev,
         email: user.email || ''

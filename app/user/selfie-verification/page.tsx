@@ -88,19 +88,13 @@ const SelfieVerificationPage = () => {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
-  };
-    const captureAndUploadSelfie = async () => {
+  };    const captureAndUploadSelfie = async () => {
     try {
       setError('');
       setIsUploading(true);
       
-      // Create a canvas element if it doesn't exist
-      if (!canvasRef.current) {
-        const canvas = document.createElement('canvas');
-        canvasRef.current = canvas;
-      }
-      
-      const canvas = canvasRef.current;
+      // Use the existing canvas or create a new one
+      const canvas = canvasRef.current || document.createElement('canvas');
       const video = videoRef.current;
       
       if (!video) {

@@ -13,7 +13,6 @@ export default function AccessPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { accessWithId } = useAuth();
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -26,8 +25,9 @@ export default function AccessPage() {
     }
     
     try {
-      await accessWithId(id, name, phoneNumber);
-      // Redirection is handled in the accessWithId function
+      // Use auto-redirect for smoother user experience
+      await accessWithId(id, name, phoneNumber, true);
+      // With autoRedirect=true, the page will automatically navigate to the appropriate route
     } catch (error: any) {
       setError(error.message || 'An error occurred. Please try again.');
     } finally {

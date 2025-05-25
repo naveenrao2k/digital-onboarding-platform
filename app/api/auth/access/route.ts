@@ -155,9 +155,35 @@ export async function POST(req: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7, // 1 week
-    });
-
-    // Return user data with flags for frontend
+    });    // Determine the redirect URL based on user status
+    const redirectUrl = isNewUser ? '/user/upload-kyc-documents' : '/user/dashboard';
+    
+    // Check if client wants auto-redirect
+    const searchParams = req.nextUrl.searchParams;
+    const autoRedirect = searchParams.get('autoRedirect') === 'true';
+    
+    if (autoRedirect) {
+      // Send a redirect response with the user data
+      const response = NextResponse.redirect(new URL(redirectUrl, req.nextUrl.origin));
+      
+      // Add the user data as a header (encoded)
+      const userData = {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone,
+        email: user.email,
+        role: user.role,
+        accountType: user.accountType,
+        isNewUser,
+        hasSubmittedKyc,
+      };
+      
+      response.headers.set('X-User-Data', Buffer.from(JSON.stringify(userData)).toString('base64'));
+      return response;
+    }
+    
+    // Otherwise, return JSON response as before
     return NextResponse.json({
       id: user.id,
       firstName: user.firstName,
@@ -168,7 +194,7 @@ export async function POST(req: NextRequest) {
       accountType: user.accountType,
       isNewUser,
       hasSubmittedKyc,
-      redirectUrl: isNewUser ? '/user/upload-kyc-documents' : '/user/dashboard'
+      redirectUrl
     });
 
   } catch (error: any) {

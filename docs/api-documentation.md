@@ -12,6 +12,12 @@ This endpoint allows external portals to authenticate users with the Digital Onb
 
 **Authentication**: None required (Public API)
 
+**Query Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| autoRedirect | boolean | No | If set to `true`, the API will redirect to the appropriate page instead of returning JSON. Default: `false` |
+
 **Request Body**:
 
 | Field | Type | Required | Description |
@@ -30,7 +36,7 @@ This endpoint allows external portals to authenticate users with the Digital Onb
 }
 ```
 
-**Success Response**:
+**Success Response (without autoRedirect)**:
 
 - **Code**: 200 OK
 - **Content Example**:
@@ -49,6 +55,13 @@ This endpoint allows external portals to authenticate users with the Digital Onb
   "redirectUrl": "/user/upload-kyc-documents"
 }
 ```
+
+**Success Response (with autoRedirect=true)**:
+
+- **Code**: 302 Found
+- **Redirect**: To either `/user/upload-kyc-documents` (for new users) or `/user/dashboard` (for existing users)
+- **Headers**: 
+  - `X-User-Data`: Base64-encoded JSON with user data
 
 **Error Response**:
 

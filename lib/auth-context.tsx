@@ -19,7 +19,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  accessWithId: (id: string, name?: string, phoneNumber?: string) => Promise<void>;
+  accessWithId: (id: string, name?: string, phoneNumber?: string, autoRedirect?: boolean) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -59,19 +59,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     fetchCurrentUser();
   }, []);
-
-  const accessWithId = async (id: string, name?: string, phoneNumber?: string) => {
+  const accessWithId = async (id: string, name?: string, phoneNumber?: string, autoRedirect: boolean = false) => {
     setLoading(true);
     
     try {
+      // Prepare URL with auto-redirect parameter if needed
+      const url = autoRedirect 
+        ? `/api/auth/access?autoRedirect=true` 
+        : '/api/auth/access';
+      
       // Check if the user exists or create a minimal profile with the provided ID
-      const response = await fetch('/api/auth/access', {
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ id, name, phoneNumber }),
+        body: JSON.stringify({ 
+          id, 
+          name, 
+          phone_number: phoneNumber // Match the expected field name in API
+        }),
+        redirect: autoRedirect ? 'follow' : 'manual', // Allow fetch to follow redirects if autoRedirect is true
       });
+
+      if (autoRedirect && response.redirected) {
+        // For auto-redirect, extract the encoded user data and then navigate to the redirect URL
+        const encodedUserData = response.headers.get('X-User-Data');
+        if (encodedUserData) {
+          try {
+            const userData = JSON.parse(atob(encodedUserData));
+            setUser(userData);
+          } catch (error) {
+            console.error('Error parsing encoded user data', error);
+          }
+        }
+        
+        // Allow the browser to handle the redirect
+        window.location.href = response.url;
+        return;
+      }
 
       if (!response.ok) {
         const error = await response.json();
@@ -81,14 +107,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const userData = await response.json();
       setUser(userData);
       
-      // Redirect based on user's KYC status
+      // Manual redirect based on user's KYC status
       if (userData.isNewUser || !userData.hasSubmittedKyc) {
         router.push('/user/upload-kyc-documents');
       } else {
         router.push('/user/dashboard');
       }
-      
-    } catch (error: any) {
+      } catch (error: any) {
       console.error('Access error:', error);
       throw error;
     } finally {

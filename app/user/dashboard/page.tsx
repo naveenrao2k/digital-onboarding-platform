@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Mail, Phone, MapPin, FileText, AlertCircle, CheckCircle,
@@ -13,6 +13,10 @@ import { useVerificationStore } from '@/lib/verification-store';
 import { VerificationStatusEnum, AccountType } from '@/app/generated/prisma';
 import { fetchUserProfile, formatAccountType, getStatusBadgeColor } from '@/lib/profile-service';
 import type { UserProfile } from '@/lib/profile-service';
+import CreditScore from '@/components/dashboard/CreditScore';
+
+
+
 
 const UserDashboard = () => {
   const router = useRouter();
@@ -276,7 +280,7 @@ const UserDashboard = () => {
               <section className='mt-8'>
                 <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg border p-6 shadow-sm mb-8`}>
                   <h3 className="text-lg font-bold mb-4">Quick Actions</h3>
-                  <div className="space-y-4">
+                  <div className="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0">
                     <Link
                       href="/user/verification-status"
                       className={`flex items-center p-3 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
@@ -384,70 +388,13 @@ const UserDashboard = () => {
             </div>
 
             {/* Credit Score Card (Gauge Style) */}
-            <div className={`${darkMode ? 'bg-white bg-opacity-5 border-gray-700' : 'bg-white border-gray-200'} rounded-lg border overflow-hidden shadow-sm mb-8`}>
-              <div className="p-6 flex flex-col items-center">
-                {/* Gauge */}
-                <div className="relative flex flex-col items-center w-full">
-                  <svg width="180" height="100" viewBox="0 0 180 100" className="mb-2">
-                    {/* Gauge background */}
-                    <path d="M20,90 A70,70 0 0,1 160,90" fill="none" stroke="#e5e7eb" strokeWidth="16" />
-                    {/* Poor */}
-                    <path d="M36,90 A54,54 0 0,1 70,36" fill="none" stroke="#ef4444" strokeWidth="12" />
-                    {/* Fair */}
-                    <path d="M70,36 A54,54 0 0,1 110,36" fill="none" stroke="#f59e42" strokeWidth="12" />
-                    {/* Good */}
-                    <path d="M110,36 A54,54 0 0,1 144,90" fill="none" stroke="#facc15" strokeWidth="12" />
-                    {/* Very Good */}
-                    <path d="M120,50 A40,40 0 0,1 150,80" fill="none" stroke="#38bdf8" strokeWidth="12" opacity="0.7" />
-                    {/* Excellent */}
-                    <path d="M144,90 A54,54 0 0,1 160,90" fill="none" stroke="#22c55e" strokeWidth="12" />
-                    {/* Needle */}
-                    <g>
-                      <line x1="90" y1="90" x2="135" y2="55" stroke="#222" strokeWidth="3" />
-                      <circle cx="90" cy="90" r="6" fill="#3b82f6" stroke="#fff" strokeWidth="2" />
-                    </g>
-                  </svg>
-                  {/* Score and label */}
-                  <div className="text-5xl font-extrabold text-blue-600 dark:text-blue-400 leading-none">750</div>
-                  <div className="text-lg font-semibold mb-1 text-blue-500 dark:text-blue-300">VERY GOOD</div>
-
-                  {/* Range */}
-                  <div className="flex justify-between w-full mb-2">
-                    <span className="text-xs font-bold text-red-500">300</span>
-                    <span className="text-xs font-bold text-green-500">850</span>
-                  </div>
-                  {/* Legend */}
-                  <div className="flex flex-wrap justify-center gap-2 mt-2">
-                    <span className="flex items-center text-xs">
-                      <span className="inline-block w-3 h-3 rounded-full bg-red-500 mr-1"></span>
-                      Poor <span className="ml-1 text-gray-400">300-579</span>
-                    </span>
-                    <span className="flex items-center text-xs">
-                      <span className="inline-block w-3 h-3 rounded-full bg-orange-400 mr-1"></span>
-                      Fair <span className="ml-1 text-gray-400">580-669</span>
-                    </span>
-                    <span className="flex items-center text-xs">
-                      <span className="inline-block w-3 h-3 rounded-full bg-yellow-400 mr-1"></span>
-                      Good <span className="ml-1 text-gray-400">670-739</span>
-                    </span>
-                    <span className="flex items-center text-xs">
-                      <span className="inline-block w-3 h-3 rounded-full bg-sky-400 mr-1"></span>
-                      Very Good <span className="ml-1 text-gray-400">740-799</span>
-                    </span>
-                    <span className="flex items-center text-xs">
-                      <span className="inline-block w-3 h-3 rounded-full bg-green-500 mr-1"></span>
-                      Excellent <span className="ml-1 text-gray-400">800-850</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <CreditScore score={750} darkMode={darkMode} />
 
 
 
             {/* Important Notices */}
             <div className={`${darkMode ? 'bg-amber-900' : 'bg-amber-50'} rounded-lg border ${darkMode ? 'border-amber-800' : 'border-amber-200'
-              } p-6`}>
+              } p-6 mt-8`}>
               <div className="flex items-start">
                 <Bell className={`h-5 w-5 ${darkMode ? 'text-amber-400' : 'text-amber-500'} mt-0.5 mr-3`} />
                 <div>

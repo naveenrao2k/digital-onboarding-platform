@@ -40,15 +40,23 @@ export async function POST(req: NextRequest) {
         JSON.stringify({ error: 'Invalid credentials' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
       );
-    }
-
-    // Set session cookie
+    }    // Set session cookie
     const sessionData = {
       userId: user.id,
-      role: user.role
+      role: user.role,
+      isAdmin: true
     };
 
     cookies().set({
+      name: 'session',
+      value: JSON.stringify(sessionData),
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      // Expire in 24 hours
+      maxAge: 60 * 60 * 24
+    });
       name: 'session',
       value: JSON.stringify(sessionData),
       httpOnly: true,

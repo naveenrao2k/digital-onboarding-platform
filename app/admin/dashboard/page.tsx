@@ -15,10 +15,14 @@ import {
   LogOut,
   FileText,
   AlertCircle,
-  Camera
+  Camera,
+  Flag
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-
+import AdminSidebar from '@/components/navigation/AdminSidebar';
+import WeeklySubmissionsChart from '@/components/dashboard/WeeklySubmissionsChart';
+import StatusDistributionChart from '@/components/dashboard/StatusDistributionChart';
+import StatCard from '@/components/dashboard/StatCard';
 
 import { VerificationStatusEnum } from '@/app/generated/prisma';
 
@@ -211,10 +215,9 @@ const AdminDashboardPage = () => {
       </div>
     );
   }
-
   return (
     <div className="flex">
-     
+      <AdminSidebar />
       <div className="flex-1 min-h-screen bg-gray-50">
         {/* Header */}
         <header className="bg-white border-b border-gray-200 py-4">
@@ -249,36 +252,49 @@ const AdminDashboardPage = () => {
           <div className="mb-6">
             <h1 className="text-2xl font-bold">Admin Dashboard</h1>
             <p className="text-gray-600">Manage user verification and review documents</p>
-          </div>
-          {/* Stats */}
+          </div>          {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-medium text-gray-500">Total Users</h3>
-                <Users className="h-5 w-5 text-blue-600" />
-              </div>
-              <p className="text-2xl font-bold">{stats.totalUsers}</p>
+            <StatCard
+              title="Total Submissions"
+              value={stats.totalUsers}
+              icon={Users}
+              change={{ value: 12, direction: 'up' }}
+              color="blue"
+              isLoading={isLoading}
+            />
+            <StatCard
+              title="Pending Reviews"
+              value={stats.pendingVerifications}
+              icon={Clock}
+              change={{ value: 5, direction: 'up' }}
+              color="amber"
+              isLoading={isLoading}
+            />
+            <StatCard
+              title="Flagged Entries"
+              value={1}
+              icon={Flag}
+              change={{ value: 3, direction: 'down' }}
+              color="red"
+              isLoading={isLoading}
+            />
+            <StatCard
+              title="Verified Today"
+              value={5}
+              icon={CheckCircle}
+              change={{ value: 8, direction: 'up' }}
+              color="green"
+              isLoading={isLoading}
+            />
+          </div>
+          
+          {/* Charts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6" style={{ height: "320px" }}>
+              <WeeklySubmissionsChart />
             </div>
-            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-medium text-gray-500">Pending Verification</h3>
-                <Clock className="h-5 w-5 text-amber-600" />
-              </div>
-              <p className="text-2xl font-bold text-amber-600">{stats.pendingVerifications}</p>
-            </div>
-            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-medium text-gray-500">Approved</h3>
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              </div>
-              <p className="text-2xl font-bold text-green-600">{stats.completedVerifications}</p>
-            </div>
-            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-medium text-gray-500">Rejected</h3>
-                <XCircle className="h-5 w-5 text-red-600" />
-              </div>
-              <p className="text-2xl font-bold text-red-600">{stats.rejectedVerifications}</p>
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6" style={{ height: "320px" }}>
+              <StatusDistributionChart />
             </div>
           </div>
           {/* Pending Document Reviews */}

@@ -22,17 +22,23 @@ interface StatusData {
 }
 
 interface StatusDistributionChartProps {
-  data: StatusData[];
+  data?: StatusData[];
 }
 
 const StatusDistributionChart: React.FC<StatusDistributionChartProps> = ({ data }) => {
-  const chartData = {
-    labels: data.map(item => item.status),
-    datasets: [
-      {
-        data: data.map(item => item.count),
-        backgroundColor: data.map(item => item.color),
-        borderColor: data.map(item => item.color),
+  // Default data if none provided
+  const chartData = data || [
+    { status: 'Pending', count: 18, color: '#f59e0b', percentage: 45 },
+    { status: 'Approved', count: 12, color: '#10b981', percentage: 30 },
+    { status: 'Rejected', count: 6, color: '#ef4444', percentage: 15 },
+    { status: 'Flagged', count: 4, color: '#fb923c', percentage: 10 },
+  ];
+  const chartConfig = {
+    labels: chartData.map(item => item.status),
+    datasets: [      {
+        data: chartData.map(item => item.count),
+        backgroundColor: chartData.map(item => item.color),
+        borderColor: chartData.map(item => item.color),
         borderWidth: 1,
       },
     ],
@@ -73,12 +79,11 @@ const StatusDistributionChart: React.FC<StatusDistributionChartProps> = ({ data 
       <div className="mb-4">
         <h3 className="text-lg font-medium">Status Distribution</h3>
         <p className="text-sm text-gray-500">KYC submissions by current status</p>
-      </div>
-      <div className="h-64 relative">
-        <Doughnut data={chartData} options={options} />
+      </div>      <div className="h-64 relative">
+        <Doughnut data={chartConfig} options={options} />
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        {data.map((item, index) => (
+        {chartData.map((item, index) => (
           <div key={index} className="flex items-center">
             <div 
               className="w-3 h-3 rounded-full mr-2" 

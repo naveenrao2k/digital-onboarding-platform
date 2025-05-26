@@ -28,7 +28,7 @@ const AdminSidebar = () => {
   const pathname = usePathname();
 
   return (
-    <div className="w-64 h-screen bg-slate-50 border-r border-slate-200 flex flex-col">
+    <div className="w-64 min-h-screen bg-slate-50 border-r border-slate-200 flex flex-col">
       <div className="p-5 border-b border-slate-200">
         <Link href="/admin/dashboard" className="flex items-center space-x-2">
           <Shield className="h-6 w-6 text-blue-600" />

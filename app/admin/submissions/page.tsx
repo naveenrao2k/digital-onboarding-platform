@@ -9,14 +9,17 @@ import {
   FileText, 
   Camera, 
   AlertCircle,
-  CheckCircle,
-  XCircle,
   Clock,
+  Calendar,
   Eye,
-  Download
+  Download,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { VerificationStatusEnum } from '@/app/generated/prisma';
+import AdminSidebar from '@/components/navigation/AdminSidebar';
+import SubmissionTable from '@/components/submissions/SubmissionTable';
 
 interface Submission {
   id: string;
@@ -43,12 +46,10 @@ const AdminSubmissionsPage = () => {
   useEffect(() => {
     if (!loading) {
       if (!user) {
-        // router.push('/access');
+        router.push('/access');
       } else if (user.role !== 'ADMIN') {
-        // Redirect non-admin users
-        // router.push('/user/dashboard');
+        router.push('/user/dashboard');
       } else {
-        // Fetch submissions data
         fetchSubmissions();
       }
     }
@@ -59,108 +60,25 @@ const AdminSubmissionsPage = () => {
     setError('');
 
     try {
-      // In a real implementation, you would fetch this data from API
-      // For demo purposes, we'll use mock data
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Build query params
+      const params = new URLSearchParams();
+      if (statusFilter !== 'all') params.append('status', statusFilter);
+      if (documentTypeFilter !== 'all') params.append('documentType', documentTypeFilter);
+      if (dateFilter !== 'all') params.append('dateFilter', dateFilter);
+      if (searchQuery) params.append('search', searchQuery);
 
-      // Mock submissions data
-      setSubmissions([
-        {
-          id: 'doc_1',
-          userId: 'user_1',
-          userName: 'John Smith',
-          documentType: 'Passport',
-          dateSubmitted: '2025-05-23',
-          status: 'PENDING',
-          fileName: 'passport.jpg'
-        },
-        {
-          id: 'doc_2',
-          userId: 'user_2',
-          userName: 'Emily Johnson',
-          documentType: 'ID Card',
-          dateSubmitted: '2025-05-22',
-          status: 'IN_PROGRESS',
-          fileName: 'id_card.jpg'
-        },
-        {
-          id: 'doc_3',
-          userId: 'user_3',
-          userName: 'Michael Brown',
-          documentType: 'Utility Bill',
-          dateSubmitted: '2025-05-22',
-          status: 'PENDING',
-          fileName: 'utility_bill.pdf'
-        },
-        {
-          id: 'doc_4',
-          userId: 'user_4',
-          userName: 'Sarah Williams',
-          documentType: 'Selfie Verification',
-          dateSubmitted: '2025-05-21',
-          status: 'IN_PROGRESS',
-          fileName: 'selfie.jpg'
-        },
-        {
-          id: 'doc_5',
-          userId: 'user_5',
-          userName: 'David Jones',
-          documentType: 'Certificate of Incorporation',
-          dateSubmitted: '2025-05-20',
-          status: 'PENDING',
-          fileName: 'certificate.pdf'
-        },
-        {
-          id: 'doc_6',
-          userId: 'user_6',
-          userName: 'Lisa Anderson',
-          documentType: 'Passport',
-          dateSubmitted: '2025-05-19',
-          status: 'APPROVED',
-          fileName: 'passport.jpg'
-        },
-        {
-          id: 'doc_7',
-          userId: 'user_7',
-          userName: 'Robert Wilson',
-          documentType: 'ID Card',
-          dateSubmitted: '2025-05-18',
-          status: 'REJECTED',
-          fileName: 'id_card.jpg'
-        },
-        {
-          id: 'doc_8',
-          userId: 'user_8',
-          userName: 'Jennifer Taylor',
-          documentType: 'Utility Bill',
-          dateSubmitted: '2025-05-17',
-          status: 'APPROVED',
-          fileName: 'utility_bill.pdf'
-        },
-        {
-          id: 'doc_9',
-          userId: 'user_9',
-          userName: 'Thomas Moore',
-          documentType: 'Selfie Verification',
-          dateSubmitted: '2025-05-16',
-          status: 'REJECTED',
-          fileName: 'selfie.jpg'
-        },
-        {
-          id: 'doc_10',
-          userId: 'user_10',
-          userName: 'Patricia Martin',
-          documentType: 'Certificate of Incorporation',
-          dateSubmitted: '2025-05-15',
-          status: 'APPROVED',
-          fileName: 'certificate.pdf'
-        },
-      ]);
-    } catch (err) {
+      const response = await fetch(`/api/admin/submissions?${params.toString()}`);
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to fetch submissions');
+      }
+
+      const data = await response.json();
+      setSubmissions(data);
+    } catch (err: any) {
       console.error('Error fetching submissions:', err);
-      setError('Failed to load submissions. Please try again.');
+      setError(err.message || 'An error occurred while fetching submissions');
     } finally {
       setIsLoading(false);
     }
@@ -168,17 +86,32 @@ const AdminSubmissionsPage = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // Filter submissions based on search query (in production, you'd typically do this server-side)
-    console.log('Searching for:', searchQuery);
+    fetchSubmissions();
   };
 
-  const handleViewDetails = (userId: string) => {
-    router.push(`/admin/users/${userId}`);
+  const handleViewSubmission = (submissionId: string) => {
+    // In a real app, you would navigate to a detail view or open a modal
+    console.log('Viewing submission:', submissionId);
   };
 
-  const handleDownload = (submissionId: string, fileName: string) => {
-    // In a real implementation, you would download the file
-    console.log('Downloading file:', fileName, 'for submission:', submissionId);
+  const handleDownloadSubmission = async (submissionId: string) => {
+    try {
+      const response = await fetch(`/api/admin/submissions/${submissionId}/download`);
+      if (!response.ok) throw new Error('Download failed');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'document'; // You would get the actual filename from the response headers
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Error downloading document:', err);
+      // Show error notification in a real app
+    }
   };
 
   const handleApprove = async (submissionId: string) => {

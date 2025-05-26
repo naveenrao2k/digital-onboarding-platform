@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../app/generated/prisma"
@@ -14,113 +8,97 @@ datasource db {
   url      = env("DIRECT_URL")
 }
 
-// User model - Base user data for authentication and profile
 model User {
-  id            String        @id @default(cuid())
-  email         String        @unique
-  password      String? // Hashed password (may be null if using OAuth)
-  firstName     String
-  lastName      String
-  phone         String?
-  address       String?
-  dateOfBirth   DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  role          UserRole      @default(USER)
-  accountStatus AccountStatus @default(PENDING)
-
-  // Account type
-  accountType AccountType @default(INDIVIDUAL)
-
-  // Relations
+  id                 String              @id @default(cuid())
+  email              String              @unique
+  password           String?
+  firstName          String
+  lastName           String
+  phone              String?
+  address            String?
+  dateOfBirth        DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  role               UserRole            @default(USER)
+  accountStatus      AccountStatus       @default(PENDING)
+  accountType        AccountType         @default(INDIVIDUAL)
   account            Account?
+  auditLogs          AuditLog[]
   kycDocuments       KYCDocument[]
+  notifications      Notification[]
+  references         Reference[]
   selfieVerification SelfieVerification?
   verificationStatus VerificationStatus?
-  references         Reference[]
-  notifications      Notification[]
-  auditLogs          AuditLog[]
 }
 
-// Account model - Different types of account information
 model Account {
-  id     String @id @default(cuid())
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Fields for business accounts
+  id              String        @id @default(cuid())
+  userId          String        @unique
   businessName    String?
   businessType    BusinessType?
   businessAddress String?
   taxNumber       String?
-  scumlNumber     String? // Special Control Unit against Money Laundering
-
-  // For individual accounts
-  occupation     String?
-  sourceOfIncome String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  scumlNumber     String?
+  occupation      String?
+  sourceOfIncome  String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// KYC Documents model - Stores document uploads
 model KYCDocument {
   id          String                 @id @default(cuid())
   userId      String
-  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   type        DocumentType
-  fileContent String?                @db.Text // Base64 encoded file content (for small files)
-  fileSize    Int // Size in bytes
-  mimeType    String // File type
-  fileName    String // Original file name
-  isChunked   Boolean                @default(false) // Whether the file is stored in chunks  chunks      FileChunk[] // For large files stored in chunks
+  fileContent String?
+  fileSize    Int
+  mimeType    String
+  fileName    String
+  isChunked   Boolean                @default(false)
   uploadedAt  DateTime               @default(now())
   verified    Boolean                @default(false)
   verifiedAt  DateTime?
-  verifiedBy  String? // Admin ID who verified the document
-  status      VerificationStatusEnum @default(PENDING)
-  notes       String? // Admin notes on verification
-  FileChunk   FileChunk[]
-}
-
-// Selfie verification model
-model SelfieVerification {
-  id          String                 @id @default(cuid())
-  userId      String                 @unique
-  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fileContent String?                @db.Text // Base64 encoded selfie/video content (for small files)
-  fileName    String // Original file name
-  fileSize    Int // Size in bytes
-  mimeType    String // File type (image/jpeg, video/mp4, etc.)
-  isChunked   Boolean                @default(false) // Whether the file is stored in chunks  chunks      FileChunk[] // For large files stored in chunks
-  capturedAt  DateTime               @default(now())
-  verified    Boolean                @default(false)
-  verifiedAt  DateTime?
-  verifiedBy  String? // Admin ID who verified
+  verifiedBy  String?
   status      VerificationStatusEnum @default(PENDING)
   notes       String?
   FileChunk   FileChunk[]
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// Overall verification status model
+model SelfieVerification {
+  id          String                 @id @default(cuid())
+  userId      String                 @unique
+  fileContent String?
+  fileName    String
+  fileSize    Int
+  mimeType    String
+  isChunked   Boolean                @default(false)
+  capturedAt  DateTime               @default(now())
+  verified    Boolean                @default(false)
+  verifiedAt  DateTime?
+  verifiedBy  String?
+  status      VerificationStatusEnum @default(PENDING)
+  notes       String?
+  FileChunk   FileChunk[]
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 model VerificationStatus {
   id            String                 @id @default(cuid())
   userId        String                 @unique
-  user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   kycStatus     VerificationStatusEnum @default(PENDING)
   selfieStatus  VerificationStatusEnum @default(PENDING)
   overallStatus VerificationStatusEnum @default(PENDING)
-  progress      Int                    @default(0) // Progress percentage (0-100)
+  progress      Int                    @default(0)
   updatedAt     DateTime               @updatedAt
-  reviewedBy    String? // Admin ID
+  reviewedBy    String?
   notes         String?
+  user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// References model - For business accounts that require references
 model Reference {
   id           String    @id @default(cuid())
   userId       String
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   name         String
   address      String
   phone        String
@@ -128,67 +106,62 @@ model Reference {
   relationship String?
   verified     Boolean   @default(false)
   verifiedAt   DateTime?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// Notifications model
 model Notification {
   id        String           @id @default(cuid())
   userId    String
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String
   message   String
   type      NotificationType
   read      Boolean          @default(false)
   createdAt DateTime         @default(now())
-  link      String? // Optional link to related content
+  link      String?
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// Audit log for tracking admin actions
 model AuditLog {
   id         String   @id @default(cuid())
-  userId     String // User who performed the action
-  user       User     @relation(fields: [userId], references: [id])
+  userId     String
   action     String
   details    String?
   ipAddress  String?
   userAgent  String?
   createdAt  DateTime @default(now())
-  targetId   String? // ID of the affected resource
-  targetType String? // Type of resource affected
+  targetId   String?
+  targetType String?
+  user       User     @relation(fields: [userId], references: [id])
 }
 
-// System settings
 model SystemSettings {
   id          String   @id @default(cuid())
   key         String   @unique
   value       String
   description String?
   updatedAt   DateTime @updatedAt
-  updatedBy   String? // Admin ID
+  updatedBy   String?
 }
 
-// File storage model for very large files that might need to be chunked
 model FileChunk {
   id                   String              @id @default(cuid())
-  fileId               String // Parent file ID
-  chunkIndex           Int // Order of chunks
-  content              String              @db.Text // Base64 encoded chunk content
-  kycDocument          KYCDocument?        @relation(fields: [kycDocumentId], references: [id], onDelete: Cascade)
+  fileId               String
+  chunkIndex           Int
+  content              String
   kycDocumentId        String?
-  selfieVerification   SelfieVerification? @relation(fields: [selfieVerificationId], references: [id], onDelete: Cascade)
   selfieVerificationId String?
+  kycDocument          KYCDocument?        @relation(fields: [kycDocumentId], references: [id], onDelete: Cascade)
+  selfieVerification   SelfieVerification? @relation(fields: [selfieVerificationId], references: [id], onDelete: Cascade)
 
   @@unique([fileId, chunkIndex])
 }
 
-// User role enum
 enum UserRole {
   USER
   ADMIN
   SUPER_ADMIN
 }
 
-// Account status enum
 enum AccountStatus {
   PENDING
   ACTIVE
@@ -196,7 +169,6 @@ enum AccountStatus {
   DEACTIVATED
 }
 
-// Account type enum
 enum AccountType {
   INDIVIDUAL
   PARTNERSHIP
@@ -204,7 +176,6 @@ enum AccountType {
   LLC
 }
 
-// Business type enum
 enum BusinessType {
   SOLE_PROPRIETORSHIP
   PARTNERSHIP
@@ -212,7 +183,6 @@ enum BusinessType {
   CORPORATION
 }
 
-// Document type enum
 enum DocumentType {
   ID_CARD
   PASSPORT
@@ -230,7 +200,6 @@ enum DocumentType {
   BUSINESS_OWNER_ID
 }
 
-// Verification status enum
 enum VerificationStatusEnum {
   PENDING
   IN_PROGRESS
@@ -238,7 +207,6 @@ enum VerificationStatusEnum {
   REJECTED
 }
 
-// Notification type enum
 enum NotificationType {
   INFO
   SUCCESS

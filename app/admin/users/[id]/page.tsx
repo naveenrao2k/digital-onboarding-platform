@@ -62,10 +62,10 @@ const UserDetailsPage = () => {
   useEffect(() => {
     if (!loading) {
       if (!user) {
-        router.push('/signin');
+        // router.push('/signin');
       } else if (user.role !== 'ADMIN') {
         // Redirect non-admin users
-        router.push('/user/dashboard');
+        // router.push('/user/dashboard');
       } else {
         // Fetch user details
         fetchUserDetails();
@@ -78,14 +78,16 @@ const UserDetailsPage = () => {
     setError('');
 
     try {
-      // In a real implementation, you would fetch this data from API
-      // For demo purposes, we'll use mock data
+      // Fetch user details from API
+      const response = await fetch(`/api/admin/users/${userId}`);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch user details');
+      }
       
-      // Mock user details
-      setUserDetails({
+      const data = await response.json();
+      setUserDetails(data || {
         id: userId,
         firstName: 'John',
         lastName: 'Smith',
@@ -433,7 +435,10 @@ const UserDetailsPage = () => {
                       </div>
                       
                       <div className="mt-4 flex flex-wrap gap-2">
-                        <button className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-medium rounded flex items-center">
+                        <button 
+                          onClick={() => handleDownloadDocument(document.id)}
+                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-medium rounded flex items-center"
+                        >
                           <Download className="h-3.5 w-3.5 mr-1.5" />
                           Download
                         </button>

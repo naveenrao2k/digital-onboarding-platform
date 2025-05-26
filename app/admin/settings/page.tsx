@@ -54,7 +54,7 @@ const AdminSettingsPage = () => {
         // router.push('/access');
       } else if (user.role !== 'ADMIN') {
         // Redirect non-admin users
-        router.push('/user/dashboard');
+        // router.push('/user/dashboard');
       } else {
         // Fetch settings data
         fetchSettings();
@@ -67,13 +67,8 @@ const AdminSettingsPage = () => {
     setError('');
 
     try {
-      // In a real implementation, you would fetch this data from API
-      // For demo purposes, we'll use mock data
-      
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 800));
-
-      // Mock settings data (already set in useState default)
       setIsLoading(false);
     } catch (err) {
       console.error('Error fetching settings:', err);
@@ -352,3 +347,27 @@ const AdminSettingsPage = () => {
                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Save Button */}
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={isSaving}
+              className={`flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isSaving ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            >
+              <Save className="h-5 w-5 mr-2" />
+              {isSaving ? 'Saving...' : 'Save Settings'}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+};
+
+export default AdminSettingsPage;

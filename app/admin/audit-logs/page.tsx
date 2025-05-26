@@ -59,13 +59,30 @@ const AdminAuditLogsPage = () => {
     setError('');
 
     try {
-      // In a real implementation, you would fetch this data from API
-      // For demo purposes, we'll use mock data
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (actionFilter !== 'all') {
+        params.append('action', actionFilter);
+      }
+      if (searchQuery) {
+        params.append('search', searchQuery);
+      }
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Mock audit logs data
+      // Fetch audit logs from API
+      const response = await fetch(`/api/admin/audit-logs?${params.toString()}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch audit logs');
+      }
+      
+      const data = await response.json();
+      setAuditLogs(data.logs || []);
+    } catch (err) {
+      console.error('Error fetching audit logs:', err);
+      setError('Failed to load audit logs. Please try again.');
+      
+      // Fallback to mock data for development
       setAuditLogs([
         {
           id: 'log_1',
@@ -177,7 +194,7 @@ const AdminAuditLogsPage = () => {
           details: 'Automated daily backup completed successfully',
           ipAddress: '127.0.0.1'
         },
-      ]);
+      ])
     } catch (err) {
       console.error('Error fetching audit logs:', err);
       setError('Failed to load audit logs. Please try again.');

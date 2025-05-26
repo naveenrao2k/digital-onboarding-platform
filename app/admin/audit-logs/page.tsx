@@ -194,10 +194,7 @@ const AdminAuditLogsPage = () => {
           details: 'Automated daily backup completed successfully',
           ipAddress: '127.0.0.1'
         },
-      ])
-    } catch (err) {
-      console.error('Error fetching audit logs:', err);
-      setError('Failed to load audit logs. Please try again.');
+      ]);
     } finally {
       setIsLoading(false);
     }

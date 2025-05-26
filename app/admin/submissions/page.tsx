@@ -18,8 +18,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { VerificationStatusEnum } from '@/app/generated/prisma';
-import AdminSidebar from '@/components/navigation/AdminSidebar';
-import SubmissionTable from '@/components/submissions/SubmissionTable';
 
 interface Submission {
   id: string;
@@ -46,9 +44,9 @@ const AdminSubmissionsPage = () => {
   useEffect(() => {
     if (!loading) {
       if (!user) {
-        router.push('/access');
+        // router.push('/access');
       } else if (user.role !== 'ADMIN') {
-        router.push('/user/dashboard');
+        // router.push('/user/dashboard');
       } else {
         fetchSubmissions();
       }

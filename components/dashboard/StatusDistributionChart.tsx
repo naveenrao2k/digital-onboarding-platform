@@ -75,7 +75,7 @@ const StatusDistributionChart: React.FC<StatusDistributionChartProps> = ({ data 
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="">
       <div className="mb-4">
         <h3 className="text-lg font-medium">Status Distribution</h3>
         <p className="text-sm text-gray-500">KYC submissions by current status</p>

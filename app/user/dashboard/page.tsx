@@ -24,8 +24,8 @@ const UserDashboard = () => {
   const [darkMode, setDarkMode] = useState(false);
 
   // Use the verification store for state management
-  const { 
-    overallStatus: verificationStatus, 
+  const {
+    overallStatus: verificationStatus,
     progress,
     fetchVerificationStatus,
     resetError
@@ -50,13 +50,13 @@ const UserDashboard = () => {
   useEffect(() => {
     const loadUserProfile = async () => {
       if (!user) return;
-      
+
       try {
         setIsLoadingProfile(true);
         setError(null);
         const profile = await fetchUserProfile();
         setUserProfile(profile);
-        
+
         // Also update verification status
         await fetchVerificationStatus(user.id);
       } catch (err) {
@@ -133,9 +133,8 @@ const UserDashboard = () => {
           <div className="flex items-center space-x-4">
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className={`p-2 rounded-lg ${
-                darkMode ? 'bg-gray-800 text-gray-200' : 'bg-white text-gray-600'
-              } hover:bg-opacity-80`}
+              className={`p-2 rounded-lg ${darkMode ? 'bg-gray-800 text-gray-200' : 'bg-white text-gray-600'
+                } hover:bg-opacity-80`}
             >
               {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
@@ -162,7 +161,7 @@ const UserDashboard = () => {
                     {userProfile?.accountStatus.replace('_', ' ')}
                   </span>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div className="flex items-start">
@@ -172,7 +171,7 @@ const UserDashboard = () => {
                         <p className="font-medium">{userProfile?.email}</p>
                       </div>
                     </div>
-                    
+
                     {userProfile?.phone && (
                       <div className="flex items-start">
                         <Phone className={`h-5 w-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-0.5 mr-3`} />
@@ -194,7 +193,7 @@ const UserDashboard = () => {
                         </div>
                       </div>
                     )}
-                    
+
                     <div className="flex items-start">
                       {getAccountTypeIcon(userProfile?.accountType || 'INDIVIDUAL')}
                       <div className="ml-3">
@@ -223,14 +222,14 @@ const UserDashboard = () => {
             <section className="mb-8">
               <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg border p-6 shadow-sm`}>
                 <h2 className="text-xl font-bold mb-4">Document Verification Status</h2>
-                
+
                 <div className="mb-4">
                   <div className="flex justify-between text-sm mb-2">
                     <span>Overall Progress</span>
                     <span className={`font-medium ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>{progress}%</span>
                   </div>
                   <div className={`h-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded-full overflow-hidden`}>
-                    <div 
+                    <div
                       className={`h-full ${darkMode ? 'bg-blue-500' : 'bg-blue-600'} rounded-full transition-all duration-500 ease-out`}
                       style={{ width: `${progress}%` }}
                     ></div>
@@ -262,11 +261,10 @@ const UserDashboard = () => {
                   {(!userProfile?.documents || userProfile.documents.length === 0) && (
                     <div className="text-center py-6">
                       <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>No documents uploaded yet.</p>
-                      <Link 
+                      <Link
                         href="/user/upload-kyc-documents"
-                        className={`mt-4 inline-flex items-center px-4 py-2 ${
-                          darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-600 hover:bg-blue-700'
-                        } text-white font-medium rounded-lg transition-colors`}
+                        className={`mt-4 inline-flex items-center px-4 py-2 ${darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-600 hover:bg-blue-700'
+                          } text-white font-medium rounded-lg transition-colors`}
                       >
                         Upload your documents
                       </Link>
@@ -274,11 +272,56 @@ const UserDashboard = () => {
                   )}
                 </div>
               </div>
+              {/* Quick Actions */}
+              <section className='mt-8'>
+                <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg border p-6 shadow-sm mb-8`}>
+                  <h3 className="text-lg font-bold mb-4">Quick Actions</h3>
+                  <div className="space-y-4">
+                    <Link
+                      href="/user/verification-status"
+                      className={`flex items-center p-3 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
+                        } transition-colors`}
+                    >
+                      <Shield className={`h-5 w-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-3`} />
+                      <div>
+                        <p className="font-medium">View Verification Status</p>
+                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Check your document verification progress</p>
+                      </div>
+                    </Link>
+
+                    <Link
+                      href="#support"
+                      className={`flex items-center p-3 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
+                        } transition-colors`}
+                    >
+                      <Headphones className={`h-5 w-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-3`} />
+                      <div>
+                        <p className="font-medium">Contact Support</p>
+                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Get help with your verification</p>
+                      </div>
+                    </Link>
+
+                    <Link
+                      href="#faq"
+                      className={`flex items-center p-3 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
+                        } transition-colors`}
+                    >
+                      <FileQuestion className={`h-5 w-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-3`} />
+                      <div>
+                        <p className="font-medium">FAQ</p>
+                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>View commonly asked questions</p>
+                      </div>
+                    </Link>
+                  </div>
+                </div>
+              </section>
+
             </section>
           </div>
 
           {/* Right Column - Quick Actions and Support */}
           <div className="lg:col-span-1">
+
             {/* Verification Status Card */}
             <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg border overflow-hidden shadow-sm mb-8`}>
               <div className={`${darkMode ? 'bg-blue-900' : 'bg-blue-600'} p-6 text-center`}>
@@ -293,37 +336,37 @@ const UserDashboard = () => {
                   {verificationStatus === 'APPROVED' ? 'Verification Complete' : 'Verification in Progress'}
                 </h3>
                 <p className="text-blue-100 text-sm">
-                  {verificationStatus === 'APPROVED' ? 
-                    'Your identity has been verified successfully.' : 
+                  {verificationStatus === 'APPROVED' ?
+                    'Your identity has been verified successfully.' :
                     'Our team is currently reviewing your submitted documents.'}
                 </p>
               </div>
-              
+
               <div className="p-4">
                 <div className="mb-4">
                   <div className="flex justify-between text-sm mb-2">
                     <span>Verification Progress</span>
                   </div>
                   <div className={`h-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} rounded-full overflow-hidden`}>
-                    <div 
+                    <div
                       className={`h-full ${darkMode ? 'bg-blue-500' : 'bg-blue-600'} rounded-full`}
                       style={{ width: `${progress}%` }}
                     ></div>
                   </div>
                 </div>
-                
+
                 <div className="text-center mt-4">
                   {userProfile?.documents && userProfile.documents.length > 0 ? (
-                    <Link 
-                      href="/user/verification-status" 
+                    <Link
+                      href="/user/verification-status"
                       className={`${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'} text-sm font-medium inline-flex items-center`}
                     >
                       View verification status <span className="ml-1">→</span>
                     </Link>
                   ) : (
                     <div className="flex flex-col items-center gap-2">
-                      <Link 
-                        href="/user/upload-kyc-documents" 
+                      <Link
+                        href="/user/upload-kyc-documents"
                         className={`${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'} text-sm font-medium inline-flex items-center`}
                       >
                         Upload documents <span className="ml-1">→</span>
@@ -340,55 +383,71 @@ const UserDashboard = () => {
               </div>
             </div>
 
-            {/* Quick Actions */}
-            <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg border p-6 shadow-sm mb-8`}>
-              <h3 className="text-lg font-bold mb-4">Quick Actions</h3>
-              <div className="space-y-4">
-                <Link 
-                  href="/user/verification-status"
-                  className={`flex items-center p-3 rounded-lg ${
-                    darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
-                  } transition-colors`}
-                >
-                  <Shield className={`h-5 w-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-3`} />
-                  <div>
-                    <p className="font-medium">View Verification Status</p>
-                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Check your document verification progress</p>
+            {/* Credit Score Card (Gauge Style) */}
+            <div className={`${darkMode ? 'bg-white bg-opacity-5 border-gray-700' : 'bg-white border-gray-200'} rounded-lg border overflow-hidden shadow-sm mb-8`}>
+              <div className="p-6 flex flex-col items-center">
+                {/* Gauge */}
+                <div className="relative flex flex-col items-center w-full">
+                  <svg width="180" height="100" viewBox="0 0 180 100" className="mb-2">
+                    {/* Gauge background */}
+                    <path d="M20,90 A70,70 0 0,1 160,90" fill="none" stroke="#e5e7eb" strokeWidth="16" />
+                    {/* Poor */}
+                    <path d="M36,90 A54,54 0 0,1 70,36" fill="none" stroke="#ef4444" strokeWidth="12" />
+                    {/* Fair */}
+                    <path d="M70,36 A54,54 0 0,1 110,36" fill="none" stroke="#f59e42" strokeWidth="12" />
+                    {/* Good */}
+                    <path d="M110,36 A54,54 0 0,1 144,90" fill="none" stroke="#facc15" strokeWidth="12" />
+                    {/* Very Good */}
+                    <path d="M120,50 A40,40 0 0,1 150,80" fill="none" stroke="#38bdf8" strokeWidth="12" opacity="0.7" />
+                    {/* Excellent */}
+                    <path d="M144,90 A54,54 0 0,1 160,90" fill="none" stroke="#22c55e" strokeWidth="12" />
+                    {/* Needle */}
+                    <g>
+                      <line x1="90" y1="90" x2="135" y2="55" stroke="#222" strokeWidth="3" />
+                      <circle cx="90" cy="90" r="6" fill="#3b82f6" stroke="#fff" strokeWidth="2" />
+                    </g>
+                  </svg>
+                  {/* Score and label */}
+                  <div className="text-5xl font-extrabold text-blue-600 dark:text-blue-400 leading-none">750</div>
+                  <div className="text-lg font-semibold mb-1 text-blue-500 dark:text-blue-300">VERY GOOD</div>
+
+                  {/* Range */}
+                  <div className="flex justify-between w-full mb-2">
+                    <span className="text-xs font-bold text-red-500">300</span>
+                    <span className="text-xs font-bold text-green-500">850</span>
                   </div>
-                </Link>
-                
-                <Link 
-                  href="#support"
-                  className={`flex items-center p-3 rounded-lg ${
-                    darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
-                  } transition-colors`}
-                >
-                  <Headphones className={`h-5 w-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-3`} />
-                  <div>
-                    <p className="font-medium">Contact Support</p>
-                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Get help with your verification</p>
+                  {/* Legend */}
+                  <div className="flex flex-wrap justify-center gap-2 mt-2">
+                    <span className="flex items-center text-xs">
+                      <span className="inline-block w-3 h-3 rounded-full bg-red-500 mr-1"></span>
+                      Poor <span className="ml-1 text-gray-400">300-579</span>
+                    </span>
+                    <span className="flex items-center text-xs">
+                      <span className="inline-block w-3 h-3 rounded-full bg-orange-400 mr-1"></span>
+                      Fair <span className="ml-1 text-gray-400">580-669</span>
+                    </span>
+                    <span className="flex items-center text-xs">
+                      <span className="inline-block w-3 h-3 rounded-full bg-yellow-400 mr-1"></span>
+                      Good <span className="ml-1 text-gray-400">670-739</span>
+                    </span>
+                    <span className="flex items-center text-xs">
+                      <span className="inline-block w-3 h-3 rounded-full bg-sky-400 mr-1"></span>
+                      Very Good <span className="ml-1 text-gray-400">740-799</span>
+                    </span>
+                    <span className="flex items-center text-xs">
+                      <span className="inline-block w-3 h-3 rounded-full bg-green-500 mr-1"></span>
+                      Excellent <span className="ml-1 text-gray-400">800-850</span>
+                    </span>
                   </div>
-                </Link>
-                
-                <Link 
-                  href="#faq"
-                  className={`flex items-center p-3 rounded-lg ${
-                    darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
-                  } transition-colors`}
-                >
-                  <FileQuestion className={`h-5 w-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-3`} />
-                  <div>
-                    <p className="font-medium">FAQ</p>
-                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>View commonly asked questions</p>
-                  </div>
-                </Link>
+                </div>
               </div>
             </div>
 
+
+
             {/* Important Notices */}
-            <div className={`${darkMode ? 'bg-amber-900' : 'bg-amber-50'} rounded-lg border ${
-              darkMode ? 'border-amber-800' : 'border-amber-200'
-            } p-6`}>
+            <div className={`${darkMode ? 'bg-amber-900' : 'bg-amber-50'} rounded-lg border ${darkMode ? 'border-amber-800' : 'border-amber-200'
+              } p-6`}>
               <div className="flex items-start">
                 <Bell className={`h-5 w-5 ${darkMode ? 'text-amber-400' : 'text-amber-500'} mt-0.5 mr-3`} />
                 <div>

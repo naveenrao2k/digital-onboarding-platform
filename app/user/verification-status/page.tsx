@@ -149,13 +149,9 @@ const VerificationStatusPage = () => {
             </div>
             
             <div className="flex items-start">
-              <div className="mt-0.5 mr-3">
-                {isVerified ? (
-                  <CheckCircle className="h-5 w-5 text-green-400" />
-                ) : (
-                  <Clock className="h-5 w-5 text-blue-300" />
-                )}
-              </div>
+                <div className="mt-0.5 mr-3">
+                <Clock className="h-5 w-5 text-blue-300" />
+                </div>
               <div>
                 <p className="font-medium">Final Approval</p>
                 <p className="text-blue-200 text-sm">

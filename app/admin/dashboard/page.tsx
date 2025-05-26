@@ -52,11 +52,11 @@ const AdminDashboardPage = () => {
     completedVerifications: 0,
     rejectedVerifications: 0,
   });
-  const [pendingReviews, setPendingReviews] = useState<AdminPendingReview[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [pendingReviews, setPendingReviews] = useState<AdminPendingReview[]>([]);  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
@@ -64,16 +64,18 @@ const AdminDashboardPage = () => {
       if (!user) {
         // router.push('/access');
       } else if (user.role !== 'ADMIN') {
-        // Redirect non-admin users
         // router.push('/user/dashboard');
       } else {
-        // Fetch admin dashboard data
+        // Fetch admin dashboard data immediately when the component mounts
         fetchDashboardData();
       }
     }
   }, [user, loading, router]);
 
   const fetchDashboardData = async () => {
+    if (isRefreshing) return; // Prevent multiple simultaneous refreshes
+    
+    setIsRefreshing(true);
     setIsLoading(true);
     setError('');
 
@@ -140,6 +142,7 @@ const AdminDashboardPage = () => {
       setError('Failed to load dashboard data. Please try again.');
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -217,7 +220,6 @@ const AdminDashboardPage = () => {
   }
   return (
     <div className="flex">
-      <AdminSidebar />
       <div className="flex-1 min-h-screen bg-gray-50">
         {/* Header */}
         <header className="bg-white border-b border-gray-200 py-4">
@@ -255,45 +257,37 @@ const AdminDashboardPage = () => {
           </div>          {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <StatCard
-              title="Total Submissions"
-              value={stats.totalUsers}
+              title="Total Users"
+              value={isLoading ? "..." : stats.totalUsers}
               icon={Users}
-              change={{ value: 12, direction: 'up' }}
-              color="blue"
               isLoading={isLoading}
             />
             <StatCard
-              title="Pending Reviews"
-              value={stats.pendingVerifications}
+              title="Pending Verifications"
+              value={isLoading ? "..." : stats.pendingVerifications}
               icon={Clock}
-              change={{ value: 5, direction: 'up' }}
-              color="amber"
               isLoading={isLoading}
             />
             <StatCard
-              title="Flagged Entries"
-              value={1}
-              icon={Flag}
-              change={{ value: 3, direction: 'down' }}
-              color="red"
-              isLoading={isLoading}
-            />
-            <StatCard
-              title="Verified Today"
-              value={5}
+              title="Completed Verifications"
+              value={isLoading ? "..." : stats.completedVerifications}
               icon={CheckCircle}
-              change={{ value: 8, direction: 'up' }}
-              color="green"
+              isLoading={isLoading}
+            />
+            <StatCard
+              title="Rejected Verifications"
+              value={isLoading ? "..." : stats.rejectedVerifications}
+              icon={XCircle}
               isLoading={isLoading}
             />
           </div>
           
           {/* Charts */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6" style={{ height: "320px" }}>
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
               <WeeklySubmissionsChart />
             </div>
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6" style={{ height: "320px" }}>
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
               <StatusDistributionChart />
             </div>
           </div>
@@ -303,9 +297,17 @@ const AdminDashboardPage = () => {
               <h2 className="text-xl font-bold">Pending Document Reviews</h2>
               <button 
                 onClick={() => fetchDashboardData()}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+                disabled={isRefreshing}
+                className={`px-4 py-2 ${isRefreshing ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white text-sm font-medium rounded-lg flex items-center`}
               >
-                Refresh
+                {isRefreshing ? (
+                  <>
+                    <div className="h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Refreshing...
+                  </>
+                ) : (
+                  'Refresh'
+                )}
               </button>
             </div>
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">

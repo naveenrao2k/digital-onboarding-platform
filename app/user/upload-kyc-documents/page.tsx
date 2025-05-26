@@ -276,7 +276,24 @@ const UploadKYCDocumentsPage = () => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
-    
+
+    // Validate corporate references for business accounts
+    if (["partnership", "enterprise", "llc"].includes(accountType)) {
+      const missingReference = [
+        references.ref1Name,
+        references.ref1Address,
+        references.ref1Phone,
+        references.ref2Name,
+        references.ref2Address,
+        references.ref2Phone
+      ].some((val) => !val.trim());
+      if (missingReference) {
+        setError('Please fill in all corporate reference fields.');
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     // We don't need the global alreadySubmitted check anymore since we check per document
     // just proceed with the upload
     
@@ -615,7 +632,7 @@ const UploadKYCDocumentsPage = () => {
   // Success screen component
   const SuccessScreen = () => {
     return (
-      <div className="max-h-screen flex items-center justify-center">
+      <div className="max-h-screen flex items-center justify-center pt-20">
         <div className="max-w-md w-full mx-auto rounded-xl shadow-md overflow-hidden border">
           <div className="p-8">
             <h2 className="text-2xl font-bold mb-2">Documents Submitted</h2>

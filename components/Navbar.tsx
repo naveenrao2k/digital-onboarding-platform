@@ -35,7 +35,7 @@ const Navbar: React.FC = () => {
             <a href="#faq" className="text-slate-700 hover:text-blue-600 transition-colors">FAQ</a>
           </div>
             <div className="hidden md:flex items-center space-x-4">
-            <a href="/access" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+            <a href="/" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
               Access System
             </a>
           </div>

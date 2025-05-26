@@ -57,14 +57,14 @@ export async function POST(req: NextRequest) {
       // Expire in 24 hours
       maxAge: 60 * 60 * 24
     });
-      name: 'session',
-      value: JSON.stringify(sessionData),
-      httpOnly: true,
-      path: '/',
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-    });
+    //   name: 'session',
+    //   value: JSON.stringify(sessionData),
+    //   httpOnly: true,
+    //   path: '/',
+    //   secure: process.env.NODE_ENV === 'production',
+    //   sameSite: 'lax',
+    //   maxAge: 60 * 60 * 24 * 7, // 1 week
+    // });
 
     // Log admin login
     await prisma.auditLog.create({

@@ -337,14 +337,14 @@ const AdminSubmissionsPage = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex space-x-2">
                         <button
-                          onClick={() => handleViewDetails(submission.userId)}
+                          // onClick={() => handleViewDetails(submission.userId)}
                           className="p-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded" 
                           title="View Details"
                         >
                           <Eye className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDownload(submission.id, submission.fileName)}
+                          // onClick={() => handleDownload(submission.id, submission.fileName)}
                           className="p-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded"
                           title="Download"
                         >

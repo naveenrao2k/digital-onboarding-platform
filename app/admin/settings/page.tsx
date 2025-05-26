@@ -198,8 +198,8 @@ const AdminSettingsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className=" mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Settings</h1>
           <p className="text-gray-600">Manage your profile and preferences</p>
@@ -208,7 +208,7 @@ const AdminSettingsPage = () => {
         <div className="flex gap-6">
           {/* Sidebar Navigation */}
           <div className="w-64 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-            <nav className="p-2">
+            <nav className="p-2 space-y-3">
               <button
                 onClick={() => setActiveTab('profile')}
                 className={`w-full flex items-center px-4 py-2 rounded-md text-sm font-medium ${

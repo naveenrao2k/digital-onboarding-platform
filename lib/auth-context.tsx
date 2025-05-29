@@ -132,8 +132,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, accessWithId, signOut }}>
+    <AuthContext.Provider value={{ user, loading, accessWithId, adminLogin: async (email: string, password: string) => {
+      // Implement adminLogin logic here or throw error if not implemented
+      throw new Error('adminLogin not implemented');
+    }, signOut }}>
       {children}
     </AuthContext.Provider>
   );
+
 };

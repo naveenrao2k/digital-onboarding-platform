@@ -12,6 +12,7 @@ export default function AdminLoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { user, loading } = useAuth();
+  
 
   // Redirect if already logged in as admin
   useEffect(() => {

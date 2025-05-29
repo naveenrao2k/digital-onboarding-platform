@@ -19,7 +19,6 @@ import {
   Flag
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import AdminSidebar from '@/components/navigation/AdminSidebar';
 import WeeklySubmissionsChart from '@/components/dashboard/WeeklySubmissionsChart';
 import StatusDistributionChart from '@/components/dashboard/StatusDistributionChart';
 import StatCard from '@/components/dashboard/StatCard';
@@ -59,25 +58,48 @@ const AdminDashboardPage = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Check if user is authenticated and has admin role
-  useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        // router.push('/access');
-      } else if (user.role !== 'ADMIN') {
-        // router.push('/user/dashboard');
-      } else {
-        // Fetch admin dashboard data immediately when the component mounts
-        fetchDashboardData();
-      }
-    }
-  }, [user, loading, router]);
+  // useEffect(() => {
+  //   if (!loading) {
+  //     if (!user) {
+  //       router.push('/access');
+  //     } else if (user.role !== 'ADMIN') {
+  //       router.push('/user/dashboard');
+  //     } else {
+  //       // Fetch admin dashboard data immediately when the component mounts
+  //       fetchDashboardData();
+  //     }
+  //   }
+  // }, [user, loading, router]);
 
-  const fetchDashboardData = async () => {
-    if (isRefreshing) return; // Prevent multiple simultaneous refreshes
-    
-    setIsRefreshing(true);
+
+
+
+ useEffect(() => {
+  console.log('useEffect triggered', { loading, user });
+
+  if (loading) return;
+
+
+
+  console.log('Fetching dashboard data...');
+  fetchDashboardData(true); // ✅ Confirm this logs
+  setIsRefreshing(true);
+}, [user, loading]);
+
+
+
+  // New function for refresh button
+  const handleRefresh = () => {
+    fetchDashboardData(true);
+  };
+
+  const fetchDashboardData = async (isManualRefresh = false) => {
+    if (isManualRefresh && isRefreshing) return; // Prevent multiple simultaneous refreshes only for manual refresh
+    if (isManualRefresh) setIsRefreshing(true);
     setIsLoading(true);
     setError('');
+    console.log('fetchDashboardData called with isManualRefresh:', isManualRefresh);
+
 
     try {
       // In a real implementation, you would fetch this data from API
@@ -142,7 +164,7 @@ const AdminDashboardPage = () => {
       setError('Failed to load dashboard data. Please try again.');
     } finally {
       setIsLoading(false);
-      setIsRefreshing(false);
+      if (isManualRefresh) setIsRefreshing(false);
     }
   };
 
@@ -296,7 +318,7 @@ const AdminDashboardPage = () => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">Pending Document Reviews</h2>
               <button 
-                onClick={() => fetchDashboardData()}
+                onClick={handleRefresh}
                 disabled={isRefreshing}
                 className={`px-4 py-2 ${isRefreshing ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white text-sm font-medium rounded-lg flex items-center`}
               >

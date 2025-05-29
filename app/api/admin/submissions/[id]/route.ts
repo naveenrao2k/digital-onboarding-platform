@@ -32,11 +32,11 @@ export async function GET(
     }
 
     // Check if user is admin
-    const user = await prisma.user.findUnique({
+    const adminUser = await prisma.user.findUnique({
       where: { id: userId },
     });
 
-    if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+    if (!adminUser || !['ADMIN', 'SUPER_ADMIN'].includes(adminUser.role)) {
       return new NextResponse(
         JSON.stringify({ error: 'Unauthorized - Admin access required' }),
         { status: 401 }
@@ -44,66 +44,58 @@ export async function GET(
     }
 
     // Get submission with related documents and selfie verification
-    const submission = await prisma.kYCSubmission.findUnique({
+    const submissionUser = await prisma.user.findUnique({
       where: { id: params.id },
       include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        KYCDocument: true,
-        SelfieVerification: true,
+        kycDocuments: true,
+        selfieVerification: true,
       },
     });
-
-    if (!submission) {
+    if (!submissionUser) {
       return new NextResponse(
         JSON.stringify({ error: 'Submission not found' }),
         { status: 404 }
       );
     }
 
+
     // Format documents
-    const documents = submission.KYCDocument.map(doc => ({
+    const documents = submissionUser.kycDocuments.map(doc => ({
       id: doc.id,
-      type: doc.documentType,
+      type: doc.type,
       fileName: doc.fileName,
-      uploadedAt: doc.createdAt.toISOString(),
+      uploadedAt: doc.uploadedAt.toISOString(),
       status: doc.status,
       notes: doc.notes || undefined,
     }));
 
     // Format selfie verification
-    const selfieVerification = submission.SelfieVerification.length > 0 
+    const selfieVerification = submissionUser.selfieVerification
       ? {
-          id: submission.SelfieVerification[0].id,
-          status: submission.SelfieVerification[0].status,
-          uploadedAt: submission.SelfieVerification[0].createdAt.toISOString(),
+          id: submissionUser.selfieVerification.id,
+          status: submissionUser.selfieVerification.status,
+          uploadedAt: submissionUser.selfieVerification.capturedAt.toISOString(),
         }
       : null;
 
     // Format response
     const formattedSubmission = {
-      id: submission.id,
-      userId: submission.userId,
-      userName: `${submission.user.firstName} ${submission.user.lastName}`,
-      submissionDate: submission.createdAt.toISOString(),
-      status: submission.status,
+      id: submissionUser.id,
+      userId: submissionUser.id,
+      userName: `${submissionUser.firstName} ${submissionUser.lastName}`,
+      submissionDate: submissionUser.createdAt?.toISOString() || '',
+      status: '', // No status field on user, set empty or adjust as needed
       documents,
       selfieVerification,
-      notes: submission.notes || '',
+      notes: '', // No notes field on user, set empty or adjust as needed
     };
-
     // Log this access in audit trail
     await prisma.auditLog.create({
       data: {
         userId,
         action: 'SUBMISSION_VIEW',
-        details: `Viewed submission details for ${submission.user.firstName} ${submission.user.lastName}`,
-        targetId: submission.id,
+        details: `Viewed submission details for ${submissionUser.firstName} ${submissionUser.lastName}`,
+        targetId: submissionUser.id,
         targetType: 'KYC_SUBMISSION',
       },
     });

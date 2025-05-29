@@ -244,6 +244,23 @@ const UserDetailsPage = () => {
     router.push('/admin/dashboard');
   };
 
+  // Download document handler
+  const handleDownloadDocument = async (documentId: string) => {
+    try {
+      // Find the document by id
+      const document = userDetails?.documents.find(doc => doc.id === documentId);
+      if (!document) {
+        throw new Error('Document not found');
+      }
+      // In a real implementation, you would fetch the file from the server
+      // For now, just show an alert or log
+      alert(`Download for document "${document.fileName}" is not implemented.`);
+      // Example: window.open(`/api/admin/users/${userId}/documents/${documentId}/download`, '_blank');
+    } catch (err) {
+      console.error('Error downloading document:', err);
+    }
+  };
+
   // Handle loading state
   if (loading || isLoading) {
     return (

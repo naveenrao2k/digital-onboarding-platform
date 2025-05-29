@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  Search, 
-  Filter, 
-  ChevronDown, 
-  FileText, 
-  Camera, 
+import {
+  Search,
+  Filter,
+  ChevronDown,
+  FileText,
+  Camera,
   AlertCircle,
   Clock,
   Calendar,
@@ -34,6 +34,7 @@ const AdminSubmissionsPage = () => {
   const { user, loading } = useAuth();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -42,18 +43,21 @@ const AdminSubmissionsPage = () => {
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        // router.push('/access');
-      } else if (user.role !== 'ADMIN') {
-        // router.push('/user/dashboard');
-      } else {
-        fetchSubmissions();
-      }
-    }
-  }, [user, loading, router]);
 
-  const fetchSubmissions = async () => {
+    
+
+    fetchSubmissions();
+
+    if (loading) {
+      fetchSubmissions();
+
+    }
+  }, [user, loading]);
+
+  const fetchSubmissions = async (isManualRefresh = false) => {
+
+    if (isManualRefresh && isRefreshing) return; // Prevent multiple simultaneous refreshes
+    if (isManualRefresh) setIsRefreshing(true);
     setIsLoading(true);
     setError('');
 
@@ -66,7 +70,7 @@ const AdminSubmissionsPage = () => {
       if (searchQuery) params.append('search', searchQuery);
 
       const response = await fetch(`/api/admin/submissions?${params.toString()}`);
-      
+
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Failed to fetch submissions');
@@ -79,6 +83,7 @@ const AdminSubmissionsPage = () => {
       setError(err.message || 'An error occurred while fetching submissions');
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -88,15 +93,14 @@ const AdminSubmissionsPage = () => {
   };
 
   const handleViewSubmission = (submissionId: string) => {
-    // In a real app, you would navigate to a detail view or open a modal
-    console.log('Viewing submission:', submissionId);
+    router.push(`/admin/submissions/${submissionId}`);
   };
 
   const handleDownloadSubmission = async (submissionId: string) => {
     try {
       const response = await fetch(`/api/admin/submissions/${submissionId}/download`);
       if (!response.ok) throw new Error('Download failed');
-      
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -116,16 +120,16 @@ const AdminSubmissionsPage = () => {
     try {
       // In a real implementation, you would call an API endpoint
       console.log('Approving document:', submissionId);
-      
+
       // Update submissions - change status to approved
-      setSubmissions(prevSubmissions => 
-        prevSubmissions.map(submission => 
-          submission.id === submissionId 
-            ? { ...submission, status: 'APPROVED' as VerificationStatusEnum } 
+      setSubmissions(prevSubmissions =>
+        prevSubmissions.map(submission =>
+          submission.id === submissionId
+            ? { ...submission, status: 'APPROVED' as VerificationStatusEnum }
             : submission
         )
       );
-      
+
       // Show success notification (in a real app)
     } catch (err) {
       console.error('Error approving document:', err);
@@ -137,16 +141,16 @@ const AdminSubmissionsPage = () => {
     try {
       // In a real implementation, you would call an API endpoint
       console.log('Rejecting document:', submissionId);
-      
+
       // Update submissions - change status to rejected
-      setSubmissions(prevSubmissions => 
-        prevSubmissions.map(submission => 
-          submission.id === submissionId 
-            ? { ...submission, status: 'REJECTED' as VerificationStatusEnum } 
+      setSubmissions(prevSubmissions =>
+        prevSubmissions.map(submission =>
+          submission.id === submissionId
+            ? { ...submission, status: 'REJECTED' as VerificationStatusEnum }
             : submission
         )
       );
-      
+
       // Show success notification (in a real app)
     } catch (err) {
       console.error('Error rejecting document:', err);
@@ -160,12 +164,12 @@ const AdminSubmissionsPage = () => {
     if (statusFilter !== 'all' && submission.status !== statusFilter) {
       return false;
     }
-    
+
     // Document type filter
     if (documentTypeFilter !== 'all' && submission.documentType !== documentTypeFilter) {
       return false;
     }
-    
+
     // Search query filter (case insensitive)
     if (searchQuery && !(
       submission.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -173,20 +177,12 @@ const AdminSubmissionsPage = () => {
     )) {
       return false;
     }
-    
+
     return true;
   });
 
   // Get unique document types for filter
   const documentTypes = Array.from(new Set(submissions.map(s => s.documentType)));
-
-  if (loading) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <p className="text-lg">Loading submissions...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -194,7 +190,7 @@ const AdminSubmissionsPage = () => {
         <h1 className="text-2xl font-bold">All Submissions</h1>
         <p className="text-gray-600">View and manage all KYC document submissions</p>
       </div>
-      
+
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-8">
         {/* Search and Filters */}
         <div className="p-4 border-b border-gray-200">
@@ -209,7 +205,7 @@ const AdminSubmissionsPage = () => {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </form>
-            
+
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center">
                 <label className="mr-2 text-sm text-gray-700">Status:</label>
@@ -228,7 +224,7 @@ const AdminSubmissionsPage = () => {
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 </div>
               </div>
-              
+
               <div className="flex items-center">
                 <label className="mr-2 text-sm text-gray-700">Document:</label>
                 <div className="relative">
@@ -245,17 +241,24 @@ const AdminSubmissionsPage = () => {
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 </div>
               </div>
-              
-              <button 
-                onClick={() => fetchSubmissions()}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+              <button
+                onClick={() => fetchSubmissions(true)}
+                className={`px-4 py-2 ${isRefreshing ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white text-sm font-medium rounded-lg flex items-center`}
+                disabled={isRefreshing}
               >
-                Refresh
+                {isRefreshing ? (
+                  <>
+                    <div className="h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Refreshing...
+                  </>
+                ) : (
+                  'Refresh'
+                )}
               </button>
             </div>
           </div>
         </div>
-        
+
         {/* Submissions Table */}
         {isLoading ? (
           <div className="p-8 text-center">
@@ -320,31 +323,29 @@ const AdminSubmissionsPage = () => {
                       {submission.dateSubmitted}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        submission.status === 'PENDING' ? 'bg-amber-100 text-amber-800' : 
-                        submission.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                        submission.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                        submission.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                        ''
-                      }`}>
-                        {submission.status === 'PENDING' ? 'Pending' : 
-                         submission.status === 'IN_PROGRESS' ? 'In Progress' : 
-                         submission.status === 'APPROVED' ? 'Approved' :
-                         submission.status === 'REJECTED' ? 'Rejected' :
-                         ''}
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${submission.status === 'PENDING' ? 'bg-amber-100 text-amber-800' :
+                          submission.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
+                            submission.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                              submission.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                                ''
+                        }`}>
+                        {submission.status === 'PENDING' ? 'Pending' :
+                          submission.status === 'IN_PROGRESS' ? 'In Progress' :
+                            submission.status === 'APPROVED' ? 'Approved' :
+                              submission.status === 'REJECTED' ? 'Rejected' :
+                                ''}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-2">                        <button
+                        onClick={() => handleViewSubmission(submission.id)}
+                        className="p-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded"
+                        title="View Details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
                         <button
-                          // onClick={() => handleViewDetails(submission.userId)}
-                          className="p-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded" 
-                          title="View Details"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button
-                          // onClick={() => handleDownload(submission.id, submission.fileName)}
+                          onClick={() => handleDownloadSubmission(submission.id)}
                           className="p-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded"
                           title="Download"
                         >

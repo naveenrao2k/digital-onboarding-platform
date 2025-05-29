@@ -14,49 +14,43 @@ import {
   Clock,
   Eye,
   Download,
-  Flag
+  Calendar
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { VerificationStatusEnum } from '@/app/generated/prisma';
 
-interface FlaggedSubmission {
+interface ApprovedSubmission {
   id: string;
   userId: string;
   userName: string;
   documentType: string;
   dateSubmitted: string;
-  status: VerificationStatusEnum;
+  approvedAt: string;
+  approvedBy: string;
   fileName: string;
-  flagReason: string;
-  flaggedAt: string;
-  flaggedBy: string;
 }
 
-const AdminFlaggedSubmissionsPage = () => {
+const AdminApprovedSubmissionsPage = () => {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const [flaggedSubmissions, setFlaggedSubmissions] = useState<FlaggedSubmission[]>([]);
+  const [approvedSubmissions, setApprovedSubmissions] = useState<ApprovedSubmission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [documentTypeFilter, setDocumentTypeFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<string>('all');
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        // router.push('/access');
-      } else if (user.role !== 'ADMIN') {
-        // Redirect non-admin users
-        // router.push('/user/dashboard');
-      } else {
-        // Fetch flagged submissions data
-        fetchFlaggedSubmissions();
-      }
+     fetchApprovedSubmissions();
+    if (loading) {
+      
+        fetchApprovedSubmissions();
+    
     }
   }, [user, loading, router]);
 
-  const fetchFlaggedSubmissions = async () => {
+  const fetchApprovedSubmissions = async () => {
     setIsLoading(true);
     setError('');
 
@@ -67,72 +61,62 @@ const AdminFlaggedSubmissionsPage = () => {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Mock flagged submissions data
-      setFlaggedSubmissions([
+      // Mock approved submissions data
+      setApprovedSubmissions([
         {
-          id: 'doc_11',
-          userId: 'user_11',
-          userName: 'Alex Thompson',
+          id: 'doc_6',
+          userId: 'user_6',
+          userName: 'Lisa Anderson',
           documentType: 'Passport',
-          dateSubmitted: '2025-05-21',
-          status: 'IN_PROGRESS',
-          fileName: 'passport.jpg',
-          flagReason: 'Possible document tampering',
-          flaggedAt: '2025-05-22 10:15:30',
-          flaggedBy: 'System'
-        },
-        {
-          id: 'doc_12',
-          userId: 'user_12',
-          userName: 'Jessica Parker',
-          documentType: 'ID Card',
-          dateSubmitted: '2025-05-20',
-          status: 'IN_PROGRESS',
-          fileName: 'id_card.jpg',
-          flagReason: 'Information mismatch with existing records',
-          flaggedAt: '2025-05-21 14:22:45',
-          flaggedBy: 'Admin User'
-        },
-        {
-          id: 'doc_13',
-          userId: 'user_13',
-          userName: 'Daniel Wilson',
-          documentType: 'Utility Bill',
           dateSubmitted: '2025-05-19',
-          status: 'IN_PROGRESS',
-          fileName: 'utility_bill.pdf',
-          flagReason: 'Document expired',
-          flaggedAt: '2025-05-20 09:30:15',
-          flaggedBy: 'System'
+          approvedAt: '2025-05-20 14:30:22',
+          approvedBy: 'Admin User',
+          fileName: 'passport.jpg'
         },
         {
-          id: 'doc_14',
-          userId: 'user_14',
-          userName: 'Olivia Martinez',
-          documentType: 'Selfie Verification',
-          dateSubmitted: '2025-05-18',
-          status: 'IN_PROGRESS',
-          fileName: 'selfie.jpg',
-          flagReason: 'Face not matching ID document',
-          flaggedAt: '2025-05-19 11:45:22',
-          flaggedBy: 'Admin Manager'
-        },
-        {
-          id: 'doc_15',
-          userId: 'user_15',
-          userName: 'William Johnson',
-          documentType: 'Certificate of Incorporation',
+          id: 'doc_8',
+          userId: 'user_8',
+          userName: 'Jennifer Taylor',
+          documentType: 'Utility Bill',
           dateSubmitted: '2025-05-17',
-          status: 'IN_PROGRESS',
-          fileName: 'certificate.pdf',
-          flagReason: 'Suspicious business activity',
-          flaggedAt: '2025-05-18 15:10:05',
-          flaggedBy: 'Admin User'
+          approvedAt: '2025-05-18 11:15:45',
+          approvedBy: 'Admin User',
+          fileName: 'utility_bill.pdf'
+        },
+        {
+          id: 'doc_10',
+          userId: 'user_10',
+          userName: 'Patricia Martin',
+          documentType: 'Certificate of Incorporation',
+          dateSubmitted: '2025-05-15',
+          approvedAt: '2025-05-16 09:45:10',
+          approvedBy: 'Admin Manager',
+          fileName: 'certificate.pdf'
+        },
+        {
+          id: 'doc_16',
+          userId: 'user_16',
+          userName: 'Richard Davis',
+          documentType: 'ID Card',
+          dateSubmitted: '2025-05-14',
+          approvedAt: '2025-05-15 16:20:33',
+          approvedBy: 'Admin User',
+          fileName: 'id_card.jpg'
+        },
+        {
+          id: 'doc_17',
+          userId: 'user_17',
+          userName: 'Michelle White',
+          documentType: 'Selfie Verification',
+          dateSubmitted: '2025-05-13',
+          approvedAt: '2025-05-14 10:05:18',
+          approvedBy: 'Admin Manager',
+          fileName: 'selfie.jpg'
         },
       ]);
     } catch (err) {
-      console.error('Error fetching flagged submissions:', err);
-      setError('Failed to load flagged submissions. Please try again.');
+      console.error('Error fetching approved submissions:', err);
+      setError('Failed to load approved submissions. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -153,59 +137,25 @@ const AdminFlaggedSubmissionsPage = () => {
     console.log('Downloading file:', fileName, 'for submission:', submissionId);
   };
 
-  const handleApprove = async (submissionId: string) => {
+  const handleRevoke = async (submissionId: string) => {
     try {
       // In a real implementation, you would call an API endpoint
-      console.log('Approving flagged document:', submissionId);
+      console.log('Revoking approval for document:', submissionId);
       
-      // Update submissions - remove the approved one
-      setFlaggedSubmissions(prevSubmissions => 
+      // Update submissions - remove the revoked one
+      setApprovedSubmissions(prevSubmissions => 
         prevSubmissions.filter(submission => submission.id !== submissionId)
       );
       
       // Show success notification (in a real app)
     } catch (err) {
-      console.error('Error approving document:', err);
-      // Show error notification
-    }
-  };
-
-  const handleReject = async (submissionId: string) => {
-    try {
-      // In a real implementation, you would call an API endpoint
-      console.log('Rejecting flagged document:', submissionId);
-      
-      // Update submissions - remove the rejected one
-      setFlaggedSubmissions(prevSubmissions => 
-        prevSubmissions.filter(submission => submission.id !== submissionId)
-      );
-      
-      // Show success notification (in a real app)
-    } catch (err) {
-      console.error('Error rejecting document:', err);
-      // Show error notification
-    }
-  };
-
-  const handleRemoveFlag = async (submissionId: string) => {
-    try {
-      // In a real implementation, you would call an API endpoint
-      console.log('Removing flag from document:', submissionId);
-      
-      // Update submissions - remove the unflagged one
-      setFlaggedSubmissions(prevSubmissions => 
-        prevSubmissions.filter(submission => submission.id !== submissionId)
-      );
-      
-      // Show success notification (in a real app)
-    } catch (err) {
-      console.error('Error removing flag:', err);
+      console.error('Error revoking approval:', err);
       // Show error notification
     }
   };
 
   // Filter submissions based on filters
-  const filteredSubmissions = flaggedSubmissions.filter(submission => {
+  const filteredSubmissions = approvedSubmissions.filter(submission => {
     // Document type filter
     if (documentTypeFilter !== 'all' && submission.documentType !== documentTypeFilter) {
       return false;
@@ -215,7 +165,7 @@ const AdminFlaggedSubmissionsPage = () => {
     if (searchQuery && !(
       submission.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       submission.documentType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      submission.flagReason.toLowerCase().includes(searchQuery.toLowerCase())
+      submission.approvedBy.toLowerCase().includes(searchQuery.toLowerCase())
     )) {
       return false;
     }
@@ -224,12 +174,12 @@ const AdminFlaggedSubmissionsPage = () => {
   });
 
   // Get unique document types for filter
-  const documentTypes = Array.from(new Set(flaggedSubmissions.map(s => s.documentType)));
+  const documentTypes = Array.from(new Set(approvedSubmissions.map(s => s.documentType)));
 
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center">
-        <p className="text-lg">Loading flagged submissions...</p>
+        <p className="text-lg">Loading approved submissions...</p>
       </div>
     );
   }
@@ -237,8 +187,8 @@ const AdminFlaggedSubmissionsPage = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Flagged Submissions</h1>
-        <p className="text-gray-600">Review submissions that require special attention</p>
+        <h1 className="text-2xl font-bold">Approved Submissions</h1>
+        <p className="text-gray-600">View all verified and approved documents</p>
       </div>
       
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-8">
@@ -249,7 +199,7 @@ const AdminFlaggedSubmissionsPage = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by name, document type or reason"
+                placeholder="Search by name, document type or approver"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -275,7 +225,7 @@ const AdminFlaggedSubmissionsPage = () => {
               </div>
               
               <button 
-                onClick={() => fetchFlaggedSubmissions()}
+                onClick={() => fetchApprovedSubmissions()}
                 className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
               >
                 Refresh
@@ -284,18 +234,18 @@ const AdminFlaggedSubmissionsPage = () => {
           </div>
         </div>
         
-        {/* Flagged Submissions Table */}
+        {/* Approved Submissions Table */}
         {isLoading ? (
           <div className="p-8 text-center">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
-            <p className="mt-2 text-gray-600">Loading flagged submissions...</p>
+            <p className="mt-2 text-gray-600">Loading approved submissions...</p>
           </div>
         ) : error ? (
           <div className="p-8 text-center">
             <AlertCircle className="h-8 w-8 text-red-600 mx-auto" />
             <p className="mt-2 text-gray-800 font-medium">{error}</p>
             <button
-              onClick={() => fetchFlaggedSubmissions()}
+              onClick={() => fetchApprovedSubmissions()}
               className="mt-2 text-blue-600 hover:underline"
             >
               Try again
@@ -303,7 +253,7 @@ const AdminFlaggedSubmissionsPage = () => {
           </div>
         ) : filteredSubmissions.length === 0 ? (
           <div className="p-8 text-center">
-            <p className="text-gray-600">No flagged submissions match your filter criteria.</p>
+            <p className="text-gray-600">No approved submissions match your filter criteria.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -312,9 +262,9 @@ const AdminFlaggedSubmissionsPage = () => {
                 <tr className="bg-gray-50 text-left">
                   <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                   <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Document</th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Flag Reason</th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Flagged By</th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
+                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Approved</th>
+                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Approved By</th>
                   <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -345,17 +295,20 @@ const AdminFlaggedSubmissionsPage = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-start">
-                        <Flag className="h-4 w-4 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <span className="text-sm">{submission.flagReason}</span>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 text-gray-500 mr-2" />
+                        {submission.dateSubmitted}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {submission.flaggedBy}
+                      <div className="flex items-center">
+                        <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                        {submission.approvedAt}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {submission.dateSubmitted}
+                      {submission.approvedBy}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex space-x-2">
@@ -374,16 +327,9 @@ const AdminFlaggedSubmissionsPage = () => {
                           <Download className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleApprove(submission.id)}
-                          className="p-1 bg-green-100 hover:bg-green-200 text-green-800 rounded"
-                          title="Approve"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleReject(submission.id)}
+                          onClick={() => handleRevoke(submission.id)}
                           className="p-1 bg-red-100 hover:bg-red-200 text-red-800 rounded"
-                          title="Reject"
+                          title="Revoke Approval"
                         >
                           <XCircle className="h-4 w-4" />
                         </button>
@@ -400,4 +346,4 @@ const AdminFlaggedSubmissionsPage = () => {
   );
 };
 
-export default AdminFlaggedSubmissionsPage;
+export default AdminApprovedSubmissionsPage;

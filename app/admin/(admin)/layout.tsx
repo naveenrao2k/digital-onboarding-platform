@@ -9,6 +9,7 @@ export default function AdminLayout({
   return (
     <AuthProvider>
       <div className="flex">
+        
         <AdminSidebar />
         <div className="flex-1">
           {children}

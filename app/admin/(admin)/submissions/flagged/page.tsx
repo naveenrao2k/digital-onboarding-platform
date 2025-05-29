@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  Search, 
-  Filter, 
-  ChevronDown, 
-  FileText, 
-  Camera, 
+import {
+  Search,
+  Filter,
+  ChevronDown,
+  FileText,
+  Camera,
   AlertCircle,
   CheckCircle,
   XCircle,
@@ -43,10 +43,12 @@ const AdminFlaggedSubmissionsPage = () => {
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
+    fetchFlaggedSubmissions();
+
     if (loading) {
-     
-        fetchFlaggedSubmissions();
-      
+
+      fetchFlaggedSubmissions();
+
     }
   }, [user, loading, router]);
 
@@ -57,7 +59,7 @@ const AdminFlaggedSubmissionsPage = () => {
     try {
       // In a real implementation, you would fetch this data from API
       // For demo purposes, we'll use mock data
-      
+
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -151,12 +153,12 @@ const AdminFlaggedSubmissionsPage = () => {
     try {
       // In a real implementation, you would call an API endpoint
       console.log('Approving flagged document:', submissionId);
-      
+
       // Update submissions - remove the approved one
-      setFlaggedSubmissions(prevSubmissions => 
+      setFlaggedSubmissions(prevSubmissions =>
         prevSubmissions.filter(submission => submission.id !== submissionId)
       );
-      
+
       // Show success notification (in a real app)
     } catch (err) {
       console.error('Error approving document:', err);
@@ -168,12 +170,12 @@ const AdminFlaggedSubmissionsPage = () => {
     try {
       // In a real implementation, you would call an API endpoint
       console.log('Rejecting flagged document:', submissionId);
-      
+
       // Update submissions - remove the rejected one
-      setFlaggedSubmissions(prevSubmissions => 
+      setFlaggedSubmissions(prevSubmissions =>
         prevSubmissions.filter(submission => submission.id !== submissionId)
       );
-      
+
       // Show success notification (in a real app)
     } catch (err) {
       console.error('Error rejecting document:', err);
@@ -185,12 +187,12 @@ const AdminFlaggedSubmissionsPage = () => {
     try {
       // In a real implementation, you would call an API endpoint
       console.log('Removing flag from document:', submissionId);
-      
+
       // Update submissions - remove the unflagged one
-      setFlaggedSubmissions(prevSubmissions => 
+      setFlaggedSubmissions(prevSubmissions =>
         prevSubmissions.filter(submission => submission.id !== submissionId)
       );
-      
+
       // Show success notification (in a real app)
     } catch (err) {
       console.error('Error removing flag:', err);
@@ -204,7 +206,7 @@ const AdminFlaggedSubmissionsPage = () => {
     if (documentTypeFilter !== 'all' && submission.documentType !== documentTypeFilter) {
       return false;
     }
-    
+
     // Search query filter (case insensitive)
     if (searchQuery && !(
       submission.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -213,7 +215,7 @@ const AdminFlaggedSubmissionsPage = () => {
     )) {
       return false;
     }
-    
+
     return true;
   });
 
@@ -234,7 +236,7 @@ const AdminFlaggedSubmissionsPage = () => {
         <h1 className="text-2xl font-bold">Flagged Submissions</h1>
         <p className="text-gray-600">Review submissions that require special attention</p>
       </div>
-      
+
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-8">
         {/* Search and Filters */}
         <div className="p-4 border-b border-gray-200">
@@ -249,7 +251,7 @@ const AdminFlaggedSubmissionsPage = () => {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </form>
-            
+
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center">
                 <label className="mr-2 text-sm text-gray-700">Document:</label>
@@ -267,8 +269,8 @@ const AdminFlaggedSubmissionsPage = () => {
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 </div>
               </div>
-              
-              <button 
+
+              <button
                 onClick={() => fetchFlaggedSubmissions()}
                 className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
               >
@@ -277,7 +279,7 @@ const AdminFlaggedSubmissionsPage = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Flagged Submissions Table */}
         {isLoading ? (
           <div className="p-8 text-center">
@@ -355,7 +357,7 @@ const AdminFlaggedSubmissionsPage = () => {
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleViewDetails(submission.userId)}
-                          className="p-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded" 
+                          className="p-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded"
                           title="View Details"
                         >
                           <Eye className="h-4 w-4" />

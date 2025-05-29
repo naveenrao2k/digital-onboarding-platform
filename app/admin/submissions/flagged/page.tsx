@@ -43,16 +43,10 @@ const AdminFlaggedSubmissionsPage = () => {
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        // router.push('/access');
-      } else if (user.role !== 'ADMIN') {
-        // Redirect non-admin users
-        // router.push('/user/dashboard');
-      } else {
-        // Fetch flagged submissions data
+    if (loading) {
+     
         fetchFlaggedSubmissions();
-      }
+      
     }
   }, [user, loading, router]);
 

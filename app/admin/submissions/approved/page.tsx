@@ -42,16 +42,10 @@ const AdminApprovedSubmissionsPage = () => {
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        // router.push('/access');
-      } else if (user.role !== 'ADMIN') {
-        // Redirect non-admin users
-        // router.push('/user/dashboard');
-      } else {
-        // Fetch approved submissions data
+    if (loading) {
+      
         fetchApprovedSubmissions();
-      }
+    
     }
   }, [user, loading, router]);
 

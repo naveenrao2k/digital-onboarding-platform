@@ -34,6 +34,7 @@ const AdminSubmissionsPage = () => {
   const { user, loading } = useAuth();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -43,17 +44,13 @@ const AdminSubmissionsPage = () => {
   // Check if user is authenticated and has admin role
   useEffect(() => {
     if (!loading) {
-      if (!user) {
-        // router.push('/access');
-      } else if (user.role !== 'ADMIN') {
-        // router.push('/user/dashboard');
-      } else {
-        fetchSubmissions();
-      }
+      fetchSubmissions();
     }
-  }, [user, loading, router]);
+  }, [user, loading]);
 
-  const fetchSubmissions = async () => {
+  const fetchSubmissions = async (isManualRefresh = false) => {
+    if (isManualRefresh && isRefreshing) return; // Prevent multiple simultaneous refreshes
+    if (isManualRefresh) setIsRefreshing(true);
     setIsLoading(true);
     setError('');
 
@@ -79,6 +76,7 @@ const AdminSubmissionsPage = () => {
       setError(err.message || 'An error occurred while fetching submissions');
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -88,8 +86,7 @@ const AdminSubmissionsPage = () => {
   };
 
   const handleViewSubmission = (submissionId: string) => {
-    // In a real app, you would navigate to a detail view or open a modal
-    console.log('Viewing submission:', submissionId);
+    router.push(`/admin/submissions/${submissionId}`);
   };
 
   const handleDownloadSubmission = async (submissionId: string) => {
@@ -180,14 +177,6 @@ const AdminSubmissionsPage = () => {
   // Get unique document types for filter
   const documentTypes = Array.from(new Set(submissions.map(s => s.documentType)));
 
-  if (loading) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <p className="text-lg">Loading submissions...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="mb-6">
@@ -245,12 +234,19 @@ const AdminSubmissionsPage = () => {
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 </div>
               </div>
-              
-              <button 
-                onClick={() => fetchSubmissions()}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+                <button 
+                onClick={() => fetchSubmissions(true)}
+                className={`px-4 py-2 ${isRefreshing ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white text-sm font-medium rounded-lg flex items-center`}
+                disabled={isRefreshing}
               >
-                Refresh
+                {isRefreshing ? (
+                  <>
+                    <div className="h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Refreshing...
+                  </>
+                ) : (
+                  'Refresh'
+                )}
               </button>
             </div>
           </div>
@@ -335,16 +331,15 @@ const AdminSubmissionsPage = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex space-x-2">
-                        <button
-                          // onClick={() => handleViewDetails(submission.userId)}
+                      <div className="flex space-x-2">                        <button
+                          onClick={() => handleViewSubmission(submission.id)}
                           className="p-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded" 
                           title="View Details"
                         >
                           <Eye className="h-4 w-4" />
                         </button>
                         <button
-                          // onClick={() => handleDownload(submission.id, submission.fileName)}
+                          onClick={() => handleDownloadSubmission(submission.id)}
                           className="p-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded"
                           title="Download"
                         >

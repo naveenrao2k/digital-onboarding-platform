@@ -47,9 +47,10 @@ export async function GET(
     const targetUser = await prisma.user.findUnique({
       where: { id: params.id },
       include: {
-        KYCDocument: true,
-        SelfieVerification: true,
+        kycDocuments: true,
+        selfieVerification: true,
       },
+
     });
 
     if (!targetUser) {
@@ -60,16 +61,16 @@ export async function GET(
     }
 
     // Calculate verification status
-    const kycStatus = targetUser.KYCDocument.length > 0 
-      ? targetUser.KYCDocument.every(doc => doc.status === 'APPROVED') 
+    const kycStatus = targetUser.kycDocuments.length > 0 
+      ? targetUser.kycDocuments.every(doc => doc.status === 'APPROVED') 
         ? 'APPROVED' 
-        : targetUser.KYCDocument.some(doc => doc.status === 'REJECTED') 
+        : targetUser.kycDocuments.some(doc => doc.status === 'REJECTED') 
           ? 'REJECTED' 
           : 'PENDING'
       : 'PENDING';
 
-    const selfieStatus = targetUser.SelfieVerification.length > 0
-      ? targetUser.SelfieVerification[0].status
+    const selfieStatus = targetUser.selfieVerification
+      ? targetUser.selfieVerification.status
       : 'PENDING';
 
     const overallStatus = kycStatus === 'APPROVED' && selfieStatus === 'APPROVED'
@@ -80,31 +81,33 @@ export async function GET(
 
     // Calculate progress percentage
     let progress = 0;
-    if (targetUser.KYCDocument.length > 0) progress += 50;
-    if (targetUser.SelfieVerification.length > 0) progress += 15;
+    if (targetUser.kycDocuments.length > 0) progress += 50;
+    if (targetUser.selfieVerification) progress += 15;
     if (kycStatus === 'APPROVED') progress += 15;
     if (selfieStatus === 'APPROVED') progress += 20;
 
     // Format documents
-    const documents = targetUser.KYCDocument.map(doc => ({
+    const documents = targetUser.kycDocuments.map(doc => ({
       id: doc.id,
-      type: doc.documentType,
+      type: doc.type,
       fileName: doc.fileName,
-      uploadedAt: doc.createdAt.toISOString(),
+      uploadedAt: doc.uploadedAt.toISOString(),
       status: doc.status,
     }));
 
     // Add selfie as a document if it exists
-    if (targetUser.SelfieVerification.length > 0) {
-      const selfie = targetUser.SelfieVerification[0];
+    if (targetUser.selfieVerification) {
+      const selfie = targetUser.selfieVerification;
       documents.push({
         id: selfie.id,
-        type: 'Selfie Verification',
+        type: 'PASSPORT_PHOTOS',
         fileName: 'selfie.jpg',
-        uploadedAt: selfie.createdAt.toISOString(),
+        uploadedAt: selfie.capturedAt.toISOString(),
         status: selfie.status,
       });
     }
+
+
 
     // Format response
     const userDetails = {
@@ -116,7 +119,7 @@ export async function GET(
       address: targetUser.address,
       dateOfBirth: targetUser.dateOfBirth ? targetUser.dateOfBirth.toISOString().split('T')[0] : null,
       accountType: targetUser.accountType,
-      accountStatus: targetUser.status,
+      accountStatus: targetUser.accountStatus,
       createdAt: targetUser.createdAt.toISOString().split('T')[0],
       verificationStatus: {
         overallStatus,
@@ -126,6 +129,7 @@ export async function GET(
       },
       documents,
     };
+
 
     // Log this access in audit trail
     await prisma.auditLog.create({

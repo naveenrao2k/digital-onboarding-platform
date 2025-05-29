@@ -63,7 +63,7 @@ export async function PUT(
     if (accountStatus) {
       await prisma.user.update({
         where: { id: params.id },
-        data: { status: accountStatus },
+        data: { accountStatus: accountStatus },
       });
 
       // Log the action
@@ -76,6 +76,7 @@ export async function PUT(
           targetType: 'USER',
         },
       });
+
     }
 
     // Update document status if provided
@@ -109,7 +110,8 @@ export async function PUT(
         data: {
           userId,
           action: documentStatus === 'APPROVED' ? 'DOCUMENT_APPROVED' : 'DOCUMENT_REJECTED',
-          details: `${documentStatus === 'APPROVED' ? 'Approved' : 'Rejected'} ${document.documentType} for ${targetUser.firstName} ${targetUser.lastName}${notes ? ` - ${notes}` : ''}`,
+          details: `${documentStatus === 'APPROVED' ? 'Approved' : 'Rejected'} ${document.type} for ${targetUser.firstName} ${targetUser.lastName}${notes ? ` - ${notes}` : ''}`,
+
           targetId: document.id,
           targetType: 'KYC_DOCUMENT',
         },

@@ -42,6 +42,7 @@ const AdminApprovedSubmissionsPage = () => {
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
+     fetchApprovedSubmissions();
     if (loading) {
       
         fetchApprovedSubmissions();

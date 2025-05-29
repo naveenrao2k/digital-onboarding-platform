@@ -82,7 +82,8 @@ const AdminDashboardPage = () => {
 
 
   console.log('Fetching dashboard data...');
-  fetchDashboardData(); // ✅ Confirm this logs
+  fetchDashboardData(true); // ✅ Confirm this logs
+  setIsRefreshing(true);
 }, [user, loading]);
 
 

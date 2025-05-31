@@ -174,7 +174,9 @@ export async function GET(
       .map(dv => ({
         type: dv.verificationType,
         status: dv.status,
-        isMatch: dv.matchResult?.isMatch || false,
+        isMatch: typeof dv.matchResult === 'object' && dv.matchResult !== null && 'isMatch' in dv.matchResult 
+          ? (dv.matchResult as { isMatch: boolean }).isMatch 
+          : false,
         confidence: dv.confidence,
         governmentData: dv.governmentData,
         createdAt: dv.createdAt.toISOString()

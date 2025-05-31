@@ -2,7 +2,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
-import { AdminReviewStatus, AdminReviewType, VerificationStatusEnum } from '@/app/generated/prisma';
+import { 
+  $Enums,
+  AdminReviewStatus,
+  AdminReviewType,
+  VerificationStatusEnum 
+} from '@/app/generated/prisma';
 
 export const dynamic = 'force-dynamic';
 

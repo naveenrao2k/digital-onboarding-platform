@@ -19,7 +19,7 @@ import {
   Eye
 } from 'lucide-react';
 import DojahVerificationDisplay from '@/components/admin/DojahVerificationDisplay';
-import { useHeader } from '../layout';
+import { useHeader } from '../../layout';
 
 interface UserDetails {
   id: string;
@@ -227,30 +227,15 @@ export default function UserDetailsPage() {
       </div>
     );
   }
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="bg-blue-100 p-3 rounded-full">
-              <User className="h-8 w-8 text-blue-600" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {userDetails.firstName} {userDetails.lastName}
-              </h1>
-              <p className="text-gray-600">{userDetails.email}</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            {getStatusIcon(userDetails.verificationStatus.overallStatus)}
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(userDetails.verificationStatus.overallStatus)}`}>
-              {userDetails.verificationStatus.overallStatus}
-            </span>
-          </div>
+      {/* User status badge */}
+      <div className="flex justify-end mb-4">
+        <div className="flex items-center space-x-2">
+          {getStatusIcon(userDetails.verificationStatus.overallStatus)}
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(userDetails.verificationStatus.overallStatus)}`}>
+            {userDetails.verificationStatus.overallStatus}
+          </span>
         </div>
       </div>
 

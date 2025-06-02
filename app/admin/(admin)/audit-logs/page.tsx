@@ -47,6 +47,7 @@ const AdminAuditLogsPage = () => {
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
+    fetchAuditLogs();
     if (!loading && user) {
       fetchAuditLogs();
     }

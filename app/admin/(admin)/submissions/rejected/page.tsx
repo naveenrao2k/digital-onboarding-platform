@@ -44,6 +44,7 @@ const AdminRejectedSubmissionsPage = () => {
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
+    fetchRejectedSubmissions();
     if (!loading) {
       if (!user) {
         // router.push('/access');

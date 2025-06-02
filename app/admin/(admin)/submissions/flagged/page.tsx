@@ -17,6 +17,7 @@ import {
   Flag
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { useHeader } from '../../layout';
 import { VerificationStatusEnum } from '@/app/generated/prisma';
 
 interface FlaggedSubmission {
@@ -40,6 +41,7 @@ const AdminFlaggedSubmissionsPage = () => {
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [documentTypeFilter, setDocumentTypeFilter] = useState<string>('all');
+  const { updateHeader } = useHeader();
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
@@ -51,6 +53,10 @@ const AdminFlaggedSubmissionsPage = () => {
 
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    updateHeader('Flagged Submissions', 'Review documents that require special attention');
+  }, [updateHeader]);
 
   const fetchFlaggedSubmissions = async () => {
     setIsLoading(true);
@@ -232,10 +238,7 @@ const AdminFlaggedSubmissionsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Flagged Submissions</h1>
-        <p className="text-gray-600">Review submissions that require special attention</p>
-      </div>
+      
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-8">
         {/* Search and Filters */}

@@ -17,6 +17,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { useHeader } from '../../layout';
 import { VerificationStatusEnum } from '@/app/generated/prisma';
 
 interface ApprovedSubmission {
@@ -39,6 +40,7 @@ const AdminApprovedSubmissionsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [documentTypeFilter, setDocumentTypeFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
+  const { updateHeader } = useHeader();
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
@@ -49,6 +51,10 @@ const AdminApprovedSubmissionsPage = () => {
     
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    updateHeader('Approved Submissions', 'View all documents that have been approved');
+  }, [updateHeader]);
 
   const fetchApprovedSubmissions = async () => {
     setIsLoading(true);
@@ -186,11 +192,6 @@ const AdminApprovedSubmissionsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Approved Submissions</h1>
-        <p className="text-gray-600">View all verified and approved documents</p>
-      </div>
-      
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-8">
         {/* Search and Filters */}
         <div className="p-4 border-b border-gray-200">

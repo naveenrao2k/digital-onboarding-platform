@@ -16,6 +16,7 @@ import {
   Eye
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { useHeader } from '../layout';
 
 interface AuditLog {
   id: string;
@@ -38,6 +39,11 @@ const AdminAuditLogsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
+  const { updateHeader } = useHeader();
+
+  useEffect(() => {
+    updateHeader('Audit Logs', 'Track and monitor all admin activities');
+  }, [updateHeader]);
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
@@ -239,10 +245,7 @@ const AdminAuditLogsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Audit Logs</h1>
-        <p className="text-gray-600">Track all system activities and user actions</p>
-      </div>
+      
       
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-8">
         {/* Search and Filters */}

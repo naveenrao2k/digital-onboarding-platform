@@ -17,6 +17,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { useHeader } from '../../layout';
 import { VerificationStatusEnum } from '@/app/generated/prisma';
 
 interface RejectedSubmission {
@@ -39,6 +40,7 @@ const AdminRejectedSubmissionsPage = () => {
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [documentTypeFilter, setDocumentTypeFilter] = useState<string>('all');
+  const { updateHeader } = useHeader();
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
@@ -54,6 +56,10 @@ const AdminRejectedSubmissionsPage = () => {
       }
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    updateHeader('Rejected Submissions', 'View and manage all rejected document submissions');
+  }, [updateHeader]);
 
   const fetchRejectedSubmissions = async () => {
     setIsLoading(true);
@@ -192,10 +198,7 @@ const AdminRejectedSubmissionsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Rejected Submissions</h1>
-        <p className="text-gray-600">View all rejected documents and request resubmissions</p>
-      </div>
+    
       
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-8">
         {/* Search and Filters */}

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Download, CheckCircle, XCircle, Flag, Loader2, AlertCircle, FileText, User } from "lucide-react";
+import { useHeader } from '../../layout';
 
 // Mock types (replace with your real types)
 interface SubmissionDetail {
@@ -44,6 +45,18 @@ const AdminSubmissionDetailPage = () => {
   const [actionError, setActionError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { updateHeader } = useHeader();
+
+  useEffect(() => {
+    if (submission) {
+      updateHeader(
+        `Submission: ${submission.documents[0]?.type || 'Document'}`, 
+        `Review submission from ${submission.user.name}`
+      );
+    } else {
+      updateHeader('Submission Details', 'Loading submission information...');
+    }
+  }, [submission, updateHeader]);
 
   useEffect(() => {
     const fetchSubmission = async () => {
@@ -218,15 +231,14 @@ const AdminSubmissionDetailPage = () => {
       </div>
     );
   }
-
   return (
-    <div className="max-w-4xl mx-auto p-6">      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
+    <div className="max-w-4xl mx-auto p-6">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
           <button onClick={() => router.back()} className="text-blue-600 hover:underline flex items-center">
             <svg className="h-5 w-5 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
             Back
           </button>
-          <h1 className="text-2xl font-bold">Submission Details</h1>
         </div>
         
         <button 

@@ -19,6 +19,7 @@ import {
   Eye
 } from 'lucide-react';
 import DojahVerificationDisplay from '@/components/admin/DojahVerificationDisplay';
+import { useHeader } from '../layout';
 
 interface UserDetails {
   id: string;
@@ -78,10 +79,22 @@ export default function UserDetailsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isReviewing, setIsReviewing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const { updateHeader } = useHeader();
 
   useEffect(() => {
     fetchUserDetails();
   }, [userId]);
+
+  useEffect(() => {
+    if (userDetails) {
+      updateHeader(
+        `User: ${userDetails.firstName} ${userDetails.lastName}`, 
+        `User profile and verification details`
+      );
+    } else {
+      updateHeader('User Details', 'Loading user information...');
+    }
+  }, [userDetails, updateHeader]);
 
   const fetchUserDetails = async () => {
     try {

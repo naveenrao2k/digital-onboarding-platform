@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
+import {
   Shield,
   Bell,
   Users,
@@ -22,6 +22,7 @@ import { useAuth } from '@/lib/auth-context';
 import WeeklySubmissionsChart from '@/components/dashboard/WeeklySubmissionsChart';
 import StatusDistributionChart from '@/components/dashboard/StatusDistributionChart';
 import StatCard from '@/components/dashboard/StatCard';
+import { useHeader } from '../layout';
 
 import { VerificationStatusEnum } from '@/app/generated/prisma';
 
@@ -51,7 +52,7 @@ const AdminDashboardPage = () => {
     completedVerifications: 0,
     rejectedVerifications: 0,
   });
-  const [pendingReviews, setPendingReviews] = useState<AdminPendingReview[]>([]);  const [isLoading, setIsLoading] = useState(false);
+  const [pendingReviews, setPendingReviews] = useState<AdminPendingReview[]>([]); const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -74,17 +75,17 @@ const AdminDashboardPage = () => {
 
 
 
- useEffect(() => {
-  console.log('useEffect triggered', { loading, user });
+  useEffect(() => {
+    console.log('useEffect triggered', { loading, user });
 
-  if (loading) return;
+    if (loading) return;
 
 
 
-  console.log('Fetching dashboard data...');
-  fetchDashboardData(true); // ✅ Confirm this logs
-  setIsRefreshing(true);
-}, [user, loading]);
+    console.log('Fetching dashboard data...');
+    fetchDashboardData(true); // ✅ Confirm this logs
+    setIsRefreshing(true);
+  }, [user, loading]);
 
 
 
@@ -104,7 +105,7 @@ const AdminDashboardPage = () => {
     try {
       // In a real implementation, you would fetch this data from API
       // For demo purposes, we'll use mock data
-      
+
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -179,19 +180,19 @@ const AdminDashboardPage = () => {
     try {
       // In a real implementation, you would call an API endpoint
       console.log('Approving document:', reviewId);
-      
+
       // Update pending reviews - remove the approved one
-      setPendingReviews(prevReviews => 
+      setPendingReviews(prevReviews =>
         prevReviews.filter(review => review.id !== reviewId)
       );
-      
+
       // Update stats
       setStats(prev => ({
         ...prev,
         pendingVerifications: prev.pendingVerifications - 1,
         completedVerifications: prev.completedVerifications + 1
       }));
-      
+
       // Show success notification (in a real app)
     } catch (err) {
       console.error('Error approving document:', err);
@@ -203,19 +204,19 @@ const AdminDashboardPage = () => {
     try {
       // In a real implementation, you would call an API endpoint
       console.log('Rejecting document:', reviewId);
-      
+
       // Update pending reviews - remove the rejected one
-      setPendingReviews(prevReviews => 
+      setPendingReviews(prevReviews =>
         prevReviews.filter(review => review.id !== reviewId)
       );
-      
+
       // Update stats
       setStats(prev => ({
         ...prev,
         pendingVerifications: prev.pendingVerifications - 1,
         rejectedVerifications: prev.rejectedVerifications + 1
       }));
-      
+
       // Show success notification (in a real app)
     } catch (err) {
       console.error('Error rejecting document:', err);
@@ -226,7 +227,13 @@ const AdminDashboardPage = () => {
   const handleViewDetails = (userId: string) => {
     router.push(`/admin/users/${userId}`);
   };
-
+  // Use the header context to update the header title and subtitle
+  const { updateHeader } = useHeader();
+  
+  useEffect(() => {
+    updateHeader('Admin Dashboard', 'Manage user verification and review documents');
+  }, [updateHeader]);
+  
   // Filter pending reviews based on status
   const filteredReviews = pendingReviews.filter(review => {
     if (statusFilter === 'all') return true;
@@ -241,42 +248,10 @@ const AdminDashboardPage = () => {
     );
   }
   return (
-    <div className="flex">
-      <div className="flex-1 min-h-screen bg-gray-50">
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200 py-4">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center">
-                <Shield className="h-8 w-8 text-blue-600 mr-2" />
-                <span className="text-xl font-bold text-gray-900">KYC Admin</span>
-              </div>
-              <div className="flex items-center">
-                <button className="mr-4 text-gray-600 relative">
-                  <Bell className="h-5 w-5 text-gray-600" />
-                  <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">3</span>
-                </button>
-                <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">
-                  {user?.firstName?.charAt(0) || 'A'}
-                </div>
-                <button 
-                  onClick={() => signOut()}
-                  className="ml-4 flex items-center text-gray-500 hover:text-gray-700"
-                >
-                  <LogOut className="h-4 w-4 mr-1" />
-                  <span className="text-sm">Logout</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
+    <div className="flex-1">
         {/* Main content */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Page title */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-            <p className="text-gray-600">Manage user verification and review documents</p>
-          </div>          {/* Stats */}
+          {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <StatCard
               title="Total Users"
@@ -303,7 +278,7 @@ const AdminDashboardPage = () => {
               isLoading={isLoading}
             />
           </div>
-          
+
           {/* Charts */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
@@ -317,7 +292,7 @@ const AdminDashboardPage = () => {
           <div className="mb-8">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">Pending Document Reviews</h2>
-              <button 
+              <button
                 onClick={handleRefresh}
                 disabled={isRefreshing}
                 className={`px-4 py-2 ${isRefreshing ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white text-sm font-medium rounded-lg flex items-center`}
@@ -424,14 +399,13 @@ const AdminDashboardPage = () => {
                             {review.dateSubmitted}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              review.status === 'PENDING' ? 'bg-amber-100 text-amber-800' : 
-                              review.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                              ''
-                            }`}>
-                              {review.status === 'PENDING' ? 'Pending' : 
-                               review.status === 'IN_PROGRESS' ? 'In Progress' : 
-                               ''}
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${review.status === 'PENDING' ? 'bg-amber-100 text-amber-800' :
+                                review.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
+                                  ''
+                              }`}>
+                              {review.status === 'PENDING' ? 'Pending' :
+                                review.status === 'IN_PROGRESS' ? 'In Progress' :
+                                  ''}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -462,10 +436,8 @@ const AdminDashboardPage = () => {
                   </table>
                 </div>
               )}
-            </div>
-          </div>
+            </div>          </div>
         </main>
-      </div>
     </div>
   );
 };

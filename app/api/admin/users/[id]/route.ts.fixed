@@ -1,0 +1,233 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { prisma } from '@/lib/prisma';
+
+// Mark this route as dynamic
+export const dynamic = 'force-dynamic';
+
+const getCurrentUserId = (): string | null => {
+  const sessionCookie = cookies().get('session')?.value;
+  if (!sessionCookie) return null;
+  
+  try {
+    const session = JSON.parse(sessionCookie);
+    return session.userId || null;
+  } catch {
+    return null;
+  }
+};
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const userId = getCurrentUserId();
+    
+    if (!userId) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401 }
+      );
+    }
+
+    // Check if user is admin
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized - Admin access required' }),
+        { status: 401 }
+      );
+    }
+
+    // Get user details with Dojah verifications
+    const targetUser = await prisma.user.findUnique({
+      where: { id: params.id },
+      include: {
+        kycDocuments: true,
+        selfieVerification: true,
+        dojahVerifications: true,
+        DocumentAnalysis: true,
+        adminReviews: {
+          include: {
+            reviewer: {
+              select: {
+                firstName: true,
+                lastName: true
+              }
+            }
+          },
+          orderBy: { createdAt: 'desc' }
+        },
+        verificationStatus: true
+      },
+    });
+
+    if (!targetUser) {
+      return new NextResponse(
+        JSON.stringify({ error: 'User not found' }),
+        { status: 404 }
+      );
+    }
+
+    // Calculate verification status
+    const kycStatus = targetUser.kycDocuments.length > 0 
+      ? targetUser.kycDocuments.every(doc => doc.status === 'APPROVED') 
+        ? 'APPROVED' 
+        : targetUser.kycDocuments.some(doc => doc.status === 'REJECTED') 
+          ? 'REJECTED' 
+          : 'PENDING'
+      : 'PENDING';
+
+    const selfieStatus = targetUser.selfieVerification
+      ? targetUser.selfieVerification.status
+      : 'PENDING';
+
+    const overallStatus = kycStatus === 'APPROVED' && selfieStatus === 'APPROVED'
+      ? 'APPROVED'
+      : kycStatus === 'REJECTED' || selfieStatus === 'REJECTED'
+        ? 'REJECTED'
+        : 'IN_PROGRESS';
+
+    // Calculate progress percentage
+    let progress = 0;
+    if (targetUser.kycDocuments.length > 0) progress += 50;
+    if (targetUser.selfieVerification) progress += 15;
+    if (kycStatus === 'APPROVED') progress += 15;
+    if (selfieStatus === 'APPROVED') progress += 20;
+
+    // Format documents with Dojah verification data
+    const documents = targetUser.kycDocuments.map(doc => {
+      const dojahVerification = targetUser.dojahVerifications.find(
+        dv => dv.documentId === doc.id && dv.verificationType === 'DOCUMENT_ANALYSIS'
+      );
+      
+      return {
+        id: doc.id,
+        type: doc.type,
+        fileName: doc.fileName,
+        uploadedAt: doc.uploadedAt.toISOString(),
+        status: doc.status,
+        fileSize: doc.fileSize,
+        mimeType: doc.mimeType,
+        documentAnalysis: null, // No documentAnalysis in KYCDocument model
+        dojahVerification: dojahVerification ? {
+          id: dojahVerification.id,
+          status: dojahVerification.status,
+          confidence: dojahVerification.confidenceScore, // Updated field name
+          matchResult: dojahVerification.isMatch ? { isMatch: true } : { isMatch: false }, // Convert to object
+          extractedData: dojahVerification.verificationResult, // Using this field
+          errorMessage: dojahVerification.status === 'ERROR' ? 'Verification failed' : '',
+          createdAt: dojahVerification.createdAt.toISOString()
+        } : null
+      };
+    });
+
+    // Add selfie with Dojah verification data if it exists
+    if (targetUser.selfieVerification) {
+      const selfie = targetUser.selfieVerification;
+      const selfieDojahVerification = targetUser.dojahVerifications.find(
+        dv => dv.documentId === selfie.id && dv.verificationType === 'SELFIE_PHOTO_ID_MATCH'
+      );
+      
+      documents.push({
+        id: selfie.id,
+        type: 'PASSPORT_PHOTOS',
+        fileName: 'selfie.jpg',
+        uploadedAt: selfie.capturedAt.toISOString(),
+        status: selfie.status,
+        fileSize: selfie.fileSize,
+        mimeType: selfie.mimeType,
+        documentAnalysis: null,
+        dojahVerification: selfieDojahVerification ? {
+          id: selfieDojahVerification.id,
+          status: selfieDojahVerification.status,
+          confidence: selfieDojahVerification.confidenceScore,
+          matchResult: selfieDojahVerification.isMatch ? { isMatch: true } : { isMatch: false },
+          extractedData: selfieDojahVerification.verificationResult,
+          errorMessage: selfieDojahVerification.status === 'ERROR' ? 'Verification failed' : '',
+          createdAt: selfieDojahVerification.createdAt.toISOString()
+        } : null
+      });
+    }
+
+    // Get government verification summary
+    const governmentVerifications = targetUser.dojahVerifications
+      .filter(dv => ['BVN_LOOKUP', 'NIN_LOOKUP', 'PASSPORT_LOOKUP', 'DRIVERS_LICENSE_LOOKUP'].includes(dv.verificationType))
+      .map(dv => ({
+        type: dv.verificationType,
+        status: dv.status,
+        isMatch: dv.isMatch,
+        confidence: dv.confidenceScore,
+        governmentData: dv.verificationResult, // Assuming this contains government data
+        createdAt: dv.createdAt.toISOString()
+      }));
+
+    // Format response with enhanced Dojah data
+    const userDetails = {
+      id: targetUser.id,
+      firstName: targetUser.firstName,
+      lastName: targetUser.lastName,
+      email: targetUser.email,
+      phone: targetUser.phone,
+      address: targetUser.address,
+      dateOfBirth: targetUser.dateOfBirth ? targetUser.dateOfBirth.toISOString().split('T')[0] : null,
+      accountType: targetUser.accountType,
+      accountStatus: targetUser.accountStatus,
+      createdAt: targetUser.createdAt.toISOString().split('T')[0],
+      verificationStatus: targetUser.verificationStatus || {
+        overallStatus,
+        kycStatus,
+        selfieStatus,
+        progress,
+      },
+      documents,
+      dojahVerifications: {
+        total: targetUser.dojahVerifications.length,
+        governmentVerifications,
+        amlScreenings: targetUser.dojahVerifications.filter(dv => dv.verificationType === 'AML_SCREENING')
+      },
+      adminReviews: targetUser.adminReviews.map(review => ({
+        id: review.id,
+        verificationType: review.verificationType,
+        status: review.status,
+        reviewNotes: review.reviewNotes,
+        rejectionReason: review.rejectionReason,
+        allowReupload: review.allowReupload,
+        reviewer: review.reviewer,
+        createdAt: review.createdAt.toISOString()
+      })),
+      canReupload: targetUser.adminReviews.some(review => 
+        review.status === 'REJECTED' && review.allowReupload
+      )
+    };
+
+    // Log this access in audit trail
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'USER_PROFILE_VIEW',
+        details: `Viewed user profile with Dojah verification data: ${targetUser.firstName} ${targetUser.lastName}`,
+        targetId: targetUser.id,
+        targetType: 'USER',
+      },
+    });
+
+    return new NextResponse(
+      JSON.stringify(userDetails),
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error('USER_DETAILS_ERROR', error);
+    
+    return new NextResponse(
+      JSON.stringify({
+        error: error.message || 'An error occurred while fetching user details',
+      }),
+      { status: 500 }
+    );
+  }
+}

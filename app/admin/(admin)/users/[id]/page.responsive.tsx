@@ -11,26 +11,8 @@ import {
   Shield, 
   FileText, 
   CheckCircle, 
-    return   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-      {/* User status badge */}
-      <div className="flex justify-end mb-4">
-        <div className="flex items-center space-x-2">
-          {getStatusIcon(userDetails.verificationStatus.overallStatus)}
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(userDetails.verificationStatus.overallStatus)}`}>
-            {userDetails.verificationStatus.overallStatus}
-          </span>
-        </div>
-      </div> className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-      {/* User status badge */}
-      <div className="flex justify-end mb-4">
-        <div className="flex items-center space-x-2">
-          {getStatusIcon(userDetails.verificationStatus.overallStatus)}
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(userDetails.verificationStatus.overallStatus)}`}>
-            {userDetails.verificationStatus.overallStatus}
-          </span>
-        </div>
-      </div>  Clock,
+  XCircle, 
+  Clock,
   AlertTriangle,
   History,
   Download,
@@ -245,6 +227,7 @@ export default function UserDetailsPage() {
       </div>
     );
   }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
       {/* User status badge */}
@@ -260,11 +243,11 @@ export default function UserDetailsPage() {
       {/* Navigation Tabs - Scrollable on mobile */}
       <div className="border-b border-gray-200 mb-6 overflow-x-auto">
         <nav className="-mb-px flex space-x-4 sm:space-x-8 px-1">
-          {{
+          {[
             { id: 'overview', label: 'Overview', icon: User },
             { id: 'documents', label: 'Documents & Verification', icon: FileText },
             { id: 'history', label: 'Review History', icon: History }
-          }.map(({ id, label, icon: Icon }) => (
+          ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
@@ -393,7 +376,7 @@ export default function UserDetailsPage() {
 
       {activeTab === 'documents' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 className="text-xl font-semibold text-gray-900">Documents & Dojah Verification</h2>
             <div className="text-sm text-gray-600">
               {userDetails.documents.length} document{userDetails.documents.length !== 1 ? 's' : ''} uploaded
@@ -427,8 +410,8 @@ export default function UserDetailsPage() {
 
           <div className="space-y-4">
             {userDetails.adminReviews.map((review) => (
-              <div key={review.id} className="bg-white rounded-lg border p-6">
-                <div className="flex items-center justify-between mb-4">
+              <div key={review.id} className="bg-white rounded-lg border p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                   <div className="flex items-center space-x-3">
                     <div className={`p-2 rounded-full ${getStatusColor(review.status)}`}>
                       {getStatusIcon(review.status)}
@@ -442,7 +425,7 @@ export default function UserDetailsPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-left sm:text-right">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(review.status)}`}>
                       {review.status}
                     </span>

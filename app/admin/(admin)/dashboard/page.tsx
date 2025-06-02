@@ -248,11 +248,11 @@ const AdminDashboardPage = () => {
     );
   }
   return (
-    <div className="flex-1">
+    <div className="w-full">
         {/* Main content */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="p-2 sm:p-4 md:p-6">
           {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
             <StatCard
               title="Total Users"
               value={isLoading ? "..." : stats.totalUsers}
@@ -280,22 +280,23 @@ const AdminDashboardPage = () => {
           </div>
 
           {/* Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 md:mb-8">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-6">
               <WeeklySubmissionsChart />
             </div>
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-6">
               <StatusDistributionChart />
             </div>
           </div>
+          
           {/* Pending Document Reviews */}
-          <div className="mb-8">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Pending Document Reviews</h2>
+          <div className="mb-6 md:mb-8">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
+              <h2 className="text-lg md:text-xl font-bold">Pending Document Reviews</h2>
               <button
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className={`px-4 py-2 ${isRefreshing ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white text-sm font-medium rounded-lg flex items-center`}
+                className={`px-4 py-2 ${isRefreshing ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white text-sm font-medium rounded-lg flex items-center justify-center sm:justify-start`}
               >
                 {isRefreshing ? (
                   <>
@@ -309,13 +310,13 @@ const AdminDashboardPage = () => {
             </div>
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
               {/* Search and Filter */}
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <form onSubmit={handleSearch} className="relative w-full md:w-96">
+              <div className="p-3 sm:p-4 border-b border-gray-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                  <form onSubmit={handleSearch} className="relative w-full sm:w-96">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
                       type="text"
-                      placeholder="Search by name or document type"
+                      placeholder="Search by name or document"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -364,41 +365,41 @@ const AdminDashboardPage = () => {
                   <table className="w-full">
                     <thead>
                       <tr className="bg-gray-50 text-left">
-                        <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                        <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Document</th>
-                        <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                        <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th className="px-3 py-3 md:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                        <th className="px-3 py-3 md:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Document</th>
+                        <th className="px-3 py-3 md:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Date</th>
+                        <th className="px-3 py-3 md:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-3 py-3 md:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {filteredReviews.map((review) => (
                         <tr key={review.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-800 font-medium mr-3">
+                              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-800 font-medium mr-2 md:mr-3 flex-shrink-0">
                                 {review.userName.charAt(0)}
                               </div>
-                              <div>
-                                <div className="font-medium">{review.userName}</div>
-                                <div className="text-sm text-gray-500">ID: {review.userId}</div>
+                              <div className="truncate">
+                                <div className="font-medium text-sm md:text-base truncate">{review.userName}</div>
+                                <div className="text-xs md:text-sm text-gray-500 truncate hidden sm:block">ID: {review.userId}</div>
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               {review.documentType.includes('Selfie') ? (
-                                <Camera className="h-4 w-4 text-gray-500 mr-2" />
+                                <Camera className="h-4 w-4 text-gray-500 mr-2 flex-shrink-0" />
                               ) : (
-                                <FileText className="h-4 w-4 text-gray-500 mr-2" />
+                                <FileText className="h-4 w-4 text-gray-500 mr-2 flex-shrink-0" />
                               )}
-                              <span>{review.documentType}</span>
+                              <span className="text-sm md:text-base truncate max-w-[120px] md:max-w-none">{review.documentType}</span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap text-sm hidden sm:table-cell">
                             {review.dateSubmitted}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
                             <span className={`px-2 py-1 text-xs font-medium rounded-full ${review.status === 'PENDING' ? 'bg-amber-100 text-amber-800' :
                                 review.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
                                   ''
@@ -408,23 +409,23 @@ const AdminDashboardPage = () => {
                                   ''}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex space-x-2">
+                          <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
+                            <div className="flex flex-wrap gap-1 md:space-x-2">
                               <button
                                 onClick={() => handleViewDetails(review.userId)}
-                                className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-medium rounded"
+                                className="px-2 py-1 md:px-3 md:py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-medium rounded"
                               >
                                 View
                               </button>
                               <button
                                 onClick={() => handleApprove(review.id)}
-                                className="px-3 py-1 bg-green-100 hover:bg-green-200 text-green-800 text-xs font-medium rounded"
+                                className="px-2 py-1 md:px-3 md:py-1 bg-green-100 hover:bg-green-200 text-green-800 text-xs font-medium rounded"
                               >
                                 Approve
                               </button>
                               <button
                                 onClick={() => handleReject(review.id)}
-                                className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-medium rounded"
+                                className="px-2 py-1 md:px-3 md:py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-medium rounded"
                               >
                                 Reject
                               </button>
@@ -436,7 +437,8 @@ const AdminDashboardPage = () => {
                   </table>
                 </div>
               )}
-            </div>          </div>
+            </div>          
+          </div>
         </main>
     </div>
   );

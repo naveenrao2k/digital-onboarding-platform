@@ -11,17 +11,8 @@ import {
   Shield, 
   FileText, 
   CheckCircle, 
-    return   return (
+    return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-      {/* User status badge */}
-      <div className="flex justify-end mb-4">
-        <div className="flex items-center space-x-2">
-          {getStatusIcon(userDetails.verificationStatus.overallStatus)}
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(userDetails.verificationStatus.overallStatus)}`}>
-            {userDetails.verificationStatus.overallStatus}
-          </span>
-        </div>
-      </div> className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
       {/* User status badge */}
       <div className="flex justify-end mb-4">
         <div className="flex items-center space-x-2">

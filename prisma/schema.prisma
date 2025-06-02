@@ -29,6 +29,9 @@ model User {
   references         Reference[]
   selfieVerification SelfieVerification?
   verificationStatus VerificationStatus?
+  dojahVerifications DojahVerification[]
+  adminReviews       AdminReview[]
+  reviewedByMe       AdminReview[]       @relation("AdminReviews")
 }
 
 model Account {
@@ -63,6 +66,7 @@ model KYCDocument {
   notes       String?
   FileChunk   FileChunk[]
   user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentAnalysis DocumentAnalysis?
 }
 
 model SelfieVerification {
@@ -156,6 +160,64 @@ model FileChunk {
   @@unique([fileId, chunkIndex])
 }
 
+model DojahVerification {
+  id                String                @id @default(cuid())
+  userId            String
+  verificationType  DojahVerificationType
+  documentId        String?               // References KYCDocument or SelfieVerification
+  referenceId       String?               // Dojah's reference ID
+  requestData       Json?                 // Original request payload
+  responseData      Json?                 // Dojah response
+  status            DojahStatus           @default(PENDING)
+  confidence        Float?                // Confidence score from Dojah
+  matchResult       Json?                 // Face match or document match results
+  extractedData     Json?                 // Extracted data from document analysis
+  governmentData    Json?                 // Data from government lookup APIs
+  errorMessage      String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  user              User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adminReviews      AdminReview[]
+  
+  @@index([userId, verificationType])
+  @@index([referenceId])
+}
+
+model DocumentAnalysis {
+  id               String    @id @default(cuid())
+  kycDocumentId    String    @unique
+  extractedText    String?
+  extractedData    Json?     // Structured data extracted from document
+  documentType     String?   // Detected document type
+  confidence       Float?    // Analysis confidence score
+  isReadable       Boolean   @default(false)
+  qualityScore     Float?    // Document quality score
+  analysisProvider String    @default("DOJAH")
+  createdAt        DateTime  @default(now())
+  kycDocument      KYCDocument @relation(fields: [kycDocumentId], references: [id], onDelete: Cascade)
+}
+
+model AdminReview {
+  id                String                @id @default(cuid())
+  userId            String
+  reviewerId        String
+  documentId        String?               // KYCDocument or SelfieVerification ID
+  verificationType  AdminReviewType
+  dojahVerificationId String?
+  status            AdminReviewStatus     @default(PENDING)
+  reviewNotes       String?
+  rejectionReason   String?
+  allowReupload     Boolean               @default(false)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  user              User                  @relation(fields: [userId], references: [id])
+  reviewer          User                  @relation("AdminReviews", fields: [reviewerId], references: [id])
+  dojahVerification DojahVerification?    @relation(fields: [dojahVerificationId], references: [id])
+  
+  @@index([userId])
+  @@index([reviewerId])
+}
+
 enum UserRole {
   USER
   ADMIN
@@ -198,6 +260,10 @@ enum DocumentType {
   PASSPORT_PHOTOS
   UTILITY_RECEIPT
   BUSINESS_OWNER_ID
+  BVN_SLIP
+  NIN_SLIP
+  DRIVERS_LICENSE
+  VOTERS_CARD
 }
 
 enum VerificationStatusEnum {
@@ -205,6 +271,7 @@ enum VerificationStatusEnum {
   IN_PROGRESS
   APPROVED
   REJECTED
+  REQUIRES_REUPLOAD
 }
 
 enum NotificationType {
@@ -212,4 +279,38 @@ enum NotificationType {
   SUCCESS
   WARNING
   ERROR
+}
+
+enum DojahVerificationType {
+  BVN_LOOKUP
+  NIN_LOOKUP
+  PASSPORT_LOOKUP
+  DRIVERS_LICENSE_LOOKUP
+  DOCUMENT_ANALYSIS
+  SELFIE_PHOTO_ID_MATCH
+  LIVENESS_CHECK
+  AML_SCREENING
+}
+
+enum DojahStatus {
+  PENDING
+  IN_PROGRESS
+  SUCCESS
+  FAILED
+  INCOMPLETE_DATA
+  RETRY_REQUIRED
+}
+
+enum AdminReviewType {
+  DOCUMENT_VERIFICATION
+  SELFIE_VERIFICATION
+  IDENTITY_VERIFICATION
+  FINAL_APPROVAL
+}
+
+enum AdminReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REQUIRES_ADDITIONAL_INFO
 }

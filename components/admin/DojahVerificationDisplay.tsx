@@ -1,0 +1,355 @@
+// components/admin/DojahVerificationDisplay.tsx
+'use client';
+
+import React, { useState } from 'react';
+import { 
+  CheckCircle, 
+  XCircle, 
+  Clock, 
+  AlertTriangle, 
+  Eye, 
+  FileText, 
+  Shield, 
+  User,
+  Activity,
+  RotateCcw
+} from 'lucide-react';
+
+interface DojahVerificationProps {
+  document: {
+    id: string;
+    type: string;
+    fileName: string;
+    status: string;
+    documentAnalysis?: {
+      extractedText?: string;
+      extractedData?: any;
+      documentType?: string;
+      confidence?: number;
+      isReadable: boolean;
+      qualityScore?: number;
+    };
+    dojahVerification?: {
+      id: string;
+      status: string;
+      confidence?: number;
+      matchResult?: any;
+      extractedData?: any;
+      governmentData?: any;
+      errorMessage?: string;
+      createdAt: string;
+    };
+  };
+  governmentVerifications: Array<{
+    type: string;
+    status: string;
+    isMatch: boolean;
+    confidence?: number;
+    governmentData?: any;
+    createdAt: string;
+  }>;
+  onReview: (documentId: string, status: string, notes: string, rejectionReason?: string, allowReupload?: boolean) => void;
+  isReviewing: boolean;
+}
+
+export default function DojahVerificationDisplay({ 
+  document, 
+  governmentVerifications, 
+  onReview, 
+  isReviewing 
+}: DojahVerificationProps) {
+  const [showDetails, setShowDetails] = useState(false);
+  const [reviewStatus, setReviewStatus] = useState('');
+  const [reviewNotes, setReviewNotes] = useState('');
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [allowReupload, setAllowReupload] = useState(false);
+
+  const getStatusIcon = (status: string) => {
+    switch (status.toUpperCase()) {
+      case 'APPROVED':
+      case 'SUCCESS':
+        return <CheckCircle className="h-5 w-5 text-green-500" />;
+      case 'REJECTED':
+      case 'FAILED':
+        return <XCircle className="h-5 w-5 text-red-500" />;
+      case 'PENDING':
+      case 'IN_PROGRESS':
+        return <Clock className="h-5 w-5 text-yellow-500" />;
+      default:
+        return <AlertTriangle className="h-5 w-5 text-gray-500" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status.toUpperCase()) {
+      case 'APPROVED':
+      case 'SUCCESS':
+        return 'bg-green-50 text-green-800 border-green-200';
+      case 'REJECTED':
+      case 'FAILED':
+        return 'bg-red-50 text-red-800 border-red-200';
+      case 'PENDING':
+      case 'IN_PROGRESS':
+        return 'bg-yellow-50 text-yellow-800 border-yellow-200';
+      default:
+        return 'bg-gray-50 text-gray-800 border-gray-200';
+    }
+  };
+
+  const handleReview = () => {
+    if (!reviewStatus) return;
+    
+    onReview(
+      document.id, 
+      reviewStatus, 
+      reviewNotes, 
+      reviewStatus === 'REJECTED' ? rejectionReason : undefined,
+      reviewStatus === 'REJECTED' ? allowReupload : false
+    );
+    
+    // Reset form
+    setReviewStatus('');
+    setReviewNotes('');
+    setRejectionReason('');
+    setAllowReupload(false);
+  };
+
+  const relevantGovVerifications = governmentVerifications.filter(gv => 
+    document.dojahVerification?.extractedData && 
+    Object.keys(document.dojahVerification.extractedData).some(key => 
+      gv.type.toLowerCase().includes(key.toLowerCase())
+    )
+  );
+
+  return (
+    <div className="border rounded-lg p-6 space-y-4">
+      {/* Document Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <FileText className="h-5 w-5 text-gray-500" />
+          <div>
+            <h3 className="font-medium text-gray-900">{document.fileName}</h3>
+            <p className="text-sm text-gray-500">{document.type.replace(/_/g, ' ')}</p>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          {getStatusIcon(document.status)}
+          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(document.status)}`}>
+            {document.status}
+          </span>
+        </div>
+      </div>
+
+      {/* Dojah Analysis Summary */}
+      {document.dojahVerification && (
+        <div className="bg-blue-50 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <Shield className="h-5 w-5 text-blue-600" />
+              <span className="font-medium text-blue-900">Dojah Verification</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              {getStatusIcon(document.dojahVerification.status)}
+              <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(document.dojahVerification.status)}`}>
+                {document.dojahVerification.status}
+              </span>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-gray-600">Confidence Score:</span>
+              <span className="ml-2 font-medium">
+                {document.dojahVerification.confidence ? `${document.dojahVerification.confidence}%` : 'N/A'}
+              </span>
+            </div>
+            <div>
+              <span className="text-gray-600">Quality Score:</span>
+              <span className="ml-2 font-medium">
+                {document.documentAnalysis?.qualityScore ? `${document.documentAnalysis.qualityScore}%` : 'N/A'}
+              </span>
+            </div>
+            <div>
+              <span className="text-gray-600">Document Readable:</span>
+              <span className="ml-2 font-medium">
+                {document.documentAnalysis?.isReadable ? 'Yes' : 'No'}
+              </span>
+            </div>
+            <div>
+              <span className="text-gray-600">Detected Type:</span>
+              <span className="ml-2 font-medium">
+                {document.documentAnalysis?.documentType || 'Unknown'}
+              </span>
+            </div>
+          </div>
+
+          {document.dojahVerification.errorMessage && (
+            <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+              <strong>Error:</strong> {document.dojahVerification.errorMessage}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Government Verification Results */}
+      {relevantGovVerifications.length > 0 && (
+        <div className="bg-green-50 rounded-lg p-4">
+          <div className="flex items-center space-x-2 mb-3">
+            <User className="h-5 w-5 text-green-600" />
+            <span className="font-medium text-green-900">Government Verification</span>
+          </div>
+          
+          <div className="space-y-2">
+            {relevantGovVerifications.map((gv, index) => (
+              <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
+                <span className="text-sm font-medium">{gv.type.replace(/_/g, ' ')}</span>
+                <div className="flex items-center space-x-2">
+                  {gv.isMatch ? (
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-red-500" />
+                  )}
+                  <span className="text-xs text-gray-600">
+                    {gv.confidence ? `${gv.confidence}%` : 'N/A'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Detailed Information Toggle */}
+      <button
+        onClick={() => setShowDetails(!showDetails)}
+        className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 text-sm"
+      >
+        <Eye className="h-4 w-4" />
+        <span>{showDetails ? 'Hide Details' : 'View Details'}</span>
+      </button>
+
+      {/* Detailed Information */}
+      {showDetails && (
+        <div className="space-y-4 border-t pt-4">
+          {/* Extracted Data */}
+          {document.dojahVerification?.extractedData && (
+            <div>
+              <h4 className="font-medium text-gray-900 mb-2">Extracted Data</h4>
+              <div className="bg-gray-50 rounded p-3 text-sm">
+                <pre className="whitespace-pre-wrap text-xs">
+                  {JSON.stringify(document.dojahVerification.extractedData, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          {/* Government Data */}
+          {document.dojahVerification?.governmentData && (
+            <div>
+              <h4 className="font-medium text-gray-900 mb-2">Government Data</h4>
+              <div className="bg-gray-50 rounded p-3 text-sm">
+                <pre className="whitespace-pre-wrap text-xs">
+                  {JSON.stringify(document.dojahVerification.governmentData, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          {/* Extracted Text */}
+          {document.documentAnalysis?.extractedText && (
+            <div>
+              <h4 className="font-medium text-gray-900 mb-2">Extracted Text</h4>
+              <div className="bg-gray-50 rounded p-3 text-sm max-h-40 overflow-y-auto">
+                {document.documentAnalysis.extractedText}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Admin Review Section */}
+      <div className="border-t pt-4">
+        <div className="flex items-center space-x-2 mb-4">
+          <Activity className="h-5 w-5 text-purple-600" />
+          <span className="font-medium text-purple-900">Admin Review</span>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Review Decision
+            </label>
+            <select
+              value={reviewStatus}
+              onChange={(e) => setReviewStatus(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Select Decision</option>
+              <option value="APPROVED">Approve</option>
+              <option value="REJECTED">Reject</option>
+              <option value="REQUIRES_ADDITIONAL_INFO">Request Additional Info</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Review Notes
+            </label>
+            <textarea
+              value={reviewNotes}
+              onChange={(e) => setReviewNotes(e.target.value)}
+              placeholder="Add your review notes..."
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              rows={3}
+            />
+          </div>
+
+          {reviewStatus === 'REJECTED' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Rejection Reason
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Specify the reason for rejection..."
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  rows={2}
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="allowReupload"
+                  checked={allowReupload}
+                  onChange={(e) => setAllowReupload(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="allowReupload" className="text-sm text-gray-700">
+                  Allow user to reupload document
+                </label>
+              </div>
+            </>
+          )}
+
+          <button
+            onClick={handleReview}
+            disabled={!reviewStatus || isReviewing}
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center justify-center space-x-2"
+          >
+            {isReviewing ? (
+              <>
+                <RotateCcw className="h-4 w-4 animate-spin" />
+                <span>Processing...</span>
+              </>
+            ) : (
+              <span>Submit Review</span>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

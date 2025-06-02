@@ -43,14 +43,32 @@ export async function GET(
       );
     }
 
-    // Get user details
+    // Get user details with Dojah verifications
     const targetUser = await prisma.user.findUnique({
       where: { id: params.id },
       include: {
-        kycDocuments: true,
+        kycDocuments: {
+          include: {
+            documentAnalysis: true
+          }
+        },
         selfieVerification: true,
+        dojahVerifications: {
+          orderBy: { createdAt: 'desc' }
+        },
+        adminReviews: {
+          include: {
+            reviewer: {
+              select: {
+                firstName: true,
+                lastName: true
+              }
+            }
+          },
+          orderBy: { createdAt: 'desc' }
+        },
+        verificationStatus: true
       },
-
     });
 
     if (!targetUser) {
@@ -86,30 +104,85 @@ export async function GET(
     if (kycStatus === 'APPROVED') progress += 15;
     if (selfieStatus === 'APPROVED') progress += 20;
 
-    // Format documents
-    const documents = targetUser.kycDocuments.map(doc => ({
-      id: doc.id,
-      type: doc.type,
-      fileName: doc.fileName,
-      uploadedAt: doc.uploadedAt.toISOString(),
-      status: doc.status,
-    }));
+    // Format documents with Dojah verification data
+    const documents = targetUser.kycDocuments.map(doc => {
+      const dojahVerification = targetUser.dojahVerifications.find(
+        dv => dv.documentId === doc.id && dv.verificationType === 'DOCUMENT_ANALYSIS'
+      );
+      
+      return {
+        id: doc.id,
+        type: doc.type,
+        fileName: doc.fileName,
+        uploadedAt: doc.uploadedAt.toISOString(),
+        status: doc.status,
+        fileSize: doc.fileSize,
+        mimeType: doc.mimeType,
+        documentAnalysis: doc.documentAnalysis ? {
+          extractedText: doc.documentAnalysis.extractedText,
+          extractedData: doc.documentAnalysis.extractedData,
+          documentType: doc.documentAnalysis.documentType,
+          confidence: doc.documentAnalysis.confidence,
+          isReadable: doc.documentAnalysis.isReadable,
+          qualityScore: doc.documentAnalysis.qualityScore
+        } : null,
+        dojahVerification: dojahVerification ? {
+          id: dojahVerification.id,
+          status: dojahVerification.status,
+          confidence: dojahVerification.confidence,
+          matchResult: dojahVerification.matchResult,
+          extractedData: dojahVerification.extractedData,
+          governmentData: dojahVerification.governmentData,
+          errorMessage: dojahVerification.errorMessage,
+          createdAt: dojahVerification.createdAt.toISOString()
+        } : null
+      };
+    });
 
-    // Add selfie as a document if it exists
+    // Add selfie with Dojah verification data if it exists
     if (targetUser.selfieVerification) {
       const selfie = targetUser.selfieVerification;
+      const selfieDojahVerification = targetUser.dojahVerifications.find(
+        dv => dv.documentId === selfie.id && dv.verificationType === 'SELFIE_PHOTO_ID_MATCH'
+      );
+      
       documents.push({
         id: selfie.id,
         type: 'PASSPORT_PHOTOS',
         fileName: 'selfie.jpg',
         uploadedAt: selfie.capturedAt.toISOString(),
         status: selfie.status,
+        fileSize: selfie.fileSize,
+        mimeType: selfie.mimeType,
+        documentAnalysis: null,
+        dojahVerification: selfieDojahVerification ? {
+          id: selfieDojahVerification.id,
+          status: selfieDojahVerification.status,
+          confidence: selfieDojahVerification.confidence,
+          matchResult: selfieDojahVerification.matchResult,
+          extractedData: selfieDojahVerification.extractedData,
+          governmentData: selfieDojahVerification.governmentData,
+          errorMessage: selfieDojahVerification.errorMessage,
+          createdAt: selfieDojahVerification.createdAt.toISOString()
+        } : null
       });
     }
 
+    // Get government verification summary
+    const governmentVerifications = targetUser.dojahVerifications
+      .filter(dv => ['BVN_LOOKUP', 'NIN_LOOKUP', 'PASSPORT_LOOKUP', 'DRIVERS_LICENSE_LOOKUP'].includes(dv.verificationType))
+      .map(dv => ({
+        type: dv.verificationType,
+        status: dv.status,
+        isMatch: typeof dv.matchResult === 'object' && dv.matchResult !== null && 'isMatch' in dv.matchResult 
+          ? (dv.matchResult as { isMatch: boolean }).isMatch 
+          : false,
+        confidence: dv.confidence,
+        governmentData: dv.governmentData,
+        createdAt: dv.createdAt.toISOString()
+      }));
 
-
-    // Format response
+    // Format response with enhanced Dojah data
     const userDetails = {
       id: targetUser.id,
       firstName: targetUser.firstName,
@@ -121,22 +194,39 @@ export async function GET(
       accountType: targetUser.accountType,
       accountStatus: targetUser.accountStatus,
       createdAt: targetUser.createdAt.toISOString().split('T')[0],
-      verificationStatus: {
+      verificationStatus: targetUser.verificationStatus || {
         overallStatus,
         kycStatus,
         selfieStatus,
         progress,
       },
       documents,
+      dojahVerifications: {
+        total: targetUser.dojahVerifications.length,
+        governmentVerifications,
+        amlScreenings: targetUser.dojahVerifications.filter(dv => dv.verificationType === 'AML_SCREENING')
+      },
+      adminReviews: targetUser.adminReviews.map(review => ({
+        id: review.id,
+        verificationType: review.verificationType,
+        status: review.status,
+        reviewNotes: review.reviewNotes,
+        rejectionReason: review.rejectionReason,
+        allowReupload: review.allowReupload,
+        reviewer: review.reviewer,
+        createdAt: review.createdAt.toISOString()
+      })),
+      canReupload: targetUser.adminReviews.some(review => 
+        review.status === 'REJECTED' && review.allowReupload
+      )
     };
-
 
     // Log this access in audit trail
     await prisma.auditLog.create({
       data: {
         userId,
         action: 'USER_PROFILE_VIEW',
-        details: `Viewed user profile: ${targetUser.firstName} ${targetUser.lastName}`,
+        details: `Viewed user profile with Dojah verification data: ${targetUser.firstName} ${targetUser.lastName}`,
         targetId: targetUser.id,
         targetType: 'USER',
       },

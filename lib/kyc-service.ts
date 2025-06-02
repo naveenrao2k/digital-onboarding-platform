@@ -23,50 +23,25 @@ export const uploadKycDocument = async ({ userId, documentType, file }: KycDocum
         verificationStatus.kycStatus === VerificationStatusEnum.APPROVED) {
       throw new Error('Your documents have already been approved. No further changes allowed.');
     }
-    
-    // Check if this specific document type already exists for the user
-    const existingDocument = await prisma.kYCDocument.findFirst({
-      where: {
-        userId,
-        type: documentType,
-      },
-    });
 
-    // If it exists, delete it and its chunks first
-    if (existingDocument) {
-      await prisma.fileChunk.deleteMany({
-        where: { kycDocumentId: existingDocument.id },
-      });
-      
-      await prisma.kYCDocument.delete({
-        where: { id: existingDocument.id },
-      });
-    }
+    // Prepare file for storage
+    const { fileContent, chunks, isChunked } = await prepareFileForStorage(file);
 
-    // Process the file for storage
-    const {
-      fileContent,
-      fileName,
-      fileSize,
-      mimeType,
-      isChunked,
-      chunks,
-    } = await prepareFileForStorage(file);
-
-    // Create the KYC document
+    // Store the KYC document
     const kycDocument = await prisma.kYCDocument.create({
       data: {
         userId,
         type: documentType,
-        fileContent,
-        fileName,
-        fileSize,
-        mimeType,
+        fileContent: !isChunked ? fileContent : null,
+        fileSize: file.size,
+        mimeType: file.type,
+        fileName: file.name,
         isChunked,
+        status: VerificationStatusEnum.IN_PROGRESS,
       },
     });
 
-    // If the file is chunked, store the chunks
+    // Store chunks if the file was chunked
     if (isChunked && chunks.length > 0) {
       const chunkCreations = chunks.map((content, index) => {
         return prisma.fileChunk.create({
@@ -80,7 +55,18 @@ export const uploadKycDocument = async ({ userId, documentType, file }: KycDocum
       });
 
       await Promise.all(chunkCreations);
-    }    // Upsert the verification status - create if it doesn't exist, update if it does
+    }
+
+    // Trigger Dojah document verification
+    try {
+      const documentBase64 = await fileToBase64(file);
+      await triggerDojahDocumentVerification(userId, kycDocument.id, documentBase64, documentType);
+    } catch (dojahError) {
+      console.error('Dojah verification failed:', dojahError);
+      // Don't fail the upload if Dojah fails, just log it
+    }
+
+    // Upsert the verification status
     await prisma.verificationStatus.upsert({
       where: { userId },
       update: {
@@ -103,47 +89,56 @@ export const uploadKycDocument = async ({ userId, documentType, file }: KycDocum
   }
 };
 
+// Helper function to convert file to base64
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove data:image/jpeg;base64, prefix
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = error => reject(error);
+  });
+}
+
+// Trigger Dojah document verification
+async function triggerDojahDocumentVerification(
+  userId: string, 
+  documentId: string, 
+  documentBase64: string, 
+  documentType: string
+) {
+  try {
+    // Import dojahService dynamically to avoid circular dependencies
+    const { default: dojahService } = await import('./dojah-service');
+    await dojahService.verifyDocument(userId, documentId, documentBase64, documentType);
+  } catch (error) {
+    console.error('Failed to trigger Dojah verification:', error);
+    throw error;
+  }
+}
+
 export const uploadSelfieVerification = async (userId: string, file: File) => {
   try {
-    // Check if a selfie verification already exists
-    const existingSelfie = await prisma.selfieVerification.findUnique({
-      where: { userId },
-    });
+    const { fileContent, chunks, isChunked } = await prepareFileForStorage(file);
 
-    // If it exists, delete it and its chunks first
-    if (existingSelfie) {
-      await prisma.fileChunk.deleteMany({
-        where: { selfieVerificationId: existingSelfie.id },
-      });
-      
-      await prisma.selfieVerification.delete({
-        where: { id: existingSelfie.id },
-      });
-    }
-
-    // Process the file for storage
-    const {
-      fileContent,
-      fileName,
-      fileSize,
-      mimeType,
-      isChunked,
-      chunks,
-    } = await prepareFileForStorage(file);
-
-    // Create the selfie verification
+    // Store the selfie verification
     const selfie = await prisma.selfieVerification.create({
       data: {
         userId,
-        fileContent,
-        fileName,
-        fileSize,
-        mimeType,
+        fileContent: !isChunked ? fileContent : null,
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type,
         isChunked,
+        status: VerificationStatusEnum.IN_PROGRESS,
       },
     });
 
-    // If the file is chunked, store the chunks
+    // Store chunks if the file was chunked
     if (isChunked && chunks.length > 0) {
       const chunkCreations = chunks.map((content, index) => {
         return prisma.fileChunk.create({
@@ -157,7 +152,44 @@ export const uploadSelfieVerification = async (userId: string, file: File) => {
       });
 
       await Promise.all(chunkCreations);
-    }    // Upsert the verification status - create if it doesn't exist, update if it does
+    }
+
+    // Trigger Dojah selfie verification
+    try {
+      const selfieBase64 = await fileToBase64(file);
+      
+      // Get user's ID document for comparison if available
+      const idDocument = await prisma.kYCDocument.findFirst({
+        where: { 
+          userId, 
+          type: { in: ['ID_CARD', 'PASSPORT', 'DRIVERS_LICENSE'] },
+          status: VerificationStatusEnum.APPROVED
+        }
+      });
+
+      let idDocumentBase64: string | undefined;
+      if (idDocument) {
+        // Get the document content
+        if (idDocument.isChunked) {
+          const chunks = await prisma.fileChunk.findMany({
+            where: { kycDocumentId: idDocument.id },
+            orderBy: { chunkIndex: 'asc' }
+          });
+          const fullContent = chunks.map(chunk => chunk.content).join('');
+          idDocumentBase64 = fullContent;
+        } else {
+          idDocumentBase64 = idDocument.fileContent || undefined;
+        }
+      }
+
+      const { default: dojahService } = await import('./dojah-service');
+      await dojahService.verifySelfie(userId, selfie.id, selfieBase64, idDocumentBase64);
+    } catch (dojahError) {
+      console.error('Dojah selfie verification failed:', dojahError);
+      // Don't fail the upload if Dojah fails
+    }
+
+    // Upsert the verification status
     await prisma.verificationStatus.upsert({
       where: { userId },
       update: {

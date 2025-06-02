@@ -1,42 +1,33 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { 
-  Shield,
-  Bell,
-  ArrowLeft,
-  CheckCircle,
-  XCircle,
+  User, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Calendar, 
+  Shield, 
+  FileText, 
+  CheckCircle, 
+  XCircle, 
   Clock,
-  User,
-  FileText,
-  Camera,
-  Calendar,
-  MapPin,
-  Phone,
-  Mail,
+  AlertTriangle,
+  History,
   Download,
   Eye
 } from 'lucide-react';
-import { useAuth } from '@/lib/auth-context';
-
-interface UserDocument {
-  id: string;
-  type: string;
-  fileName: string;
-  uploadedAt: string;
-  status: string;
-}
+import DojahVerificationDisplay from '@/components/admin/DojahVerificationDisplay';
 
 interface UserDetails {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
-  phone: string | null;
-  address: string | null;
-  dateOfBirth: string | null;
+  phone?: string;
+  address?: string;
+  dateOfBirth?: string;
   accountType: string;
   accountStatus: string;
   createdAt: string;
@@ -46,541 +37,436 @@ interface UserDetails {
     selfieStatus: string;
     progress: number;
   };
-  documents: UserDocument[];
+  documents: Array<{
+    id: string;
+    type: string;
+    fileName: string;
+    uploadedAt: string;
+    status: string;
+    fileSize: number;
+    mimeType: string;
+    documentAnalysis?: any;
+    dojahVerification?: any;
+  }>;
+  dojahVerifications: {
+    total: number;
+    governmentVerifications: Array<any>;
+    amlScreenings: Array<any>;
+  };
+  adminReviews: Array<{
+    id: string;
+    verificationType: string;
+    status: string;
+    reviewNotes?: string;
+    rejectionReason?: string;
+    allowReupload: boolean;
+    reviewer: {
+      firstName: string;
+      lastName: string;
+    };
+    createdAt: string;
+  }>;
+  canReupload: boolean;
 }
 
-const UserDetailsPage = () => {
+export default function UserDetailsPage() {
   const params = useParams();
-  const router = useRouter();
-  const { user, loading } = useAuth();
-  const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
   const userId = params.id as string;
   
-  // Check if admin is authenticated
+  const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        // router.push('/signin');
-      } else if (user.role !== 'ADMIN') {
-        // Redirect non-admin users
-        // router.push('/user/dashboard');
-      } else {
-        // Fetch user details
-        fetchUserDetails();
-      }
-    }
-  }, [user, loading, router, userId]);
+    fetchUserDetails();
+  }, [userId]);
 
   const fetchUserDetails = async () => {
-    setIsLoading(true);
-    setError('');
-
     try {
-      // Fetch user details from API
+      setLoading(true);
       const response = await fetch(`/api/admin/users/${userId}`);
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch user details');
+        throw new Error('Failed to fetch user details');
       }
       
       const data = await response.json();
-      setUserDetails(data || {
-        id: userId,
-        firstName: 'John',
-        lastName: 'Smith',
-        email: 'john.smith@example.com',
-        phone: '+1 (555) 123-4567',
-        address: '123 Main St, New York, NY 10001',
-        dateOfBirth: '1990-05-15',
-        accountType: 'INDIVIDUAL',
-        accountStatus: 'PENDING',
-        createdAt: '2025-05-20',
-        verificationStatus: {
-          overallStatus: 'IN_PROGRESS',
-          kycStatus: 'APPROVED',
-          selfieStatus: 'PENDING',
-          progress: 65
-        },
-        documents: [
-          {
-            id: 'doc_1',
-            type: 'Passport',
-            fileName: 'passport.jpg',
-            uploadedAt: '2025-05-22',
-            status: 'APPROVED'
-          },
-          {
-            id: 'doc_2',
-            type: 'Utility Bill',
-            fileName: 'utility_bill.pdf',
-            uploadedAt: '2025-05-22',
-            status: 'PENDING'
-          },
-          {
-            id: 'doc_3',
-            type: 'Selfie Verification',
-            fileName: 'selfie.jpg',
-            uploadedAt: '2025-05-23',
-            status: 'PENDING'
-          }
-        ]
-      });
-    } catch (err) {
-      console.error('Error fetching user details:', err);
-      setError('Failed to load user details. Please try again.');
+      setUserDetails(data);
+    } catch (error: any) {
+      setError(error.message);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleApproveDocument = async (documentId: string) => {
+  const handleReview = async (
+    documentId: string, 
+    status: string, 
+    notes: string, 
+    rejectionReason?: string, 
+    allowReupload?: boolean
+  ) => {
     try {
-      // In a real implementation, you would call an API endpoint
-      console.log('Approving document:', documentId);
+      setIsReviewing(true);
       
-      // Update the document status locally
-      if (userDetails) {
-        const updatedDocuments = userDetails.documents.map(doc => {
-          if (doc.id === documentId) {
-            return { ...doc, status: 'APPROVED' };
-          }
-          return doc;
-        });
-        
-        setUserDetails({
-          ...userDetails,
-          documents: updatedDocuments
-        });
-      }
+      const document = userDetails?.documents.find(d => d.id === documentId);
+      const verificationType = document?.type === 'PASSPORT_PHOTOS' ? 
+        'SELFIE_VERIFICATION' : 'DOCUMENT_VERIFICATION';
       
-      // Show success notification (in a real app)
-    } catch (err) {
-      console.error('Error approving document:', err);
-      // Show error notification
-    }
-  };
-
-  const handleRejectDocument = async (documentId: string) => {
-    try {
-      // In a real implementation, you would call an API endpoint
-      console.log('Rejecting document:', documentId);
+      const dojahVerificationId = document?.dojahVerification?.id;
       
-      // Update the document status locally
-      if (userDetails) {
-        const updatedDocuments = userDetails.documents.map(doc => {
-          if (doc.id === documentId) {
-            return { ...doc, status: 'REJECTED' };
-          }
-          return doc;
-        });
-        
-        setUserDetails({
-          ...userDetails,
-          documents: updatedDocuments
-        });
-      }
-      
-      // Show success notification (in a real app)
-    } catch (err) {
-      console.error('Error rejecting document:', err);
-      // Show error notification
-    }
-  };
-
-  const handleApproveAccount = async () => {
-    try {
-      if (!userDetails) return;
-      
-      // In a real implementation, you would call an API endpoint
-      console.log('Approving account:', userDetails.id);
-      
-      // Update the account status locally
-      setUserDetails({
-        ...userDetails,
-        accountStatus: 'APPROVED',
-        verificationStatus: {
-          ...userDetails.verificationStatus,
-          overallStatus: 'APPROVED',
-          selfieStatus: 'APPROVED',
-          progress: 100
-        }
+      const response = await fetch('/api/admin/review', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: userDetails?.id,
+          documentId,
+          verificationType,
+          dojahVerificationId,
+          status,
+          reviewNotes: notes,
+          rejectionReason,
+          allowReupload
+        }),
       });
-      
-      // Show success notification (in a real app)
-    } catch (err) {
-      console.error('Error approving account:', err);
-      // Show error notification
-    }
-  };
 
-  const handleRejectAccount = async () => {
-    try {
-      if (!userDetails) return;
-      
-      // In a real implementation, you would call an API endpoint
-      console.log('Rejecting account:', userDetails.id);
-      
-      // Update the account status locally
-      setUserDetails({
-        ...userDetails,
-        accountStatus: 'REJECTED',
-        verificationStatus: {
-          ...userDetails.verificationStatus,
-          overallStatus: 'REJECTED'
-        }
-      });
-      
-      // Show success notification (in a real app)
-    } catch (err) {
-      console.error('Error rejecting account:', err);
-      // Show error notification
-    }
-  };
-
-  const handleGoBack = () => {
-    router.push('/admin/dashboard');
-  };
-
-  // Download document handler
-  const handleDownloadDocument = async (documentId: string) => {
-    try {
-      // Find the document by id
-      const document = userDetails?.documents.find(doc => doc.id === documentId);
-      if (!document) {
-        throw new Error('Document not found');
+      if (!response.ok) {
+        throw new Error('Failed to submit review');
       }
-      // In a real implementation, you would fetch the file from the server
-      // For now, just show an alert or log
-      alert(`Download for document "${document.fileName}" is not implemented.`);
-      // Example: window.open(`/api/admin/users/${userId}/documents/${documentId}/download`, '_blank');
-    } catch (err) {
-      console.error('Error downloading document:', err);
+
+      // Refresh user details to show updated status
+      await fetchUserDetails();
+      
+      // Show success message (you might want to add a toast notification here)
+      alert('Review submitted successfully!');
+    } catch (error: any) {
+      alert(`Error submitting review: ${error.message}`);
+    } finally {
+      setIsReviewing(false);
     }
   };
 
-  // Handle loading state
-  if (loading || isLoading) {
+  const getStatusIcon = (status: string) => {
+    switch (status.toUpperCase()) {
+      case 'APPROVED':
+        return <CheckCircle className="h-5 w-5 text-green-500" />;
+      case 'REJECTED':
+        return <XCircle className="h-5 w-5 text-red-500" />;
+      case 'PENDING':
+        return <Clock className="h-5 w-5 text-yellow-500" />;
+      case 'IN_PROGRESS':
+        return <AlertTriangle className="h-5 w-5 text-blue-500" />;
+      default:
+        return <Clock className="h-5 w-5 text-gray-500" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status.toUpperCase()) {
+      case 'APPROVED':
+        return 'bg-green-100 text-green-800';
+      case 'REJECTED':
+        return 'bg-red-100 text-red-800';
+      case 'PENDING':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'IN_PROGRESS':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const downloadDocument = async (documentId: string, fileName: string) => {
+    try {
+      const response = await fetch(`/api/admin/documents/${documentId}/download`);
+      if (!response.ok) throw new Error('Download failed');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      alert('Failed to download document');
+    }
+  };
+
+  if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
-        <p className="ml-2 text-lg">Loading user details...</p>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  // Handle error state
   if (error || !userDetails) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <XCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Error Loading User</h2>
-          <p className="text-gray-600 mb-6">{error || 'Could not find user details'}</p>
-          <div className="flex justify-center space-x-4">
-            <button
-              onClick={() => fetchUserDetails()}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
-            >
-              Try Again
-            </button>
-            <button
-              onClick={handleGoBack}
-              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50"
-            >
-              Go Back
-            </button>
-          </div>
-        </div>
+      <div className="text-center py-12">
+        <div className="text-red-600 text-lg">{error || 'User not found'}</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 py-4">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center">
-            <Shield className="h-8 w-8 text-blue-600 mr-2" />
-            <span className="text-xl font-bold text-gray-900">KYC Admin</span>
-          </div>
-        </div>
-      </header>
-      
-      {/* Main content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Navigation */}
-        <div className="mb-6">
-          <button
-            onClick={handleGoBack}
-            className="flex items-center text-blue-600 hover:text-blue-800"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            <span className="font-medium">Back to Dashboard</span>
-          </button>
-        </div>
-        
-        {/* User details header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
-          <div className="flex items-center mb-4 md:mb-0">
-            <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-800 font-bold text-xl mr-4">
-              {userDetails.firstName.charAt(0)}{userDetails.lastName.charAt(0)}
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="bg-blue-100 p-3 rounded-full">
+              <User className="h-8 w-8 text-blue-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">{userDetails.firstName} {userDetails.lastName}</h1>
-              <p className="text-gray-600">User ID: {userDetails.id}</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {userDetails.firstName} {userDetails.lastName}
+              </h1>
+              <p className="text-gray-600">{userDetails.email}</p>
             </div>
           </div>
           
-          <div className="flex space-x-3">
-            {userDetails.accountStatus === 'PENDING' && (
-              <>
-                <button
-                  onClick={handleApproveAccount}
-                  className="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700"
-                >
-                  Approve Account
-                </button>
-                <button
-                  onClick={handleRejectAccount}
-                  className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700"
-                >
-                  Reject Account
-                </button>
-              </>
-            )}
-            
-            {userDetails.accountStatus === 'APPROVED' && (
-              <div className="px-4 py-2 bg-green-100 text-green-800 font-medium rounded-lg flex items-center">
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Account Approved
-              </div>
-            )}
-            
-            {userDetails.accountStatus === 'REJECTED' && (
-              <div className="px-4 py-2 bg-red-100 text-red-800 font-medium rounded-lg flex items-center">
-                <XCircle className="h-4 w-4 mr-2" />
-                Account Rejected
-              </div>
-            )}
+          <div className="flex items-center space-x-2">
+            {getStatusIcon(userDetails.verificationStatus.overallStatus)}
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(userDetails.verificationStatus.overallStatus)}`}>
+              {userDetails.verificationStatus.overallStatus}
+            </span>
           </div>
         </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main content area */}
+      </div>
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="-mb-px flex space-x-8">
+          {[
+            { id: 'overview', label: 'Overview', icon: User },
+            { id: 'documents', label: 'Documents & Verification', icon: FileText },
+            { id: 'history', label: 'Review History', icon: History }
+          ].map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={`group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === id
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Icon className="h-5 w-5 mr-2" />
+              {label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Personal Information */}
           <div className="lg:col-span-2">
-            {/* User information */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-8">
-              <div className="p-6">
-                <h2 className="text-lg font-bold mb-4">User Information</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="flex items-start">
-                    <Mail className="h-5 w-5 text-gray-500 mt-0.5 mr-3" />
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Email Address</p>
-                      <p className="font-medium">{userDetails.email}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start">
-                    <Phone className="h-5 w-5 text-gray-500 mt-0.5 mr-3" />
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Phone Number</p>
-                      <p className="font-medium">{userDetails.phone || "Not provided"}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start">
-                    <Calendar className="h-5 w-5 text-gray-500 mt-0.5 mr-3" />
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Date of Birth</p>
-                      <p className="font-medium">{userDetails.dateOfBirth || "Not provided"}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start">
-                    <User className="h-5 w-5 text-gray-500 mt-0.5 mr-3" />
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Account Type</p>
-                      <p className="font-medium">{userDetails.accountType}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start md:col-span-2">
-                    <MapPin className="h-5 w-5 text-gray-500 mt-0.5 mr-3" />
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Address</p>
-                      <p className="font-medium">{userDetails.address || "Address not provided"}</p>
-                    </div>
+            <div className="bg-white rounded-lg border p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center space-x-3">
+                  <Mail className="h-5 w-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-600">Email</p>
+                    <p className="font-medium">{userDetails.email}</p>
                   </div>
                 </div>
-              </div>
-            </div>
-            
-            {/* Documents */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div className="p-6">
-                <h2 className="text-lg font-bold mb-4">Submitted Documents</h2>
-                <div className="space-y-4">
-                  {userDetails.documents.map((document) => (
-                    <div key={document.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-start">
-                          <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center mr-3 flex-shrink-0">
-                            {document.type.includes('Selfie') ? (
-                              <Camera className="h-5 w-5 text-blue-600" />
-                            ) : (
-                              <FileText className="h-5 w-5 text-blue-600" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="font-medium">{document.type}</p>
-                            <p className="text-sm text-gray-500">Filename: {document.fileName}</p>
-                            <p className="text-sm text-gray-500">Uploaded: {document.uploadedAt}</p>
-                          </div>
-                        </div>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          document.status === 'APPROVED' ? 'bg-green-100 text-green-800' : 
-                          document.status === 'REJECTED' ? 'bg-red-100 text-red-800' : 
-                          'bg-amber-100 text-amber-800'
-                        }`}>
-                          {document.status}
-                        </span>
-                      </div>
-                      
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <button 
-                          onClick={() => handleDownloadDocument(document.id)}
-                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-medium rounded flex items-center"
-                        >
-                          <Download className="h-3.5 w-3.5 mr-1.5" />
-                          Download
-                        </button>
-                        <button className="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs font-medium rounded flex items-center">
-                          <Eye className="h-3.5 w-3.5 mr-1.5" />
-                          Preview
-                        </button>
-                        
-                        {document.status === 'PENDING' && (
-                          <>
-                            <button 
-                              onClick={() => handleApproveDocument(document.id)}
-                              className="px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-800 text-xs font-medium rounded flex items-center"
-                            >
-                              <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                              Approve
-                            </button>
-                            <button 
-                              onClick={() => handleRejectDocument(document.id)}
-                              className="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-medium rounded flex items-center"
-                            >
-                              <XCircle className="h-3.5 w-3.5 mr-1.5" />
-                              Reject
-                            </button>
-                          </>
-                        )}
-                      </div>
+                
+                {userDetails.phone && (
+                  <div className="flex items-center space-x-3">
+                    <Phone className="h-5 w-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-600">Phone</p>
+                      <p className="font-medium">{userDetails.phone}</p>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
+                
+                {userDetails.address && (
+                  <div className="flex items-center space-x-3">
+                    <MapPin className="h-5 w-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-600">Address</p>
+                      <p className="font-medium">{userDetails.address}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {userDetails.dateOfBirth && (
+                  <div className="flex items-center space-x-3">
+                    <Calendar className="h-5 w-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-600">Date of Birth</p>
+                      <p className="font-medium">{userDetails.dateOfBirth}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-          
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            {/* Verification Status */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6">
-              <div className="p-6">
-                <h3 className="font-bold mb-4">Verification Status</h3>
-                
-                <div className="mb-4">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Overall Progress</span>
-                    <span className="font-medium text-blue-600">{userDetails.verificationStatus.progress}%</span>
-                  </div>
-                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-blue-600 rounded-full"
-                      style={{ width: `${userDetails.verificationStatus.progress}%` }}
-                    ></div>
-                  </div>
+
+          {/* Verification Summary */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg border p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Verification Summary</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">Overall Progress</span>
+                  <span className="font-medium">{userDetails.verificationStatus.progress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full"
+                    style={{ width: `${userDetails.verificationStatus.progress}%` }}
+                  ></div>
                 </div>
                 
-                <div className="space-y-4 text-sm">
-                  <div className="flex items-start">
-                    {userDetails.verificationStatus.kycStatus === 'APPROVED' ? (
-                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 mr-2 flex-shrink-0" />
-                    ) : (
-                      <Clock className="h-4 w-4 text-amber-500 mt-0.5 mr-2 flex-shrink-0" />
-                    )}
-                    <div>
-                      <p className="font-medium">KYC Documents</p>
-                      <p className="text-gray-500 text-xs">
-                        {userDetails.verificationStatus.kycStatus === 'APPROVED' ? 'Verified' : 'Under review'}
-                      </p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">KYC Documents</span>
+                    <div className="flex items-center space-x-1">
+                      {getStatusIcon(userDetails.verificationStatus.kycStatus)}
+                      <span className="text-sm">{userDetails.verificationStatus.kycStatus}</span>
                     </div>
                   </div>
                   
-                  <div className="flex items-start">
-                    {userDetails.verificationStatus.selfieStatus === 'APPROVED' ? (
-                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 mr-2 flex-shrink-0" />
-                    ) : (
-                      <Clock className="h-4 w-4 text-amber-500 mt-0.5 mr-2 flex-shrink-0" />
-                    )}
-                    <div>
-                      <p className="font-medium">Selfie Verification</p>
-                      <p className="text-gray-500 text-xs">
-                        {userDetails.verificationStatus.selfieStatus === 'APPROVED' ? 'Verified' : 'Under review'}
-                      </p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Selfie Verification</span>
+                    <div className="flex items-center space-x-1">
+                      {getStatusIcon(userDetails.verificationStatus.selfieStatus)}
+                      <span className="text-sm">{userDetails.verificationStatus.selfieStatus}</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            
-            {/* Account Status */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div className="p-6">
-                <h3 className="font-bold mb-4">Account Details</h3>
-                
-                <div className="space-y-4 text-sm">
-                  <div className="flex items-start">
-                    <Calendar className="h-4 w-4 text-gray-500 mt-0.5 mr-2 flex-shrink-0" />
-                    <div>
-                      <p className="font-medium">Registration Date</p>
-                      <p className="text-gray-500">{userDetails.createdAt}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start">
-                    <div className={`h-4 w-4 rounded-full mt-0.5 mr-2 flex-shrink-0 ${
-                      userDetails.accountStatus === 'APPROVED' ? 'bg-green-500' :
-                      userDetails.accountStatus === 'REJECTED' ? 'bg-red-500' :
-                      'bg-amber-500'
-                    }`}></div>
-                    <div>
-                      <p className="font-medium">Account Status</p>
-                      <p className={`${
-                        userDetails.accountStatus === 'APPROVED' ? 'text-green-600' :
-                        userDetails.accountStatus === 'REJECTED' ? 'text-red-600' :
-                        'text-amber-600'
-                      }`}>
-                        {userDetails.accountStatus}
-                      </p>
-                    </div>
-                  </div>
+
+            {/* Dojah Summary */}
+            <div className="bg-white rounded-lg border p-6">
+              <div className="flex items-center space-x-2 mb-4">
+                <Shield className="h-5 w-5 text-blue-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Dojah Verification</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Total Verifications</span>
+                  <span className="font-medium">{userDetails.dojahVerifications.total}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Government Lookups</span>
+                  <span className="font-medium">{userDetails.dojahVerifications.governmentVerifications.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">AML Screenings</span>
+                  <span className="font-medium">{userDetails.dojahVerifications.amlScreenings.length}</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </main>
+      )}
+
+      {activeTab === 'documents' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">Documents & Dojah Verification</h2>
+            <div className="text-sm text-gray-600">
+              {userDetails.documents.length} document{userDetails.documents.length !== 1 ? 's' : ''} uploaded
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {userDetails.documents.map((document) => (
+              <DojahVerificationDisplay
+                key={document.id}
+                document={document}
+                governmentVerifications={userDetails.dojahVerifications.governmentVerifications}
+                onReview={handleReview}
+                isReviewing={isReviewing}
+              />
+            ))}
+          </div>
+
+          {userDetails.documents.length === 0 && (
+            <div className="text-center py-12">
+              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No documents uploaded yet</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'history' && (
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold text-gray-900">Review History</h2>
+
+          <div className="space-y-4">
+            {userDetails.adminReviews.map((review) => (
+              <div key={review.id} className="bg-white rounded-lg border p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className={`p-2 rounded-full ${getStatusColor(review.status)}`}>
+                      {getStatusIcon(review.status)}
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-gray-900">
+                        {review.verificationType.replace(/_/g, ' ')} Review
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        by {review.reviewer.firstName} {review.reviewer.lastName}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(review.status)}`}>
+                      {review.status}
+                    </span>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(review.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+
+                {review.reviewNotes && (
+                  <div className="mb-3">
+                    <p className="text-sm text-gray-600 font-medium">Review Notes:</p>
+                    <p className="text-sm text-gray-800">{review.reviewNotes}</p>
+                  </div>
+                )}
+
+                {review.rejectionReason && (
+                  <div className="mb-3">
+                    <p className="text-sm text-gray-600 font-medium">Rejection Reason:</p>
+                    <p className="text-sm text-red-800">{review.rejectionReason}</p>
+                  </div>
+                )}
+
+                {review.allowReupload && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                    <p className="text-sm text-yellow-800">✓ User allowed to reupload document</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {userDetails.adminReviews.length === 0 && (
+            <div className="text-center py-12">
+              <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No review history available</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
-};
-
-export default UserDetailsPage;
+}

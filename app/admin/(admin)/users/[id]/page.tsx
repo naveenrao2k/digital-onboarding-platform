@@ -72,7 +72,7 @@ interface UserDetails {
 
 export default function UserDetailsPage() {
   const params = useParams();
-  const userId = params.id as string;
+  const userId = params?.id as string;
   
   const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
   const [loading, setLoading] = useState(true);

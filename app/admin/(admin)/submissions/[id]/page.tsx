@@ -35,7 +35,7 @@ interface AuditLogEntry {
 const AdminSubmissionDetailPage = () => {
   const router = useRouter();
   const params = useParams();
-  const submissionId = params.id as string;
+  const submissionId = params?.id as string;
 
   const [submission, setSubmission] = useState<SubmissionDetail | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);

@@ -19,6 +19,18 @@ export interface AdminSettings {
   confirmPassword?: string;
 }
 
+// Default admin settings
+export const defaultAdminSettings = {
+  twoFactorEnabled: false,
+  emailNotifications: true,
+  browserNotifications: true,
+  notifyOnSubmissions: true,
+  notifyOnApprovals: true,
+  theme: 'system',
+  compactMode: false,
+  fontSize: 'medium'
+};
+
 /**
  * Fetches the admin user profile and settings
  */
@@ -71,3 +83,76 @@ export const updateAdminSettings = async (settings: Partial<AdminSettings>): Pro
     throw error;
   }
 };
+
+// Server-side functions to work with SystemSettings model
+import { prisma } from '@/lib/prisma';
+
+/**
+ * Gets admin settings from SystemSettings table
+ */
+export async function getSystemAdminSettings(userId: string): Promise<any> {
+  try {
+    // Try to get from system settings with user-specific key
+    const settingsRecord = await prisma.systemSettings.findUnique({
+      where: { key: `admin_settings:${userId}` }
+    });
+    
+    if (settingsRecord) {
+      return JSON.parse(settingsRecord.value);
+    }
+    
+    // Create default settings if not found
+    await prisma.systemSettings.create({
+      data: {
+        key: `admin_settings:${userId}`,
+        value: JSON.stringify(defaultAdminSettings),
+        description: `Admin settings for user ${userId}`
+      }
+    });
+    
+    return defaultAdminSettings;
+  } catch (error) {
+    console.error('Error getting admin settings:', error);
+    return defaultAdminSettings;
+  }
+}
+
+/**
+ * Updates admin settings in SystemSettings table
+ */
+export async function updateSystemAdminSettings(
+  userId: string, 
+  settings: any
+): Promise<any> {
+  try {
+    // Get current settings
+    const currentSettings = await getSystemAdminSettings(userId);
+    
+    // Merge with new settings
+    const updatedSettings = {
+      ...currentSettings,
+      ...settings
+    };
+    
+    // Update in database
+    await prisma.systemSettings.upsert({
+      where: { key: `admin_settings:${userId}` },
+      update: {
+        value: JSON.stringify(updatedSettings),
+        updatedBy: userId,
+        updatedAt: new Date()
+      },
+      create: {
+        key: `admin_settings:${userId}`,
+        value: JSON.stringify(updatedSettings),
+        description: `Admin settings for user ${userId}`,
+        updatedBy: userId
+      }
+    });
+    
+    return updatedSettings;
+  } catch (error) {
+    console.error('Error updating admin settings:', error);
+    throw error;
+  }
+}

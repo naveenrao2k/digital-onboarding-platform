@@ -1,21 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { cookies } from 'next/headers';
+import { getAdminSession } from '@/lib/admin-auth';
+import { getSystemAdminSettings, updateSystemAdminSettings } from '@/lib/settings-service';
 
 // GET handler - fetch current admin settings
 export async function GET(req: NextRequest) {
   try {
     // Get current session to verify admin access
-    const session = await getServerSession(authOptions);
+    const session = await getAdminSession();
     
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
     const userId = session.user.id;
     
-    // Get admin settings from DB
+    // Get user data from DB
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -24,13 +25,15 @@ export async function GET(req: NextRequest) {
         lastName: true,
         email: true,
         role: true,
-        adminSettings: true,
       }
     });
     
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+    
+    // Get admin settings from SystemSettings table
+    const adminSettings = await getSystemAdminSettings(userId);
     
     // Return user data with admin settings
     return NextResponse.json({
@@ -39,16 +42,7 @@ export async function GET(req: NextRequest) {
       lastName: user.lastName,
       email: user.email,
       role: user.role,
-      settings: user.adminSettings || {
-        twoFactorEnabled: false,
-        emailNotifications: true,
-        browserNotifications: true,
-        notifyOnSubmissions: true,
-        notifyOnApprovals: true,
-        theme: 'system',
-        compactMode: false,
-        fontSize: 'medium'
-      }
+      settings: adminSettings
     });
     
   } catch (error) {
@@ -61,9 +55,9 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     // Get current session to verify admin access
-    const session = await getServerSession(authOptions);
+    const session = await getAdminSession();
     
-    if (!session || session.user.role !== 'ADMIN') {
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
@@ -96,26 +90,12 @@ export async function PUT(req: NextRequest) {
       if (email) updateData.email = email;
     }
     
-    // Handle admin settings updates
-    if (twoFactorEnabled !== undefined ||
-        emailNotifications !== undefined ||
-        browserNotifications !== undefined ||
-        notifyOnSubmissions !== undefined ||
-        notifyOnApprovals !== undefined ||
-        theme !== undefined ||
-        compactMode !== undefined ||
-        fontSize !== undefined) {
-      
-      updateData.adminSettings = {
-        twoFactorEnabled: twoFactorEnabled,
-        emailNotifications: emailNotifications,
-        browserNotifications: browserNotifications,
-        notifyOnSubmissions: notifyOnSubmissions,
-        notifyOnApprovals: notifyOnApprovals,
-        theme: theme,
-        compactMode: compactMode,
-        fontSize: fontSize
-      };
+    // Handle user profile updates only
+    if (firstName || lastName || email) {
+      // Update basic profile data
+      if (firstName) updateData.firstName = firstName;
+      if (lastName) updateData.lastName = lastName;
+      if (email) updateData.email = email;
     }
     
     // Handle password update (would implement proper password hashing in real app)
@@ -125,19 +105,73 @@ export async function PUT(req: NextRequest) {
       updateData.password = newPassword; // Using hashed password in real implementation
     }
     
-    // Update the user in DB
-    const updatedUser = await prisma.user.update({
+    // Get current user data
+    let updatedUser = await prisma.user.findUnique({
       where: { id: userId },
-      data: updateData,
       select: {
         id: true,
         firstName: true,
         lastName: true,
         email: true,
         role: true,
-        adminSettings: true,
       }
     });
+    
+    // Ensure user exists
+    if (!updatedUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    
+    // Update the user in DB if there are profile changes
+    if (Object.keys(updateData).length > 0) {
+      updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: updateData,
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+        }
+      });
+    }
+    
+    // Separately handle settings updates in SystemSettings table
+    let updatedSettings = null;
+    if (twoFactorEnabled !== undefined ||
+        emailNotifications !== undefined ||
+        browserNotifications !== undefined ||
+        notifyOnSubmissions !== undefined ||
+        notifyOnApprovals !== undefined ||
+        theme !== undefined ||
+        compactMode !== undefined ||
+        fontSize !== undefined) {
+      
+      const settingsUpdate: Record<string, any> = {
+        twoFactorEnabled,
+        emailNotifications,
+        browserNotifications,
+        notifyOnSubmissions,
+        notifyOnApprovals,
+        theme,
+        compactMode,
+        fontSize
+      };
+      
+      // Filter out undefined values
+      Object.keys(settingsUpdate).forEach(key => {
+        if (settingsUpdate[key] === undefined) {
+          delete settingsUpdate[key];
+        }
+      });
+      
+      // Update settings in SystemSettings table
+      updatedSettings = await updateSystemAdminSettings(userId, settingsUpdate);
+    } else {
+      // Get current settings if no update
+      updatedSettings = await getSystemAdminSettings(userId);
+    }
     
     return NextResponse.json({
       message: 'Settings updated successfully',
@@ -147,7 +181,7 @@ export async function PUT(req: NextRequest) {
         lastName: updatedUser.lastName,
         email: updatedUser.email,
         role: updatedUser.role,
-        settings: updatedUser.adminSettings
+        settings: updatedSettings
       }
     });
     

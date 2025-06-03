@@ -417,7 +417,7 @@ class DojahService {
     console.log('Selfie verification full response:', JSON.stringify(response));
     
     // Handle potential different response formats
-    if (!response.entity && !response.data) {
+    if (!response.entity) {
       console.error('Unexpected response format:', response);
       return {
         isMatch: false,
@@ -425,8 +425,8 @@ class DojahService {
       };
     }
 
-    // Use either entity or data depending on API response structure
-    const responseData = response.entity || response.data || {};
+    // Use entity from the response structure
+    const responseData = response.entity || {};
     
     return {
       isMatch: responseData.face_match || false,

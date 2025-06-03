@@ -139,6 +139,7 @@ class DojahService {
     const url = new URL(endpoint, this.config.baseUrl);
 
     try {
+      console.log(`Making POST request to ${url.toString()}`);
       const response = await fetch(url.toString(), {
         method: 'POST',
         headers: {
@@ -149,11 +150,30 @@ class DojahService {
         body: JSON.stringify(body),
       });
 
-      const data = await response.json();
-      console.log('Dojah API POST response:', data);
-
+      // Check if the response is ok before trying to parse JSON
       if (!response.ok) {
-        throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        } else {
+          // Handle non-JSON responses (like HTML error pages)
+          const text = await response.text();
+          console.error('Non-JSON error response:', text.substring(0, 200)); // Log first 200 chars
+          throw new Error(`HTTP ${response.status}: ${response.statusText} (non-JSON response)`);
+        }
+      }
+
+      // Only try to parse JSON if the response is successful
+      let data;
+      try {
+        data = await response.json();
+        console.log('Dojah API POST response:', data);
+      } catch (jsonError) {
+        console.error('Failed to parse response as JSON:', jsonError);
+        const text = await response.text();
+        console.error('Response text:', text.substring(0, 200)); // Log first 200 chars
+        throw new Error('Invalid JSON response from API');
       }
 
       return data;
@@ -342,29 +362,80 @@ class DojahService {
   }
 
   // Selfie Photo ID Match
-  async verifySelfieWithPhotoId(selfieBase64: string, idPhotoBase64: string): Promise<SelfieVerificationResult> {
-    const endpoint = '/api/v1/kyc/selfie_photo_id';
+  async verifySelfieWithPhotoId(selfieBase64: string, idPhotoBase64?: string, userId?: string): Promise<SelfieVerificationResult> {
+    // Using the correct endpoint from the documentation
+    const endpoint = '/api/v1/kyc/photoid/verify';
+    
+    // If idPhotoBase64 is not provided but userId is, try to find a passport document
+    if (!idPhotoBase64 && userId) {
+      try {
+        const passportDocument = await prisma.kYCDocument.findFirst({
+          where: {
+            userId,
+            type: 'PASSPORT', // Specifically look for passport documents
+            // Not checking verification status anymore
+          }
+        });
 
+        if (passportDocument) {
+          // Get base64 from S3
+          idPhotoBase64 = await this.getBase64FromS3OrFallback(passportDocument);
+          console.log(`Retrieved passport document for user ${userId}`);
+        } else {
+          // Throw an error if no passport document is found
+          throw new Error('Passport document is required for selfie verification but no passport was found for this user');
+        }
+      } catch (error) {
+        console.error('Error with passport document:', error);
+        throw error; // Re-throw the error to be handled by the caller
+      }
+    }
+    
+    // Verify idPhotoBase64 is available
+    if (!idPhotoBase64) {
+      const error = 'No ID photo provided and none could be retrieved from database';
+      console.error(error);
+      throw new Error(error);
+    }
+
+    // Process base64 strings to ensure they don't include data:image prefixes
+    const processedSelfieBase64 = selfieBase64.includes('base64,') 
+      ? selfieBase64.split('base64,')[1] 
+      : selfieBase64;
+      
+    const processedIdPhotoBase64 = idPhotoBase64.includes('base64,') 
+      ? idPhotoBase64.split('base64,')[1] 
+      : idPhotoBase64;
+
+    // Using the correct parameter names from the documentation
     const response = await this.makePostRequest(endpoint, {
-      selfie_image: selfieBase64,
-      photo_id_image: idPhotoBase64
+      selfie_image: processedSelfieBase64,
+      photoid_image: processedIdPhotoBase64  // Note: No underscore between 'photo' and 'id'
     });
 
-    if (!response.entity) {
+    // Log the full response for debugging
+    console.log('Selfie verification full response:', JSON.stringify(response));
+    
+    // Handle potential different response formats
+    if (!response.entity && !response.data) {
+      console.error('Unexpected response format:', response);
       return {
         isMatch: false,
         confidence: 0
       };
     }
 
+    // Use either entity or data depending on API response structure
+    const responseData = response.entity || response.data || {};
+    
     return {
-      isMatch: response.entity.face_match || false,
-      confidence: response.entity.confidence || 0,
-      livenessScore: response.entity.liveness_score,
+      isMatch: responseData.face_match || false,
+      confidence: responseData.confidence || 0,
+      livenessScore: responseData.liveness_score,
       qualityChecks: {
-        faceDetected: response.entity.face_detected || false,
-        imageQuality: response.entity.image_quality || 'unknown',
-        lighting: response.entity.lighting || 'unknown'
+        faceDetected: responseData.face_detected || false,
+        imageQuality: responseData.image_quality || 'unknown',
+        lighting: responseData.lighting || 'unknown'
       }
     };
   }
@@ -567,18 +638,24 @@ class DojahService {
         selfieBase64 = base64Content;
       }
 
-      // If idDocumentBase64 is not provided but userId is, try to find a suitable ID document
+      // If idDocumentBase64 is not provided but userId is, try to find a passport document
+      // We now only look for passport documents and don't check verification status
       if (!idDocumentBase64 && userId) {
-        const idDocument = await prisma.kYCDocument.findFirst({
+        // Look for a passport document without status check
+        const passportDocument = await prisma.kYCDocument.findFirst({
           where: {
             userId,
-            type: { in: ['ID_CARD', 'PASSPORT', 'DRIVERS_LICENSE'] },
-            status: VerificationStatusEnum.APPROVED
+            type: 'PASSPORT', // Only look for passport documents
+            // No status verification check
           }
         });
-
-        if (idDocument) {
-          idDocumentBase64 = await this.getBase64FromS3OrFallback(idDocument);
+        
+        if (passportDocument) {
+          idDocumentBase64 = await this.getBase64FromS3OrFallback(passportDocument);
+          console.log(`Retrieved passport document for user ${userId} in verifySelfie`);
+        } else {
+          // Throw an error if no passport document is found
+          throw new Error('Passport document is required for selfie verification but no passport was found for this user');
         }
       }
 
@@ -626,11 +703,24 @@ class DojahService {
       }
 
       // Step 2: Perform actual verification with Dojah API
-      if (!idDocumentBase64) {
-        throw new Error('ID document is required for selfie verification');
+      // Attempt verification with existing ID document or fetch a passport from user's documents
+      let verificationResult;
+      try {
+        verificationResult = await this.verifySelfieWithPhotoId(selfieBase64, idDocumentBase64, userId);
+      } catch (error: any) {
+        // Update verification status to FAILED if passport is missing
+        await prisma.dojahVerification.update({
+          where: { id: verification.id },
+          data: {
+            status: DojahStatus.FAILED,
+            responseData: { 
+              error: error.message || 'Failed to verify selfie with ID photo'
+            } as any
+          }
+        });
+        
+        throw error; // Re-throw the error
       }
-
-      const verificationResult = await this.verifySelfieWithPhotoId(selfieBase64, idDocumentBase64);
 
       // Update verification with results
       await prisma.dojahVerification.update({

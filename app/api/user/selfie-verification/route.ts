@@ -125,9 +125,20 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('SELFIE_VERIFICATION_ERROR', error);
     
+    // Get more detailed error information for debugging
+    const errorDetails = {
+      message: error.message || 'Unknown error',
+      stack: error.stack,
+      name: error.name,
+      cause: error.cause
+    };
+    
+    console.error('Detailed error information:', JSON.stringify(errorDetails));
+    
     return new NextResponse(
       JSON.stringify({
         error: error.message || 'An error occurred during selfie verification',
+        errorType: error.name
       }),
       { status: 500 }
     );

@@ -4,6 +4,9 @@ import { cookies } from 'next/headers';
 import { getAdminSession } from '@/lib/admin-auth';
 import { getSystemAdminSettings, updateSystemAdminSettings } from '@/lib/settings-service';
 
+// Mark this route as dynamic to allow cookies usage
+export const dynamic = 'force-dynamic';
+
 // GET handler - fetch current admin settings
 export async function GET(req: NextRequest) {
   try {
@@ -85,14 +88,6 @@ export async function PUT(req: NextRequest) {
     
     // Handle profile updates
     if (firstName || lastName || email) {
-      if (firstName) updateData.firstName = firstName;
-      if (lastName) updateData.lastName = lastName;
-      if (email) updateData.email = email;
-    }
-    
-    // Handle user profile updates only
-    if (firstName || lastName || email) {
-      // Update basic profile data
       if (firstName) updateData.firstName = firstName;
       if (lastName) updateData.lastName = lastName;
       if (email) updateData.email = email;

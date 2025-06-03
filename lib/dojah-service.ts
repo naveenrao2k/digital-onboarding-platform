@@ -19,10 +19,34 @@ interface DojahResponse {
 interface DocumentAnalysisResult {
   extractedText?: string;
   extractedData?: any;
-  documentType?: string;
+  documentType?: {
+    documentName?: string;
+    documentCountryName?: string;
+    documentCountryCode?: string;
+  };
   confidence?: number;
   isReadable: boolean;
   qualityScore?: number;
+  isValid: boolean;
+  validationStatus: {
+    overallStatus: number;
+    reason: string;
+    documentImages: string;
+    text: string;
+    documentType: string;
+    expiry: string;
+  };
+  textData?: Array<{
+    fieldName: string;
+    fieldKey: string;
+    status: number;
+    value: string;
+  }>;
+  documentImages?: {
+    portrait?: string;
+    documentFrontSide?: string;
+    documentBackSide?: string;
+  };
 }
 
 interface GovernmentLookupResult {
@@ -250,28 +274,67 @@ class DojahService {
   }
 
   // Document Analysis
-  async analyzeDocument(documentBase64: string, documentType?: string): Promise<DocumentAnalysisResult> {
+  async analyzeDocument(
+    imageFrontSide: string,
+    imageBackSide?: string,
+    additionalImages?: string[],
+    inputType: 'url' | 'base64' = 'base64'
+  ): Promise<DocumentAnalysisResult> {
     const endpoint = '/api/v1/document/analysis';
     
-    const response = await this.makePostRequest(endpoint, {
-      image: documentBase64,
-      document_type: documentType
-    });
+    const requestBody = {
+      input_type: inputType,
+      imagefrontside: imageFrontSide,
+      imagebackside: imageBackSide,
+      images: additionalImages
+    };
+
+    const response = await this.makePostRequest(endpoint, requestBody);
 
     if (!response.entity) {
       return {
         isReadable: false,
-        confidence: 0
+        confidence: 0,
+        isValid: false,
+        validationStatus: {
+          overallStatus: 0,
+          reason: 'NO_RESPONSE',
+          documentImages: 'No',
+          text: 'No',
+          documentType: 'No',
+          expiry: 'No'
+        }
       };
     }
 
     return {
-      extractedText: response.entity.extracted_text,
-      extractedData: response.entity.extracted_data,
-      documentType: response.entity.document_type,
+      documentType: {
+        documentName: response.entity.document_type?.document_name,
+        documentCountryName: response.entity.document_type?.document_country_name,
+        documentCountryCode: response.entity.document_type?.document_country_code
+      },
+      isValid: response.entity.status?.overall_status === 1,
+      validationStatus: {
+        overallStatus: response.entity.status?.overall_status || 0,
+        reason: response.entity.status?.reason || 'UNKNOWN',
+        documentImages: response.entity.status?.document_images || 'No',
+        text: response.entity.status?.text || 'No',
+        documentType: response.entity.status?.document_type || 'No',
+        expiry: response.entity.status?.expiry || 'No'
+      },
+      textData: response.entity.text_data?.map((field: any) => ({
+        fieldName: field.field_name,
+        fieldKey: field.field_key,
+        status: field.status,
+        value: field.value
+      })),
+      documentImages: {
+        portrait: response.entity.document_images?.portrait,
+        documentFrontSide: response.entity.document_images?.document_front_side,
+        documentBackSide: response.entity.document_images?.document_back_side
+      },
       confidence: response.entity.confidence || 0,
-      isReadable: response.entity.is_readable || false,
-      qualityScore: response.entity.quality_score
+      isReadable: true
     };
   }
 

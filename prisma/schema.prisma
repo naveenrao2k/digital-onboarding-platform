@@ -175,12 +175,16 @@ model DocumentAnalysis {
   kycDocumentId    String    @unique
   extractedText    String?
   extractedData    Json?     // Structured data extracted from document
-  documentType     String?   // Detected document type
+  documentType     Json?     // Document type details including country
   confidence       Float?    // Analysis confidence score
   isReadable       Boolean   @default(false)
   qualityScore     Float?    // Document quality score
   analysisProvider String    @default("DOJAH")
   createdAt        DateTime  @default(now())
+  isValid          Boolean   @default(false)  // Added field
+  validationStatus Json?     // Added field for detailed status
+  textData         Json?     // Added field for extracted text data
+  documentImages   Json?     // Added field for document images
   kycDocument      KYCDocument @relation(fields: [kycDocumentId], references: [id], onDelete: Cascade)
 }
 

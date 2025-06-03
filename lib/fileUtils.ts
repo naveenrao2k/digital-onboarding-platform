@@ -1,6 +1,4 @@
 // lib/fileUtils.ts
-import { Readable } from 'stream';
-
 /**
  * Check if code is running on the client side
  */
@@ -27,6 +25,8 @@ export const getMimeTypeFromExtension = (extension: string): string => {
 
 /**
  * Convert a File object to a base64 string
+ * Note: This function is kept for compatibility with existing code and Dojah API
+ * New code should use S3 storage via s3-service.ts
  */
 export const fileToBase64 = async (file: File): Promise<string> => {
   // Client-side implementation using FileReader
@@ -50,49 +50,4 @@ export const fileToBase64 = async (file: File): Promise<string> => {
     const buffer = Buffer.from(arrayBuffer);
     return buffer.toString('base64');
   }
-};
-
-/**
- * Split a base64 string into chunks of a specified size
- */
-export const chunkBase64 = (base64: string, chunkSize: number = 500000): string[] => {
-  const chunks: string[] = [];
-  for (let i = 0; i < base64.length; i += chunkSize) {
-    chunks.push(base64.slice(i, i + chunkSize));
-  }
-  return chunks;
-};
-
-/**
- * Check if a file needs to be chunked based on its size
- */
-export const shouldChunkFile = (fileSize: number): boolean => {
-  // Files larger than 5MB will be chunked
-  const MAX_UNCHUNKED_SIZE = 5 * 1024 * 1024; // 5MB
-  return fileSize > MAX_UNCHUNKED_SIZE;
-};
-
-/**
- * Utility function to prepare file data for database storage
- */
-export const prepareFileForStorage = async (file: File) => {
-  const base64Content = await fileToBase64(file);
-  const needsChunking = shouldChunkFile(file.size);
-  
-  // Determine MIME type safely
-  let mimeType = file.type;
-  // If mime type is not available (which can happen on the server), infer from filename
-  if (!mimeType) {
-    const extension = file.name.split('.').pop()?.toLowerCase();
-    mimeType = getMimeTypeFromExtension(extension || '');
-  }
-  
-  return {
-    fileContent: needsChunking ? null : base64Content,
-    fileName: file.name,
-    fileSize: file.size,
-    mimeType: file.type,
-    isChunked: needsChunking,
-    chunks: needsChunking ? chunkBase64(base64Content) : [],
-  };
 };

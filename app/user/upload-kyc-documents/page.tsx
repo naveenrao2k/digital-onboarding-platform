@@ -262,32 +262,8 @@ const UploadKYCDocumentsPage = () => {
       // Update file name for display
       setFileNames(prev => ({ ...prev, [docType]: file.name }));
       
-      // Auto-upload the file immediately after selection
-      try {
-        setUploadStatus(prev => ({ ...prev, [docType]: 'uploading' }));
-        
-        // Convert docType to proper DocumentType enum format
-        const documentType = docTypeToEnumMapping(docType);
-          // Call the upload function with progress tracking
-        await uploadKycDocument(
-          documentType, 
-          file,
-          (progress) => {
-            setUploadProgress(prev => ({ ...prev, [docType]: progress }));
-          }
-        );
-        
-        // Refresh document list to show the uploaded document
-        if (user) {
-          await fetchVerificationStatus(user.id);
-        }
-        
-        setUploadStatus(prev => ({ ...prev, [docType]: 'success' }));
-      } catch (err) {
-        console.error(`Error uploading ${docType}:`, err);
-        setUploadStatus(prev => ({ ...prev, [docType]: 'error' }));
-        setError(`Failed to upload ${docType}: ${err instanceof Error ? err.message : 'Unknown error'}`);
-      }
+      // Mark as ready for upload but don't upload yet - we'll do it on form submit
+      setUploadStatus(prev => ({ ...prev, [docType]: 'success' }));
     }
   };
 
@@ -344,39 +320,109 @@ const UploadKYCDocumentsPage = () => {
       switch (accountType) {
         case 'individual':
           if (individualDocuments.idCard) {
-            uploadPromises.push(uploadKycDocument(DocumentType.ID_CARD, individualDocuments.idCard));
+            setUploadStatus(prev => ({ ...prev, idCard: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.ID_CARD, 
+                individualDocuments.idCard,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, idCard: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, idCard: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, idCard: 'error' })))
+            );
             documentsToSave.documents.idCard = individualDocuments.idCard.name;
           }
           
           if (individualDocuments.passport) {
-            uploadPromises.push(uploadKycDocument(DocumentType.PASSPORT, individualDocuments.passport));
+            setUploadStatus(prev => ({ ...prev, passport: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.PASSPORT, 
+                individualDocuments.passport,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, passport: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, passport: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, passport: 'error' })))
+            );
             documentsToSave.documents.passport = individualDocuments.passport.name;
           }
           
           if (individualDocuments.utilityBill) {
-            uploadPromises.push(uploadKycDocument(DocumentType.UTILITY_BILL, individualDocuments.utilityBill));
+            setUploadStatus(prev => ({ ...prev, utilityBill: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.UTILITY_BILL, 
+                individualDocuments.utilityBill,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, utilityBill: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, utilityBill: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, utilityBill: 'error' })))
+            );
             documentsToSave.documents.utilityBill = individualDocuments.utilityBill.name;
           }
           break;
           
         case 'partnership':
           if (partnershipDocuments.certificateOfRegistration) {
-            uploadPromises.push(uploadKycDocument(DocumentType.CERTIFICATE_OF_REGISTRATION, partnershipDocuments.certificateOfRegistration));
+            setUploadStatus(prev => ({ ...prev, certificateOfRegistration: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.CERTIFICATE_OF_REGISTRATION, 
+                partnershipDocuments.certificateOfRegistration,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, certificateOfRegistration: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, certificateOfRegistration: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, certificateOfRegistration: 'error' })))
+            );
             documentsToSave.documents.certificateOfRegistration = partnershipDocuments.certificateOfRegistration.name;
           }
           
           if (partnershipDocuments.formOfApplication) {
-            uploadPromises.push(uploadKycDocument(DocumentType.FORM_OF_APPLICATION, partnershipDocuments.formOfApplication));
+            setUploadStatus(prev => ({ ...prev, formOfApplication: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.FORM_OF_APPLICATION, 
+                partnershipDocuments.formOfApplication,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, formOfApplication: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, formOfApplication: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, formOfApplication: 'error' })))
+            );
             documentsToSave.documents.formOfApplication = partnershipDocuments.formOfApplication.name;
           }
           
           if (partnershipDocuments.validIdOfPartners) {
-            uploadPromises.push(uploadKycDocument(DocumentType.VALID_ID_OF_PARTNERS, partnershipDocuments.validIdOfPartners));
+            setUploadStatus(prev => ({ ...prev, validIdOfPartners: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.VALID_ID_OF_PARTNERS, 
+                partnershipDocuments.validIdOfPartners,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, validIdOfPartners: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, validIdOfPartners: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, validIdOfPartners: 'error' })))
+            );
             documentsToSave.documents.validIdOfPartners = partnershipDocuments.validIdOfPartners.name;
           }
           
           if (partnershipDocuments.proofOfAddress) {
-            uploadPromises.push(uploadKycDocument(DocumentType.PROOF_OF_ADDRESS, partnershipDocuments.proofOfAddress));
+            setUploadStatus(prev => ({ ...prev, proofOfAddress: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.PROOF_OF_ADDRESS, 
+                partnershipDocuments.proofOfAddress,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, proofOfAddress: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, proofOfAddress: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, proofOfAddress: 'error' })))
+            );
             documentsToSave.documents.proofOfAddress = partnershipDocuments.proofOfAddress.name;
           }
           
@@ -385,27 +431,77 @@ const UploadKYCDocumentsPage = () => {
           
         case 'enterprise':
           if (enterpriseDocuments.certificateOfRegistration) {
-            uploadPromises.push(uploadKycDocument(DocumentType.CERTIFICATE_OF_REGISTRATION, enterpriseDocuments.certificateOfRegistration));
+            setUploadStatus(prev => ({ ...prev, certificateOfRegistration: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.CERTIFICATE_OF_REGISTRATION, 
+                enterpriseDocuments.certificateOfRegistration,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, certificateOfRegistration: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, certificateOfRegistration: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, certificateOfRegistration: 'error' })))
+            );
             documentsToSave.documents.certificateOfRegistration = enterpriseDocuments.certificateOfRegistration.name;
           }
           
           if (enterpriseDocuments.formOfApplication) {
-            uploadPromises.push(uploadKycDocument(DocumentType.FORM_OF_APPLICATION, enterpriseDocuments.formOfApplication));
+            setUploadStatus(prev => ({ ...prev, formOfApplication: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.FORM_OF_APPLICATION, 
+                enterpriseDocuments.formOfApplication,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, formOfApplication: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, formOfApplication: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, formOfApplication: 'error' })))
+            );
             documentsToSave.documents.formOfApplication = enterpriseDocuments.formOfApplication.name;
           }
           
           if (enterpriseDocuments.passportPhotos) {
-            uploadPromises.push(uploadKycDocument(DocumentType.PASSPORT_PHOTOS, enterpriseDocuments.passportPhotos));
+            setUploadStatus(prev => ({ ...prev, passportPhotos: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.PASSPORT_PHOTOS, 
+                enterpriseDocuments.passportPhotos,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, passportPhotos: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, passportPhotos: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, passportPhotos: 'error' })))
+            );
             documentsToSave.documents.passportPhotos = enterpriseDocuments.passportPhotos.name;
           }
           
           if (enterpriseDocuments.utilityReceipt) {
-            uploadPromises.push(uploadKycDocument(DocumentType.UTILITY_BILL, enterpriseDocuments.utilityReceipt));
+            setUploadStatus(prev => ({ ...prev, utilityReceipt: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.UTILITY_BILL, 
+                enterpriseDocuments.utilityReceipt,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, utilityReceipt: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, utilityReceipt: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, utilityReceipt: 'error' })))
+            );
             documentsToSave.documents.utilityReceipt = enterpriseDocuments.utilityReceipt.name;
           }
           
           if (enterpriseDocuments.businessOwnerID) {
-            uploadPromises.push(uploadKycDocument(DocumentType.ID_CARD, enterpriseDocuments.businessOwnerID));
+            setUploadStatus(prev => ({ ...prev, businessOwnerID: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.ID_CARD, 
+                enterpriseDocuments.businessOwnerID,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, businessOwnerID: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, businessOwnerID: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, businessOwnerID: 'error' })))
+            );
             documentsToSave.documents.businessOwnerID = enterpriseDocuments.businessOwnerID.name;
           }
           
@@ -415,27 +511,77 @@ const UploadKYCDocumentsPage = () => {
           
         case 'llc':
           if (llcDocuments.certificateOfIncorporation) {
-            uploadPromises.push(uploadKycDocument(DocumentType.CERTIFICATE_OF_INCORPORATION, llcDocuments.certificateOfIncorporation));
+            setUploadStatus(prev => ({ ...prev, certificateOfIncorporation: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.CERTIFICATE_OF_INCORPORATION, 
+                llcDocuments.certificateOfIncorporation,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, certificateOfIncorporation: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, certificateOfIncorporation: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, certificateOfIncorporation: 'error' })))
+            );
             documentsToSave.documents.certificateOfIncorporation = llcDocuments.certificateOfIncorporation.name;
           }
           
           if (llcDocuments.memorandumArticles) {
-            uploadPromises.push(uploadKycDocument(DocumentType.MEMORANDUM_ARTICLES, llcDocuments.memorandumArticles));
+            setUploadStatus(prev => ({ ...prev, memorandumArticles: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.MEMORANDUM_ARTICLES, 
+                llcDocuments.memorandumArticles,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, memorandumArticles: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, memorandumArticles: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, memorandumArticles: 'error' })))
+            );
             documentsToSave.documents.memorandumArticles = llcDocuments.memorandumArticles.name;
           }
           
           if (llcDocuments.boardResolution) {
-            uploadPromises.push(uploadKycDocument(DocumentType.BOARD_RESOLUTION, llcDocuments.boardResolution));
+            setUploadStatus(prev => ({ ...prev, boardResolution: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.BOARD_RESOLUTION, 
+                llcDocuments.boardResolution,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, boardResolution: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, boardResolution: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, boardResolution: 'error' })))
+            );
             documentsToSave.documents.boardResolution = llcDocuments.boardResolution.name;
           }
           
           if (llcDocuments.directorsID) {
-            uploadPromises.push(uploadKycDocument(DocumentType.DIRECTORS_ID, llcDocuments.directorsID));
+            setUploadStatus(prev => ({ ...prev, directorsID: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.DIRECTORS_ID, 
+                llcDocuments.directorsID,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, directorsID: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, directorsID: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, directorsID: 'error' })))
+            );
             documentsToSave.documents.directorsID = llcDocuments.directorsID.name;
           }
           
           if (llcDocuments.proofOfAddress) {
-            uploadPromises.push(uploadKycDocument(DocumentType.PROOF_OF_ADDRESS, llcDocuments.proofOfAddress));
+            setUploadStatus(prev => ({ ...prev, proofOfAddress: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.PROOF_OF_ADDRESS, 
+                llcDocuments.proofOfAddress,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, proofOfAddress: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, proofOfAddress: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, proofOfAddress: 'error' })))
+            );
             documentsToSave.documents.proofOfAddress = llcDocuments.proofOfAddress.name;
           }
           

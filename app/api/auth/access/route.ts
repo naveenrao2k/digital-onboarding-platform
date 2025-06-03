@@ -53,6 +53,9 @@ export async function GET(req: NextRequest) {
     if (!user) {
       isNewUser = true;
       
+      // Generate a unique placeholder email using the ID
+      const placeholderEmail = `user_${id}@placeholder.com`;
+      
       // Create user with basic information
       user = await prisma.user.create({
         data: {
@@ -60,7 +63,7 @@ export async function GET(req: NextRequest) {
           firstName: name ? name.split(' ')[0] : '',
           lastName: name ? name.split(' ').slice(1).join(' ') : '',
           phone: phone_number || '',
-          email: '', // Create empty email for user to fill later
+          email: placeholderEmail, // Use placeholder email that's unique based on the ID
           role: 'USER' as UserRole,
           accountType: 'INDIVIDUAL' as AccountType,
           accountStatus: 'PENDING',

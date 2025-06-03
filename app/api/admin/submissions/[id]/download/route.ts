@@ -45,12 +45,7 @@ export async function GET(
 
     // Get document
     const document = await prisma.kYCDocument.findUnique({
-      where: { id: params.id },
-      include: {
-        FileChunk: {
-          orderBy: { chunkIndex: 'asc' }
-        }
-      }
+      where: { id: params.id }
     });
 
     if (!document) {
@@ -59,25 +54,6 @@ export async function GET(
         { status: 404 }
       );
     }
-
-    // If document is stored in chunks, combine them
-    let fileContent = document.fileContent || '';
-    if (document.isChunked && document.FileChunk.length > 0) {
-      fileContent = document.FileChunk.map(chunk => chunk.content).join('');
-    }
-
-    // Convert base64 to buffer
-    const buffer = Buffer.from(fileContent, 'base64');
-
-    // Create response with proper headers
-    const response = new NextResponse(buffer, {
-      status: 200,
-      headers: {
-        'Content-Type': document.mimeType,
-        'Content-Disposition': `attachment; filename="${document.fileName}"`,
-        'Content-Length': buffer.length.toString(),
-      },
-    });
 
     // Log the download in audit trail
     await prisma.auditLog.create({
@@ -90,7 +66,8 @@ export async function GET(
       },
     });
 
-    return response;
+    // Redirect to S3 URL
+    return NextResponse.redirect(document.fileUrl);
   } catch (error: any) {
     console.error('DOCUMENT_DOWNLOAD_ERROR', error);
     

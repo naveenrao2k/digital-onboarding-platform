@@ -1,7 +1,7 @@
 // lib/kyc-service.ts
 import { prisma } from './prisma';
 import { DocumentType, VerificationStatusEnum } from '../app/generated/prisma';
-import { prepareFileForStorage } from './fileUtils';
+import { uploadFileToS3, generateFileKey } from './s3-service';
 
 export type KycDocumentUpload = {
   userId: string;
@@ -24,43 +24,34 @@ export const uploadKycDocument = async ({ userId, documentType, file }: KycDocum
       throw new Error('Your documents have already been approved. No further changes allowed.');
     }
 
-    // Prepare file for storage
-    const { fileContent, chunks, isChunked } = await prepareFileForStorage(file);
+    // Generate S3 key for the file
+    const s3Key = generateFileKey(userId, documentType.toString(), file.name);
+    
+    // Convert file to buffer for uploading
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    // Upload file to S3
+    const fileUrl = await uploadFileToS3(buffer, s3Key, file.type);
 
-    // Store the KYC document
+    // Store the KYC document with S3 URL
     const kycDocument = await prisma.kYCDocument.create({
       data: {
         userId,
         type: documentType,
-        fileContent: !isChunked ? fileContent : null,
+        fileUrl,
+        s3Key,
         fileSize: file.size,
         mimeType: file.type,
         fileName: file.name,
-        isChunked,
         status: VerificationStatusEnum.IN_PROGRESS,
       },
     });
 
-    // Store chunks if the file was chunked
-    if (isChunked && chunks.length > 0) {
-      const chunkCreations = chunks.map((content, index) => {
-        return prisma.fileChunk.create({
-          data: {
-            fileId: kycDocument.id,
-            chunkIndex: index,
-            content,
-            kycDocumentId: kycDocument.id,
-          },
-        });
-      });
-
-      await Promise.all(chunkCreations);
-    }
-
     // Trigger Dojah document verification
     try {
-      const documentBase64 = await fileToBase64(file);
-      await triggerDojahDocumentVerification(userId, kycDocument.id, documentBase64, documentType);
+      // We don't need to pass base64 since Dojah service will fetch from S3
+      await triggerDojahDocumentVerification(userId, kycDocument.id);
     } catch (dojahError) {
       console.error('Dojah verification failed:', dojahError);
       // Don't fail the upload if Dojah fails, just log it
@@ -89,31 +80,19 @@ export const uploadKycDocument = async ({ userId, documentType, file }: KycDocum
   }
 };
 
-// Helper function to convert file to base64
-async function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      const result = reader.result as string;
-      // Remove data:image/jpeg;base64, prefix
-      const base64 = result.split(',')[1];
-      resolve(base64);
-    };
-    reader.onerror = error => reject(error);
-  });
-}
+
 
 // Trigger Dojah document verification
 async function triggerDojahDocumentVerification(
   userId: string, 
   documentId: string, 
-  documentBase64: string, 
-  documentType: string
+  documentBase64?: string, 
+  documentType?: string
 ) {
   try {
     // Import dojahService dynamically to avoid circular dependencies
     const { default: dojahService } = await import('./dojah-service');
+    // Let the Dojah service handle getting the file from S3 if needed
     await dojahService.verifyDocument(userId, documentId, documentBase64, documentType);
   } catch (error) {
     console.error('Failed to trigger Dojah verification:', error);
@@ -123,67 +102,70 @@ async function triggerDojahDocumentVerification(
 
 export const uploadSelfieVerification = async (userId: string, file: File) => {
   try {
-    const { fileContent, chunks, isChunked } = await prepareFileForStorage(file);
-
-    // Store the selfie verification
-    const selfie = await prisma.selfieVerification.create({
-      data: {
-        userId,
-        fileContent: !isChunked ? fileContent : null,
-        fileName: file.name,
-        fileSize: file.size,
-        mimeType: file.type,
-        isChunked,
-        status: VerificationStatusEnum.IN_PROGRESS,
-      },
+    // Check if user already has a selfie verification
+    const existingSelfie = await prisma.selfieVerification.findUnique({
+      where: { userId },
     });
 
-    // Store chunks if the file was chunked
-    if (isChunked && chunks.length > 0) {
-      const chunkCreations = chunks.map((content, index) => {
-        return prisma.fileChunk.create({
-          data: {
-            fileId: selfie.id,
-            chunkIndex: index,
-            content,
-            selfieVerificationId: selfie.id,
-          },
-        });
-      });
+    // Generate S3 key for the file
+    const s3Key = generateFileKey(userId, 'selfie', file.name);
+    
+    // Convert file to buffer for uploading
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    // Upload file to S3
+    const fileUrl = await uploadFileToS3(buffer, s3Key, file.type);
 
-      await Promise.all(chunkCreations);
+    let selfie;
+    
+    if (existingSelfie) {
+      // If a record already exists, update it instead of creating a new one
+      selfie = await prisma.selfieVerification.update({
+        where: { userId },
+        data: {
+          fileUrl,
+          s3Key,
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type,
+          status: VerificationStatusEnum.IN_PROGRESS,
+          verified: false,
+          verifiedAt: null,
+          verifiedBy: null,
+          capturedAt: new Date(),
+        },
+      });
+      
+      // Delete the old file from S3 if the key is different
+      if (existingSelfie.s3Key !== s3Key) {
+        try {
+          await deleteFileFromS3(existingSelfie.s3Key);
+        } catch (error) {
+          console.error('Failed to delete old selfie file:', error);
+          // Continue even if deletion fails
+        }
+      }
+    } else {
+      // Store the selfie verification as a new record if it doesn't exist
+      selfie = await prisma.selfieVerification.create({
+        data: {
+          userId,
+          fileUrl,
+          s3Key,
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type,
+          status: VerificationStatusEnum.IN_PROGRESS,
+        },
+      });
     }
 
     // Trigger Dojah selfie verification
     try {
-      const selfieBase64 = await fileToBase64(file);
-      
-      // Get user's ID document for comparison if available
-      const idDocument = await prisma.kYCDocument.findFirst({
-        where: { 
-          userId, 
-          type: { in: ['ID_CARD', 'PASSPORT', 'DRIVERS_LICENSE'] },
-          status: VerificationStatusEnum.APPROVED
-        }
-      });
-
-      let idDocumentBase64: string | undefined;
-      if (idDocument) {
-        // Get the document content
-        if (idDocument.isChunked) {
-          const chunks = await prisma.fileChunk.findMany({
-            where: { kycDocumentId: idDocument.id },
-            orderBy: { chunkIndex: 'asc' }
-          });
-          const fullContent = chunks.map(chunk => chunk.content).join('');
-          idDocumentBase64 = fullContent;
-        } else {
-          idDocumentBase64 = idDocument.fileContent || undefined;
-        }
-      }
-
       const { default: dojahService } = await import('./dojah-service');
-      await dojahService.verifySelfie(userId, selfie.id, selfieBase64, idDocumentBase64);
+      // Let Dojah service fetch the selfie from S3
+      await dojahService.verifySelfie(userId, selfie.id);
     } catch (dojahError) {
       console.error('Dojah selfie verification failed:', dojahError);
       // Don't fail the upload if Dojah fails

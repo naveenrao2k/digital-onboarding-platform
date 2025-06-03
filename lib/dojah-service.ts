@@ -1,6 +1,6 @@
 // lib/dojah-service.ts
 import { prisma } from './prisma';
-import { DojahVerificationType, DojahStatus } from '@/app/generated/prisma';
+import { DojahVerificationType, DojahStatus, VerificationStatusEnum } from '@/app/generated/prisma';
 
 interface DojahConfig {
   appId: string;
@@ -326,8 +326,35 @@ class DojahService {
   }
 
   // Comprehensive Document Verification
-  async verifyDocument(userId: string, documentId: string, documentBase64: string, documentType: string): Promise<string> {
+  async verifyDocument(userId: string, documentId: string, documentBase64?: string | null, documentType?: string): Promise<string> {
     try {
+      // Get document from database if not provided
+      if (!documentBase64 || !documentType) {
+        const document = await prisma.kYCDocument.findUnique({
+          where: { id: documentId }
+        });
+        
+        if (!document) {
+          throw new Error(`Document with ID ${documentId} not found`);
+        }
+        
+        // Get document type if not provided
+        if (!documentType) {
+          documentType = document.type.toString();
+        }
+        
+        // Get base64 if not provided
+        if (!documentBase64) {
+          const base64Content = await this.getBase64FromS3OrFallback(document);
+          
+          if (!base64Content) {
+            throw new Error('Could not retrieve document content');
+          }
+          
+          documentBase64 = base64Content;
+        }
+      }
+
       // Create initial verification record
       const verification = await prisma.dojahVerification.create({
         data: {
@@ -347,7 +374,7 @@ class DojahService {
         data: {
           kycDocumentId: documentId,
           extractedText: analysisResult.extractedText,
-          extractedData: analysisResult.extractedData,
+          extractedData: analysisResult.extractedData as any,
           documentType: analysisResult.documentType,
           confidence: analysisResult.confidence,
           isReadable: analysisResult.isReadable,
@@ -372,16 +399,16 @@ class DojahService {
         data: {
           status: DojahStatus.SUCCESS,
           confidence: analysisResult.confidence,
-          extractedData: analysisResult.extractedData,
-          governmentData: governmentResult?.governmentData,
+          extractedData: analysisResult.extractedData as any,
+          governmentData: governmentResult?.governmentData as any,
           matchResult: governmentResult ? {
             isMatch: governmentResult.isMatch,
             matchScore: governmentResult.matchScore
-          } : null,
+          } as any : null,
           responseData: {
             documentAnalysis: analysisResult,
             governmentLookup: governmentResult
-          }
+          } as any
         }
       });
 
@@ -393,8 +420,43 @@ class DojahService {
   }
 
   // Comprehensive Selfie Verification
-  async verifySelfie(userId: string, selfieId: string, selfieBase64: string, idDocumentBase64?: string): Promise<string> {
+  async verifySelfie(userId: string, selfieId: string, selfieBase64?: string, idDocumentBase64?: string): Promise<string> {
     try {
+      // Get selfie from database if not provided
+      if (!selfieBase64) {
+        const selfie = await prisma.selfieVerification.findUnique({
+          where: { id: selfieId }
+        });
+        
+        if (!selfie) {
+          throw new Error(`Selfie with ID ${selfieId} not found`);
+        }
+        
+        // Get base64 from S3
+        const base64Content = await this.getBase64FromS3OrFallback(selfie);
+        
+        if (!base64Content) {
+          throw new Error('Could not retrieve selfie content');
+        }
+        
+        selfieBase64 = base64Content;
+      }
+
+      // If idDocumentBase64 is not provided but userId is, try to find a suitable ID document
+      if (!idDocumentBase64 && userId) {
+        const idDocument = await prisma.kYCDocument.findFirst({
+          where: { 
+            userId, 
+            type: { in: ['ID_CARD', 'PASSPORT', 'DRIVERS_LICENSE'] },
+            status: VerificationStatusEnum.APPROVED
+          }
+        });
+
+        if (idDocument) {
+          idDocumentBase64 = await this.getBase64FromS3OrFallback(idDocument);
+        }
+      }
+
       // Create initial verification record
       const verification = await prisma.dojahVerification.create({
         data: {
@@ -402,7 +464,7 @@ class DojahService {
           verificationType: DojahVerificationType.SELFIE_PHOTO_ID_MATCH,
           documentId: selfieId,
           status: DojahStatus.IN_PROGRESS,
-          requestData: { hasIdDocument: !!idDocumentBase64 }
+          requestData: { hasIdDocument: !!idDocumentBase64 } as any
         }
       });
 
@@ -431,8 +493,8 @@ class DojahService {
             confidence: verificationResult.confidence,
             livenessScore: verificationResult.livenessScore,
             qualityChecks: verificationResult.qualityChecks
-          },
-          responseData: verificationResult
+          } as any,
+          responseData: verificationResult as any
         }
       });
 
@@ -506,6 +568,38 @@ class DojahService {
         }
       }
     });
+  }
+
+  // Helper method to get base64 from S3 or fallback to existing file
+  async getBase64FromS3OrFallback(document: any): Promise<string | undefined> {
+    try {
+      if (document.fileUrl) {
+        // Get the file content from S3
+        const response = await fetch(document.fileUrl);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch from S3: ${response.statusText}`);
+        }
+        
+        const blob = await response.blob();
+        
+        // Convert blob to base64
+        return await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64String = reader.result as string;
+            const base64Content = base64String.split(',')[1];
+            resolve(base64Content);
+          };
+          reader.readAsDataURL(blob);
+        });
+      }
+      // No fallback to legacy methods anymore
+      return undefined;
+    } catch (error) {
+      console.error('Error getting base64 from S3:', error);
+      return undefined;
+    }
   }
 }
 

@@ -11,17 +11,8 @@ import {
   Shield, 
   FileText, 
   CheckCircle, 
-    return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-      {/* User status badge */}
-      <div className="flex justify-end mb-4">
-        <div className="flex items-center space-x-2">
-          {getStatusIcon(userDetails.verificationStatus.overallStatus)}
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(userDetails.verificationStatus.overallStatus)}`}>
-            {userDetails.verificationStatus.overallStatus}
-          </span>
-        </div>
-      </div>  Clock,
+  XCircle, 
+  Clock,
   AlertTriangle,
   History,
   Download,
@@ -237,7 +228,7 @@ export default function UserDetailsPage() {
     );
   }
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* User status badge */}
       <div className="flex justify-end mb-4">
         <div className="flex items-center space-x-2">
@@ -248,24 +239,24 @@ export default function UserDetailsPage() {
         </div>
       </div>
 
-      {/* Navigation Tabs - Scrollable on mobile */}
-      <div className="border-b border-gray-200 mb-6 overflow-x-auto">
-        <nav className="-mb-px flex space-x-4 sm:space-x-8 px-1">
-          {{
+      {/* Navigation Tabs */}
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="-mb-px flex space-x-8">
+          {[
             { id: 'overview', label: 'Overview', icon: User },
             { id: 'documents', label: 'Documents & Verification', icon: FileText },
             { id: 'history', label: 'Review History', icon: History }
-          }.map(({ id, label, icon: Icon }) => (
+          ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={`group inline-flex items-center py-4 px-1 border-b-2 whitespace-nowrap font-medium text-sm ${
+              className={`group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === id
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              <Icon className="h-5 w-5 mr-2 flex-shrink-0" />
+              <Icon className="h-5 w-5 mr-2" />
               {label}
             </button>
           ))}
@@ -277,43 +268,43 @@ export default function UserDetailsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Personal Information */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg border p-4 sm:p-6">
+            <div className="bg-white rounded-lg border p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-center space-x-3">
-                  <Mail className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                  <div className="overflow-hidden">
+                  <Mail className="h-5 w-5 text-gray-400" />
+                  <div>
                     <p className="text-sm text-gray-600">Email</p>
-                    <p className="font-medium truncate">{userDetails.email}</p>
+                    <p className="font-medium">{userDetails.email}</p>
                   </div>
                 </div>
                 
                 {userDetails.phone && (
                   <div className="flex items-center space-x-3">
-                    <Phone className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                    <div className="overflow-hidden">
+                    <Phone className="h-5 w-5 text-gray-400" />
+                    <div>
                       <p className="text-sm text-gray-600">Phone</p>
-                      <p className="font-medium truncate">{userDetails.phone}</p>
+                      <p className="font-medium">{userDetails.phone}</p>
                     </div>
                   </div>
                 )}
                 
                 {userDetails.address && (
                   <div className="flex items-center space-x-3">
-                    <MapPin className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                    <div className="overflow-hidden">
+                    <MapPin className="h-5 w-5 text-gray-400" />
+                    <div>
                       <p className="text-sm text-gray-600">Address</p>
-                      <p className="font-medium truncate">{userDetails.address}</p>
+                      <p className="font-medium">{userDetails.address}</p>
                     </div>
                   </div>
                 )}
                 
                 {userDetails.dateOfBirth && (
                   <div className="flex items-center space-x-3">
-                    <Calendar className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                    <div className="overflow-hidden">
+                    <Calendar className="h-5 w-5 text-gray-400" />
+                    <div>
                       <p className="text-sm text-gray-600">Date of Birth</p>
-                      <p className="font-medium truncate">{userDetails.dateOfBirth}</p>
+                      <p className="font-medium">{userDetails.dateOfBirth}</p>
                     </div>
                   </div>
                 )}
@@ -323,7 +314,7 @@ export default function UserDetailsPage() {
 
           {/* Verification Summary */}
           <div className="space-y-6">
-            <div className="bg-white rounded-lg border p-4 sm:p-6">
+            <div className="bg-white rounded-lg border p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Verification Summary</h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -358,9 +349,9 @@ export default function UserDetailsPage() {
             </div>
 
             {/* Dojah Summary */}
-            <div className="bg-white rounded-lg border p-4 sm:p-6">
+            <div className="bg-white rounded-lg border p-6">
               <div className="flex items-center space-x-2 mb-4">
-                <Shield className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                <Shield className="h-5 w-5 text-blue-600" />
                 <h3 className="text-lg font-semibold text-gray-900">Dojah Verification</h3>
               </div>
               <div className="space-y-3">

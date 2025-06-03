@@ -3,8 +3,8 @@ import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } fro
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // Define your AWS region and S3 bucket name
-const region = process.env.AWS_REGION || 'us-east-1';
-const bucketName = process.env.S3_BUCKET_NAME || 'digital-onboarding-platform';
+const region = process.env.AWS_REGION || 'ap-south-1';
+const bucketName = process.env.S3_BUCKET_NAME || 'naveenrao-tmp';
 
 // Initialize S3 client
 const s3Client = new S3Client({
@@ -12,7 +12,9 @@ const s3Client = new S3Client({
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-  }
+  },
+  // Needed for non-AWS S3 endpoints
+  forcePathStyle: true
 });
 
 /**
@@ -42,6 +44,7 @@ export const uploadFileToS3 = async (
   
   await s3Client.send(command);
   
+  // Use your specific S3 domain
   return `https://${bucketName}.s3.${region}.amazonaws.com/${key}`;
 };
 
@@ -91,4 +94,26 @@ export const generateFileKey = (userId: string, fileType: string, fileName: stri
   const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.]/g, '_').toLowerCase();
   
   return `uploads/${userId}/${fileType}/${timestamp}_${sanitizedFileName}`;
+};
+
+/**
+ * Get base64 content of a file from S3
+ */
+export const getFileBase64FromS3 = async (key: string): Promise<string> => {
+  const command = new GetObjectCommand({
+    Bucket: bucketName,
+    Key: key
+  });
+  
+  const response = await s3Client.send(command);
+  const stream = response.Body as any;
+  
+  // Convert stream to buffer then to base64
+  const chunks: any[] = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  
+  const buffer = Buffer.concat(chunks);
+  return buffer.toString('base64');
 };

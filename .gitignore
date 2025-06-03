@@ -31,3 +31,6 @@ coverage/
 .cache/
 
 /app/generated/prisma
+
+aws/
+*.zip

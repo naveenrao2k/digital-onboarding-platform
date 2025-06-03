@@ -57,11 +57,20 @@ class DojahService {
   private config: DojahConfig;
 
   constructor() {
+    const environment = (process.env.DOJAH_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox';
+
+    let baseUrl = process.env.DOJAH_BASE_URL;
+    if (!baseUrl) {
+      baseUrl = environment === 'production'
+        ? 'https://api.dojah.io'
+        : 'https://sandbox.dojah.io';
+    }
+
     this.config = {
       appId: process.env.DOJAH_APP_ID || '',
       secretKey: process.env.DOJAH_SECRET_KEY || '',
-      baseUrl: process.env.DOJAH_BASE_URL || 'https://api.dojah.io',
-      environment: (process.env.DOJAH_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox'
+      baseUrl,
+      environment
     };
 
     if (!this.config.appId || !this.config.secretKey) {
@@ -133,11 +142,8 @@ class DojahService {
   async lookupBVN(bvn: string, advanced: boolean = false): Promise<GovernmentLookupResult> {
     const endpoint = advanced ? '/api/v1/kyc/bvn/advance' : '/api/v1/kyc/bvn/full';
     
-    // Use test BVN in sandbox mode
-    const testBvn = this.config.environment === 'sandbox' ? 
-      process.env.DOJAH_TEST_BVN || '22222222222' : bvn;
-    
-    const response = await this.makeRequest(endpoint, { bvn: testBvn });
+    // Always use real BVN regardless of environment
+    const response = await this.makeRequest(endpoint, { bvn });
     
     if (!response.entity) {
       return { isMatch: false };
@@ -164,11 +170,8 @@ class DojahService {
   async lookupNIN(nin: string): Promise<GovernmentLookupResult> {
     const endpoint = '/api/v1/kyc/nin';
     
-    // Use test NIN in sandbox mode
-    const testNin = this.config.environment === 'sandbox' ? 
-      process.env.DOJAH_TEST_NIN || '70123456789' : nin;
-    
-    const response = await this.makeRequest(endpoint, { nin: testNin });
+    // Always use real NIN regardless of environment
+    const response = await this.makeRequest(endpoint, { nin });
     
     if (!response.entity) {
       return { isMatch: false };
@@ -195,12 +198,9 @@ class DojahService {
   async lookupPassport(passportNumber: string, surname: string): Promise<GovernmentLookupResult> {
     const endpoint = '/api/v1/kyc/passport';
     
-    // Use test passport in sandbox mode
-    const testPassport = this.config.environment === 'sandbox' ? 
-      process.env.DOJAH_TEST_PASSPORT || 'A00123456' : passportNumber;
-    
+    // Always use real passport number regardless of environment
     const response = await this.makeRequest(endpoint, { 
-      passport_number: testPassport, 
+      passport_number: passportNumber, 
       surname: surname 
     });
     
@@ -227,11 +227,8 @@ class DojahService {
   async lookupDriversLicense(licenseNumber: string): Promise<GovernmentLookupResult> {
     const endpoint = '/api/v1/kyc/dl';
     
-    // Use test license in sandbox mode
-    const testLicense = this.config.environment === 'sandbox' ? 
-      process.env.DOJAH_TEST_DRIVERS_LICENSE || 'FKJ494A2133' : licenseNumber;
-    
-    const response = await this.makeRequest(endpoint, { license_number: testLicense });
+    // Always use real license number regardless of environment
+    const response = await this.makeRequest(endpoint, { license_number: licenseNumber });
     
     if (!response.entity) {
       return { isMatch: false };
@@ -468,19 +465,12 @@ class DojahService {
         }
       });
 
-      let verificationResult: SelfieVerificationResult;
-
-      if (idDocumentBase64) {
-        // Verify selfie against ID document
-        verificationResult = await this.verifySelfieWithPhotoId(selfieBase64, idDocumentBase64);
-      } else {
-        // Basic liveness check
-        verificationResult = {
-          isMatch: true,
-          confidence: 85, // Default confidence for liveness
-          livenessScore: 90
-        };
+      // Always perform actual verification with Dojah API
+      if (!idDocumentBase64) {
+        throw new Error('ID document is required for selfie verification');
       }
+      
+      const verificationResult = await this.verifySelfieWithPhotoId(selfieBase64, idDocumentBase64);
 
       // Update verification with results
       await prisma.dojahVerification.update({
@@ -573,26 +563,10 @@ class DojahService {
   // Helper method to get base64 from S3 or fallback to existing file
   async getBase64FromS3OrFallback(document: any): Promise<string | undefined> {
     try {
-      if (document.fileUrl) {
-        // Get the file content from S3
-        const response = await fetch(document.fileUrl);
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch from S3: ${response.statusText}`);
-        }
-        
-        const blob = await response.blob();
-        
-        // Convert blob to base64
-        return await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const base64String = reader.result as string;
-            const base64Content = base64String.split(',')[1];
-            resolve(base64Content);
-          };
-          reader.readAsDataURL(blob);
-        });
+      if (document.s3Key) {
+        // Get the file content from S3 using our helper function
+        const { getFileBase64FromS3 } = await import('./s3-service');
+        return await getFileBase64FromS3(document.s3Key);
       }
       // No fallback to legacy methods anymore
       return undefined;

@@ -427,7 +427,7 @@ class DojahService {
       });
 
       // Step 1: Analyze document
-      const analysisResult = await this.analyzeDocument(documentBase64, documentType);
+      const analysisResult = await this.analyzeDocument(documentBase64);
       
       // Store document analysis
       await prisma.documentAnalysis.create({
@@ -442,6 +442,7 @@ class DojahService {
           analysisProvider: 'DOJAH'
         }
       });
+
 
       // Step 2: Government lookup if we have extracted data
       let governmentResult: GovernmentLookupResult | null = null;

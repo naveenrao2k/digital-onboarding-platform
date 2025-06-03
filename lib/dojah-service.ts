@@ -104,7 +104,7 @@ class DojahService {
 
   private async makeRequest(endpoint: string, params: Record<string, any> = {}): Promise<DojahResponse> {
     const url = new URL(endpoint, this.config.baseUrl);
-    
+
     // Add query parameters
     Object.keys(params).forEach(key => {
       if (params[key] !== undefined && params[key] !== null) {
@@ -123,7 +123,7 @@ class DojahService {
       });
 
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
       }
@@ -151,7 +151,7 @@ class DojahService {
 
       const data = await response.json();
       console.log('Dojah API POST response:', data);
-      
+
       if (!response.ok) {
         throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
       }
@@ -166,10 +166,10 @@ class DojahService {
   // BVN Lookup
   async lookupBVN(bvn: string, advanced: boolean = false): Promise<GovernmentLookupResult> {
     const endpoint = advanced ? '/api/v1/kyc/bvn/advance' : '/api/v1/kyc/bvn/full';
-    
+
     // Always use real BVN regardless of environment
     const response = await this.makeRequest(endpoint, { bvn });
-    
+
     if (!response.entity) {
       return { isMatch: false };
     }
@@ -194,10 +194,10 @@ class DojahService {
   // NIN Lookup
   async lookupNIN(nin: string): Promise<GovernmentLookupResult> {
     const endpoint = '/api/v1/kyc/nin';
-    
+
     // Always use real NIN regardless of environment
     const response = await this.makeRequest(endpoint, { nin });
-    
+
     if (!response.entity) {
       return { isMatch: false };
     }
@@ -222,13 +222,13 @@ class DojahService {
   // Passport Lookup
   async lookupPassport(passportNumber: string, surname: string): Promise<GovernmentLookupResult> {
     const endpoint = '/api/v1/kyc/passport';
-    
+
     // Always use real passport number regardless of environment
-    const response = await this.makeRequest(endpoint, { 
-      passport_number: passportNumber, 
-      surname: surname 
+    const response = await this.makeRequest(endpoint, {
+      passport_number: passportNumber,
+      surname: surname
     });
-    
+
     if (!response.entity) {
       return { isMatch: false };
     }
@@ -251,10 +251,10 @@ class DojahService {
   // Driver's License Lookup
   async lookupDriversLicense(licenseNumber: string): Promise<GovernmentLookupResult> {
     const endpoint = '/api/v1/kyc/dl';
-    
+
     // Always use real license number regardless of environment
     const response = await this.makeRequest(endpoint, { license_number: licenseNumber });
-    
+
     if (!response.entity) {
       return { isMatch: false };
     }
@@ -282,7 +282,7 @@ class DojahService {
     inputType: 'url' | 'base64' = 'base64'
   ): Promise<DocumentAnalysisResult> {
     const endpoint = '/api/v1/document/analysis';
-    
+
     const requestBody = {
       input_type: inputType,
       imagefrontside: imageFrontSide,
@@ -344,7 +344,7 @@ class DojahService {
   // Selfie Photo ID Match
   async verifySelfieWithPhotoId(selfieBase64: string, idPhotoBase64: string): Promise<SelfieVerificationResult> {
     const endpoint = '/api/v1/kyc/selfie_photo_id';
-    
+
     const response = await this.makePostRequest(endpoint, {
       selfie_image: selfieBase64,
       photo_id_image: idPhotoBase64
@@ -377,7 +377,7 @@ class DojahService {
     nationality?: string;
   }): Promise<any> {
     const endpoint = '/api/v1/aml/individual';
-    
+
     const response = await this.makePostRequest(endpoint, {
       first_name: personalInfo.firstName,
       last_name: personalInfo.lastName,
@@ -396,24 +396,24 @@ class DojahService {
         const document = await prisma.kYCDocument.findUnique({
           where: { id: documentId }
         });
-        
+
         if (!document) {
           throw new Error(`Document with ID ${documentId} not found`);
         }
-        
+
         // Get document type if not provided
         if (!documentType) {
           documentType = document.type.toString();
         }
-        
+
         // Get base64 if not provided
         if (!documentBase64) {
           const base64Content = await this.getBase64FromS3OrFallback(document);
-          
+
           if (!base64Content) {
             throw new Error('Could not retrieve document content');
           }
-          
+
           documentBase64 = base64Content;
         }
       }
@@ -435,7 +435,7 @@ class DojahService {
       console.log('-------------------------------------------------------');
 
       console.log('Dojah document analysis result:', analysisResult);
-      
+
       // Store document analysis
       await prisma.documentAnalysis.create({
         data: {
@@ -460,11 +460,13 @@ class DojahService {
 
 
       let governmentResult: GovernmentLookupResult | null = null;
-      
-      if (analysisResult.extractedData) {
+
+      if (analysisResult.documentType) {
         governmentResult = await this.performGovernmentLookup(
-          analysisResult.extractedData, 
-          documentType
+          analysisResult.documentType.documentName,
+          analysisResult.textData?.map((value) => {
+            return value.fieldKey == "document_number"
+          })
         );
       }
 
@@ -502,26 +504,26 @@ class DojahService {
         const selfie = await prisma.selfieVerification.findUnique({
           where: { id: selfieId }
         });
-        
+
         if (!selfie) {
           throw new Error(`Selfie with ID ${selfieId} not found`);
         }
-        
+
         // Get base64 from S3
         const base64Content = await this.getBase64FromS3OrFallback(selfie);
-        
+
         if (!base64Content) {
           throw new Error('Could not retrieve selfie content');
         }
-        
+
         selfieBase64 = base64Content;
       }
 
       // If idDocumentBase64 is not provided but userId is, try to find a suitable ID document
       if (!idDocumentBase64 && userId) {
         const idDocument = await prisma.kYCDocument.findFirst({
-          where: { 
-            userId, 
+          where: {
+            userId,
             type: { in: ['ID_CARD', 'PASSPORT', 'DRIVERS_LICENSE'] },
             status: VerificationStatusEnum.APPROVED
           }
@@ -547,7 +549,7 @@ class DojahService {
       if (!idDocumentBase64) {
         throw new Error('ID document is required for selfie verification');
       }
-      
+
       const verificationResult = await this.verifySelfieWithPhotoId(selfieBase64, idDocumentBase64);
 
       // Update verification with results
@@ -573,23 +575,23 @@ class DojahService {
     }
   }
 
-  private async performGovernmentLookup(extractedData: any, documentType: string): Promise<GovernmentLookupResult | null> {
+  private async performGovernmentLookup(extractedData: any, documentNo: any): Promise<GovernmentLookupResult | null> {
     try {
       // Determine which government API to use based on document type and extracted data
-      if (extractedData.bvn && documentType.includes('BVN')) {
-        return await this.lookupBVN(extractedData.bvn);
+      if (extractedData == 'BVN') {
+        return await this.lookupBVN(documentNo.value);
       }
-      
-      if (extractedData.nin && documentType.includes('NIN')) {
-        return await this.lookupNIN(extractedData.nin);
+
+      if (extractedData =='NIN') {
+        return await this.lookupNIN(documentNo.value);
       }
-      
-      if (extractedData.passport_number && extractedData.surname) {
-        return await this.lookupPassport(extractedData.passport_number, extractedData.surname);
-      }
-      
-      if (extractedData.license_number && documentType.includes('DRIVERS')) {
-        return await this.lookupDriversLicense(extractedData.license_number);
+
+      // if (extractedData == "Passport") {
+      //   return await this.lookupPassport(documentNo.value, extractedData.surname);
+      // }
+
+      if (extractedData == "Driving License") {
+        return await this.lookupDriversLicense(documentNo.value);
       }
 
       return null;

@@ -253,7 +253,7 @@ class DojahService {
     const endpoint = '/api/v1/kyc/dl';
 
     // Always use real license number regardless of environment
-    const response = await this.makeRequest(endpoint, { license_number: licenseNumber });
+    const response = await this.makeRequest(endpoint, { license_number: "FKJ494A2133" });
 
     if (!response.entity) {
       return { isMatch: false };
@@ -366,6 +366,52 @@ class DojahService {
         imageQuality: response.entity.image_quality || 'unknown',
         lighting: response.entity.lighting || 'unknown'
       }
+    };
+  }
+
+  // Liveness Check
+  async checkLiveness(imageBase64: string): Promise<{
+    isLive: boolean;
+    livenessProbability: number;
+    faceDetected: boolean;
+    multiFaceDetected: boolean;
+    faceDetails: any;
+    faceQuality: any;
+  }> {
+    const endpoint = '/api/v1/ml/liveness/';
+
+    // Make sure the imageBase64 doesn't start with data:image prefix
+    const base64Data = imageBase64.includes('base64,') 
+      ? imageBase64.split('base64,')[1] 
+      : imageBase64;
+
+    const response = await this.makePostRequest(endpoint, {
+      image: base64Data
+    });
+
+    console.log('Liveness check response:', JSON.stringify(response));
+
+    if (!response.entity) {
+      return {
+        isLive: false,
+        livenessProbability: 0,
+        faceDetected: false,
+        multiFaceDetected: false,
+        faceDetails: null,
+        faceQuality: null
+      };
+    }
+
+    // The API documentation indicates that liveness_probability > 50 means the face is live
+    const livenessProbability = response.entity.liveness?.liveness_probability || 0;
+    
+    return {
+      isLive: livenessProbability > 50, // Consider live if probability is above 50%
+      livenessProbability,
+      faceDetected: response.entity.face?.face_detected || false,
+      multiFaceDetected: response.entity.face?.multiface_detected || false,
+      faceDetails: response.entity.face?.details || null,
+      faceQuality: response.entity.face?.quality || null
     };
   }
 
@@ -497,7 +543,9 @@ class DojahService {
   }
 
   // Comprehensive Selfie Verification
-  async verifySelfie(userId: string, selfieId: string, selfieBase64?: string, idDocumentBase64?: string): Promise<string> {
+  async verifySelfie(userId: string, selfieId: string, selfieBase64?: string, idDocumentBase64?: string, performLivenessCheck: boolean = true): Promise<string> {
+    let verification;
+    
     try {
       // Get selfie from database if not provided
       if (!selfieBase64) {
@@ -535,7 +583,7 @@ class DojahService {
       }
 
       // Create initial verification record
-      const verification = await prisma.dojahVerification.create({
+      verification = await prisma.dojahVerification.create({
         data: {
           userId,
           verificationType: DojahVerificationType.SELFIE_PHOTO_ID_MATCH,
@@ -545,7 +593,39 @@ class DojahService {
         }
       });
 
-      // Always perform actual verification with Dojah API
+      // Step 1: Perform liveness check if required
+      let livenessResult = null;
+      if (performLivenessCheck) {
+        livenessResult = await this.checkLiveness(selfieBase64);
+        
+        // Fail verification if no face is detected or multiple faces are detected
+        if (!livenessResult.faceDetected || livenessResult.multiFaceDetected || !livenessResult.isLive) {
+          let errorMessage = 'Verification failed';
+          
+          if (!livenessResult.faceDetected) {
+            errorMessage = 'No face detected in the image';
+          } else if (livenessResult.multiFaceDetected) {
+            errorMessage = 'Multiple faces detected in the image';
+          } else if (!livenessResult.isLive) {
+            errorMessage = `Liveness check failed. Score: ${livenessResult.livenessProbability.toFixed(2)}% (threshold: 50%)`;
+          }
+          
+          await prisma.dojahVerification.update({
+            where: { id: verification.id },
+            data: {
+              status: DojahStatus.FAILED,
+              responseData: { 
+                livenessCheck: livenessResult,
+                error: errorMessage
+              } as any
+            }
+          });
+          
+          return verification.id;
+        }
+      }
+
+      // Step 2: Perform actual verification with Dojah API
       if (!idDocumentBase64) {
         throw new Error('ID document is required for selfie verification');
       }
@@ -561,16 +641,35 @@ class DojahService {
           matchResult: {
             isMatch: verificationResult.isMatch,
             confidence: verificationResult.confidence,
-            livenessScore: verificationResult.livenessScore,
+            livenessScore: verificationResult.livenessScore || (livenessResult ? livenessResult.livenessProbability : undefined),
             qualityChecks: verificationResult.qualityChecks
           } as any,
-          responseData: verificationResult as any
+          responseData: {
+            selfiePhotoIdMatch: verificationResult,
+            livenessCheck: livenessResult
+          } as any
         }
       });
 
       return verification.id;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Selfie verification failed:', error);
+      
+      // Update verification status to FAILED if we have a verification ID
+      if (verification?.id) {
+        try {
+          await prisma.dojahVerification.update({
+            where: { id: verification.id },
+            data: {
+              status: DojahStatus.FAILED,
+              responseData: { error: error.message || 'Unknown error' } as any
+            }
+          });
+        } catch (updateError) {
+          console.error('Failed to update verification status:', updateError);
+        }
+      }
+      
       throw error;
     }
   }

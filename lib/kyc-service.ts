@@ -289,8 +289,10 @@ export const uploadSelfieVerification = async (userId: string, file: File) => {
     try {
       console.log(`Triggering Dojah selfie verification for user ${userId}, selfie ID: ${selfie.id}`);
       const { default: dojahService } = await import('./dojah-service');
-      // Let Dojah service fetch the selfie from S3
-      await dojahService.verifySelfie(userId, selfie.id);
+      
+      // We've already done liveness check in the route handler
+      // Let Dojah service fetch the selfie from S3 for ID matching verification
+      await dojahService.verifySelfie(userId, selfie.id, undefined, undefined, false);
       console.log(`Dojah selfie verification initiated successfully for selfie ID: ${selfie.id}`);
     } catch (error) {
       const dojahError = error as Error;

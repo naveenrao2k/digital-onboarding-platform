@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Video, Check, ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
+import { AlertCircle, Video, Check, ArrowLeft, ArrowRight, CheckCircle, Camera } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { uploadSelfieVerification, getVerificationStatus } from '@/lib/file-upload-service';
 import { useVerificationStore } from '@/lib/verification-store';
@@ -19,10 +19,12 @@ const SelfieVerificationPage = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [hasCheckedStatus, setHasCheckedStatus] = useState(false);
+  const [useAutomaticCapture, setUseAutomaticCapture] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-    // Check if user is authenticated
+  
+  // Check if user is authenticated
   useEffect(() => {
     if (!loading && !user) {
       router.push('/access');
@@ -57,9 +59,10 @@ const SelfieVerificationPage = () => {
       stopCamera();
     };
   }, [step]);
-    // Sequence of instructions for the user
+  
+  // Sequence of instructions for the user when using automatic capture
   useEffect(() => {
-    if (step !== 'camera') return;
+    if (step !== 'camera' || !useAutomaticCapture) return;
     
     const instructions = [
       { text: 'Look straight at the camera', duration: 3000 },
@@ -86,8 +89,9 @@ const SelfieVerificationPage = () => {
     return () => {
       clearInterval(intervalId);
     };
-  }, [step]);
-    const startCamera = async () => {
+  }, [step, useAutomaticCapture]);
+  
+  const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'user' },
@@ -111,7 +115,9 @@ const SelfieVerificationPage = () => {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
-  };    const captureAndUploadSelfie = async () => {
+  };
+  
+  const captureAndUploadSelfie = async () => {
     try {
       setError('');
       setIsUploading(true);
@@ -150,21 +156,39 @@ const SelfieVerificationPage = () => {
       // Create a File object from the blob
       const selfieFile = new File([blob], 'selfie.jpg', { type: 'image/jpeg' });
       
+      // Set step to verifying to show the user we're processing
+      setStep('verifying');
+      
       // Upload the selfie via our API with progress tracking
-      await uploadSelfieVerification(selfieFile, (progress) => {
+      const result = await uploadSelfieVerification(selfieFile, (progress) => {
         setUploadProgress(progress);
       });
       
+      // Check if liveness check information is included in the response
+      if (result.livenessCheck) {
+        console.log('Liveness check results:', result.livenessCheck);
+      }
+      
       // Continue with verification flow
-      setStep('verifying');
       setTimeout(() => {
         setStep('completed');
-      }, 2000);
+      }, 1500);
       
     } catch (err: any) {
       console.error('Error capturing or uploading selfie:', err);
-      setError(err.message || 'Failed to capture or upload selfie');
-      setStep('error'); // Go to error step instead of back to camera
+      
+      // Set specific error message based on error type
+      if (err.message.includes('No face detected')) {
+        setError('No face was detected in the image. Please ensure your face is clearly visible and try again.');
+      } else if (err.message.includes('Multiple faces detected')) {
+        setError('Multiple faces were detected. Please ensure only your face is in the frame and try again.');
+      } else if (err.message.includes('Liveness check failed')) {
+        setError('Liveness check failed. Please ensure you are in a well-lit area and your face is clearly visible. The system needs to verify that you are a real person and not a photo or video.');
+      } else {
+        setError(err.message || 'Failed to capture or upload selfie');
+      }
+      
+      setStep('error'); // Go to error step
     } finally {
       setIsUploading(false);
     }
@@ -177,7 +201,8 @@ const SelfieVerificationPage = () => {
   const handleBack = () => {
     router.back();
   };
-    const handleContinue = async () => {
+  
+  const handleContinue = async () => {
     try {
       // Save verification status to localStorage for UI state persistence
       localStorage.setItem('selfieVerification', JSON.stringify({
@@ -213,7 +238,7 @@ const SelfieVerificationPage = () => {
                 <div>
                   <p className="font-medium text-amber-700">Important</p>
                   <p className="text-amber-700">
-                    Ensure you are in a well-lit area with your face clearly visible. Follow the on-screen instructions to complete the verification.
+                    Ensure you are in a well-lit area with your face clearly visible. Good lighting is critical for successful verification. Our system will verify that you are a real person (liveness check) and match your face to your ID documents.
                   </p>
                 </div>
               </div>
@@ -233,7 +258,7 @@ const SelfieVerificationPage = () => {
                 <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mr-3">
                   <Check className="h-4 w-4 text-blue-600" />
                 </div>
-                <p className="text-gray-700">Ensure your face is clearly visible</p>
+                <p className="text-gray-700">Ensure your face is clearly visible in good lighting</p>
               </div>
               
               <div className="flex items-center">
@@ -256,6 +281,13 @@ const SelfieVerificationPage = () => {
                 </div>
                 <p className="text-gray-700">The process will take about 15 seconds</p>
               </div>
+              
+              <div className="flex items-center">
+                <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                  <Check className="h-4 w-4 text-blue-600" />
+                </div>
+                <p className="text-gray-700">Avoid using photos or videos - our system verifies your liveness</p>
+              </div>
             </div>
             
             <button
@@ -266,7 +298,8 @@ const SelfieVerificationPage = () => {
             </button>
           </>
         )}
-          {step === 'camera' && (
+        
+        {step === 'camera' && (
           <div className="mb-8">
             <div className="relative">
               <video
@@ -276,13 +309,25 @@ const SelfieVerificationPage = () => {
                 muted
                 className="w-full h-64 bg-gray-100 rounded-lg object-cover"
               />
+              <canvas ref={canvasRef} className="hidden" />
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-48 h-48 border-2 border-white rounded-full opacity-50"></div>
               </div>
               <div className="absolute bottom-0 left-0 right-0 bg-blue-600 text-white p-3 text-center rounded-b-lg">
-                {isUploading ? `Uploading... ${uploadProgress}%` : instruction}
+                {isUploading ? `Uploading... ${uploadProgress}%` : instruction || 'Position your face in the center'}
               </div>
             </div>
+            
+            {!useAutomaticCapture && (
+              <button
+                onClick={captureAndUploadSelfie}
+                disabled={isUploading}
+                className="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors mt-4 flex items-center justify-center disabled:bg-blue-400"
+              >
+                <Camera className="mr-2 h-4 w-4" /> 
+                {isUploading ? 'Capturing...' : 'Capture Image'}
+              </button>
+            )}
             
             {isUploading && (
               <div className="mt-4">
@@ -294,6 +339,21 @@ const SelfieVerificationPage = () => {
                 </div>
               </div>
             )}
+            
+            <div className="mt-4">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="captureMode"
+                  checked={useAutomaticCapture}
+                  onChange={(e) => setUseAutomaticCapture(e.target.checked)}
+                  className="mr-2 h-4 w-4"
+                />
+                <label htmlFor="captureMode" className="text-gray-700 text-sm">
+                  Automatic capture (follows instructions)
+                </label>
+              </div>
+            </div>
           </div>
         )}
         
@@ -328,7 +388,8 @@ const SelfieVerificationPage = () => {
             </div>
           </>
         )}
-          {step === 'verifying' && (
+        
+        {step === 'verifying' && (
           <div className="text-center py-12 mb-8">
             <div className="mb-4">
               <div className="h-24 w-24 rounded-full bg-blue-100 flex items-center justify-center mx-auto">
@@ -345,7 +406,8 @@ const SelfieVerificationPage = () => {
             </div>
           </div>
         )}
-          {step === 'completed' && (
+        
+        {step === 'completed' && (
           <>
             <div className="bg-green-600 rounded-lg p-12 mb-8 flex items-center justify-center">
               <div className="text-center">

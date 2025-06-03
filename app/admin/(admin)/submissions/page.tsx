@@ -49,14 +49,8 @@ const AdminSubmissionsPage = () => {
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
-
-    
-
-    fetchSubmissions();
-
-    if (loading) {
+    if (!loading && user) {
       fetchSubmissions();
-
     }
   }, [user, loading]);
 
@@ -124,43 +118,59 @@ const AdminSubmissionsPage = () => {
 
   const handleApprove = async (submissionId: string) => {
     try {
-      // In a real implementation, you would call an API endpoint
-      console.log('Approving document:', submissionId);
+      const submission = submissions.find(s => s.id === submissionId);
+      if (!submission) return;
 
-      // Update submissions - change status to approved
+      const response = await fetch(`/api/admin/submissions/${submission.userId}/update`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentId: submission.id,
+          documentStatus: 'APPROVED',
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to approve document');
+      }
+
       setSubmissions(prevSubmissions =>
-        prevSubmissions.map(submission =>
-          submission.id === submissionId
-            ? { ...submission, status: 'APPROVED' as VerificationStatusEnum }
-            : submission
+        prevSubmissions.map(sub =>
+          sub.id === submissionId ? { ...sub, status: 'APPROVED' as VerificationStatusEnum } : sub
         )
       );
-
-      // Show success notification (in a real app)
     } catch (err) {
       console.error('Error approving document:', err);
-      // Show error notification
     }
   };
 
   const handleReject = async (submissionId: string) => {
     try {
-      // In a real implementation, you would call an API endpoint
-      console.log('Rejecting document:', submissionId);
+      const submission = submissions.find(s => s.id === submissionId);
+      if (!submission) return;
 
-      // Update submissions - change status to rejected
+      const response = await fetch(`/api/admin/submissions/${submission.userId}/update`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentId: submission.id,
+          documentStatus: 'REJECTED',
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to reject document');
+      }
+
       setSubmissions(prevSubmissions =>
-        prevSubmissions.map(submission =>
-          submission.id === submissionId
-            ? { ...submission, status: 'REJECTED' as VerificationStatusEnum }
-            : submission
+        prevSubmissions.map(sub =>
+          sub.id === submissionId ? { ...sub, status: 'REJECTED' as VerificationStatusEnum } : sub
         )
       );
-
-      // Show success notification (in a real app)
     } catch (err) {
       console.error('Error rejecting document:', err);
-      // Show error notification
     }
   };
 

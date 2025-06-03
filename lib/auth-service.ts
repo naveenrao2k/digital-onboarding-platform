@@ -1,6 +1,6 @@
 // lib/auth-service.ts
 import { prisma } from './prisma';
-import { compare, hash } from 'bcrypt';
+import { compare, hash } from 'bcryptjs';
 
 export type SignUpData = {
   email: string;

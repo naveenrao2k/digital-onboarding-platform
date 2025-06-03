@@ -150,6 +150,7 @@ class DojahService {
       });
 
       const data = await response.json();
+      console.log('Dojah API POST response:', data);
       
       if (!response.ok) {
         throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
@@ -291,6 +292,8 @@ class DojahService {
 
     const response = await this.makePostRequest(endpoint, requestBody);
 
+    // console.log('Dojah document analysis response:', response);
+
     if (!response.entity) {
       return {
         isReadable: false,
@@ -428,6 +431,10 @@ class DojahService {
 
       // Step 1: Analyze document
       const analysisResult = await this.analyzeDocument(documentBase64);
+
+      console.log('-------------------------------------------------------');
+
+      console.log('Dojah document analysis result:', analysisResult);
       
       // Store document analysis
       await prisma.documentAnalysis.create({
@@ -435,16 +442,23 @@ class DojahService {
           kycDocumentId: documentId,
           extractedText: analysisResult.extractedText,
           extractedData: analysisResult.extractedData as any,
-          documentType: analysisResult.documentType,
+          documentType: analysisResult.documentType as any,
           confidence: analysisResult.confidence,
           isReadable: analysisResult.isReadable,
           qualityScore: analysisResult.qualityScore,
-          analysisProvider: 'DOJAH'
+          analysisProvider: 'DOJAH',
+          isValid: analysisResult.isValid,
+          validationStatus: analysisResult.validationStatus as any,
+          textData: analysisResult.textData as any,
+          documentImages: analysisResult.documentImages as any
         }
       });
 
 
       // Step 2: Government lookup if we have extracted data
+      //TODO: Handle cases where documentType is not provided
+
+
       let governmentResult: GovernmentLookupResult | null = null;
       
       if (analysisResult.extractedData) {

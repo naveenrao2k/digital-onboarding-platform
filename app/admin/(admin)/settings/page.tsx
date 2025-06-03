@@ -11,7 +11,6 @@ import {
   Settings as SettingsIcon,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { useHeader } from '../layout';
 
 interface UserProfile {
   firstName: string;
@@ -41,12 +40,6 @@ const AdminSettingsPage = () => {
   const router = useRouter();
   const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('profile');
-  const { updateHeader } = useHeader();
-  
-  useEffect(() => {
-    updateHeader('Admin Settings', 'Configure admin account and application settings');
-  }, [updateHeader]);
-
   const [profile, setProfile] = useState<UserProfile>({
     firstName: '',
     lastName: '',
@@ -68,6 +61,7 @@ const AdminSettingsPage = () => {
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
+    fetchProfile();
     if (!loading) {
       if (!user) {
         // router.push('/access');
@@ -207,7 +201,10 @@ const AdminSettingsPage = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className=" mx-auto">
-      
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Settings</h1>
+          <p className="text-gray-600">Manage your profile and preferences</p>
+        </div>
 
         <div className="flex gap-6">
           {/* Sidebar Navigation */}

@@ -58,7 +58,7 @@ const AdminHeader = ({ title, subtitle }: AdminHeaderProps) => {
           {/* Page title - dynamic based on props */}
           <div className="flex-1 px-4 lg:px-0">
             <h1 className="text-lg md:text-xl font-bold truncate">{title}</h1>
-            {subtitle && <p className="text-gray-600 text-xs md:text-sm truncate">{subtitle}</p>}
+            {subtitle && <p className="text-gray-600 text-xs md:text-sm truncate md:block hidden">{subtitle}</p>}
           </div>
           
           <div className="flex items-center">

@@ -225,7 +225,7 @@ const AdminDashboardPage = () => {
   return (
     <div className="w-full">
       {/* Main content */}
-      <main className="p-2 sm:p-4 md:p-6">
+      <main className="">
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
           <StatCard
@@ -385,7 +385,7 @@ const AdminDashboardPage = () => {
                           </span>
                         </td>
                         <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
-                          <div className="flex flex-wrap gap-1 md:space-x-2">
+                          <div className="flex flex-wrap justify-center gap-1 md:space-x-2">
                             <button
                               onClick={() => handleViewDetails(review.userId)}
                               className="px-2 py-1 md:px-3 md:py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-medium rounded"

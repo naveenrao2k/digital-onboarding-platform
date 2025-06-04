@@ -81,119 +81,8 @@ const AdminAuditLogsPage = () => {
       console.error('Error fetching audit logs:', err);
       setError('Failed to load audit logs. Please try again.');
       
-      // Fallback to mock data for development
-      setAuditLogs([
-        {
-          id: 'log_1',
-          userId: 'user_1',
-          userName: 'John Smith',
-          action: 'DOCUMENT_UPLOAD',
-          resourceType: 'KYCDocument',
-          resourceId: 'doc_1',
-          timestamp: '2025-05-23 14:32:15',
-          details: 'Uploaded passport document',
-          ipAddress: '192.168.1.1'
-        },
-        {
-          id: 'log_2',
-          userId: 'admin_1',
-          userName: 'Admin User',
-          action: 'DOCUMENT_APPROVED',
-          resourceType: 'KYCDocument',
-          resourceId: 'doc_2',
-          timestamp: '2025-05-23 15:10:22',
-          details: 'Approved ID card document for Emily Johnson',
-          ipAddress: '192.168.1.2'
-        },
-        {
-          id: 'log_3',
-          userId: 'admin_1',
-          userName: 'Admin User',
-          action: 'DOCUMENT_REJECTED',
-          resourceType: 'KYCDocument',
-          resourceId: 'doc_3',
-          timestamp: '2025-05-22 11:45:30',
-          details: 'Rejected utility bill document for Michael Brown - Document unclear',
-          ipAddress: '192.168.1.2'
-        },
-        {
-          id: 'log_4',
-          userId: 'user_4',
-          userName: 'Sarah Williams',
-          action: 'SELFIE_UPLOAD',
-          resourceType: 'SelfieVerification',
-          resourceId: 'selfie_1',
-          timestamp: '2025-05-22 09:20:11',
-          details: 'Uploaded selfie verification',
-          ipAddress: '192.168.1.3'
-        },
-        {
-          id: 'log_5',
-          userId: 'admin_2',
-          userName: 'Admin Manager',
-          action: 'USER_STATUS_CHANGE',
-          resourceType: 'User',
-          resourceId: 'user_5',
-          timestamp: '2025-05-21 16:05:45',
-          details: 'Changed user status from PENDING to VERIFIED',
-          ipAddress: '192.168.1.4'
-        },
-        {
-          id: 'log_6',
-          userId: 'user_6',
-          userName: 'Lisa Anderson',
-          action: 'USER_LOGIN',
-          resourceType: 'User',
-          resourceId: 'user_6',
-          timestamp: '2025-05-21 10:30:22',
-          details: 'User logged in successfully',
-          ipAddress: '192.168.1.5'
-        },
-        {
-          id: 'log_7',
-          userId: 'user_7',
-          userName: 'Robert Wilson',
-          action: 'DOCUMENT_UPLOAD',
-          resourceType: 'KYCDocument',
-          resourceId: 'doc_7',
-          timestamp: '2025-05-20 14:15:33',
-          details: 'Uploaded ID card document',
-          ipAddress: '192.168.1.6'
-        },
-        {
-          id: 'log_8',
-          userId: 'admin_1',
-          userName: 'Admin User',
-          action: 'DOCUMENT_APPROVED',
-          resourceType: 'KYCDocument',
-          resourceId: 'doc_8',
-          timestamp: '2025-05-20 11:22:18',
-          details: 'Approved utility bill document for Jennifer Taylor',
-          ipAddress: '192.168.1.2'
-        },
-        {
-          id: 'log_9',
-          userId: 'admin_2',
-          userName: 'Admin Manager',
-          action: 'SELFIE_REJECTED',
-          resourceType: 'SelfieVerification',
-          resourceId: 'selfie_2',
-          timestamp: '2025-05-19 15:40:55',
-          details: 'Rejected selfie verification for Thomas Moore - Face not clearly visible',
-          ipAddress: '192.168.1.4'
-        },
-        {
-          id: 'log_10',
-          userName: 'System',
-          userId: 'system',
-          action: 'SYSTEM_BACKUP',
-          resourceType: 'System',
-          resourceId: 'backup_1',
-          timestamp: '2025-05-19 00:00:01',
-          details: 'Automated daily backup completed successfully',
-          ipAddress: '127.0.0.1'
-        },
-      ]);
+      // Remove mock data. Error fetching audit logs.
+      setAuditLogs([]);
     } finally {
       setIsLoading(false);
     }
@@ -245,7 +134,7 @@ const AdminAuditLogsPage = () => {
   }
 
   return (
-    <div className="w-full p-2 sm:p-4 md:p-6">
+    <div className="w-full">
       
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-6">
         {/* Search and Filters */}

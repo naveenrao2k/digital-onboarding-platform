@@ -9,6 +9,8 @@ import {
   Monitor,
   Camera,
   Settings as SettingsIcon,
+  Menu,
+  ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
@@ -56,8 +58,8 @@ const AdminSettingsPage = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [error, setError] = useState('');  const [successMessage, setSuccessMessage] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
@@ -72,6 +74,13 @@ const AdminSettingsPage = () => {
       }
     }
   }, [user, loading, router]);
+  
+  // Close sidebar on mobile when a tab is selected
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
+  }, [activeTab]);
   const fetchProfile = async () => {
     setIsLoading(true);
     setError('');
@@ -199,7 +208,7 @@ const AdminSettingsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50">
       <div className=" mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Settings</h1>

@@ -114,6 +114,9 @@ export default function UserDetailsPage() {
     }
   };
 
+  const [reviewMessage, setReviewMessage] = React.useState<string | null>(null);
+  const [reviewError, setReviewError] = React.useState<string | null>(null);
+
   const handleReview = async (
     documentId: string, 
     status: string, 
@@ -123,6 +126,8 @@ export default function UserDetailsPage() {
   ) => {
     try {
       setIsReviewing(true);
+      setReviewMessage(null);
+      setReviewError(null);
       
       const document = userDetails?.documents.find(d => d.id === documentId);
       const verificationType = document?.type === 'PASSPORT_PHOTOS' ? 
@@ -148,20 +153,22 @@ export default function UserDetailsPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to submit review');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit review');
       }
 
       // Refresh user details to show updated status
       await fetchUserDetails();
       
-      // Show success message (you might want to add a toast notification here)
-      alert('Review submitted successfully!');
+      // Show success message
+      setReviewMessage('Review submitted successfully!');
     } catch (error: any) {
-      alert(`Error submitting review: ${error.message}`);
+      setReviewError(`Error submitting review: ${error.message}`);
     } finally {
       setIsReviewing(false);
     }
   };
+
 
   const getStatusIcon = (status: string) => {
     switch (status.toUpperCase()) {
@@ -193,24 +200,26 @@ export default function UserDetailsPage() {
     }
   };
 
-  const downloadDocument = async (documentId: string, fileName: string) => {
+  const downloadDocument = async (docId: string, docFileName: string) => {
     try {
-      const response = await fetch(`/api/admin/documents/${documentId}/download`);
+      const response = await fetch(`/api/admin/documents/${docId}/download`);
       if (!response.ok) throw new Error('Download failed');
       
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = fileName;
+      a.download = docFileName;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (error) {
-      alert('Failed to download document');
+    } catch (error: any) {
+      setError('Failed to download document');
     }
   };
+
+
 
   if (loading) {
     return (
@@ -239,6 +248,7 @@ export default function UserDetailsPage() {
         </div>
       </div>
 
+
       {/* Navigation Tabs */}
       <div className="border-b border-gray-200 mb-6">
         <nav className="-mb-px flex space-x-8">
@@ -262,6 +272,18 @@ export default function UserDetailsPage() {
           ))}
         </nav>
       </div>
+
+      {/* Display review success or error messages */}
+      {reviewMessage && (
+        <div className="mb-4 p-4 bg-green-100 text-green-800 rounded">
+          {reviewMessage}
+        </div>
+      )}
+      {reviewError && (
+        <div className="mb-4 p-4 bg-red-100 text-red-800 rounded">
+          {reviewError}
+        </div>
+      )}
 
       {/* Tab Content */}
       {activeTab === 'overview' && (

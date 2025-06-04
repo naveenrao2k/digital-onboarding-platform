@@ -84,6 +84,10 @@ export const signIn = async (data: SignInData) => {
 
 export const getUserProfile = async (userId: string) => {
   try {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+    
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -97,7 +101,7 @@ export const getUserProfile = async (userId: string) => {
     });
 
     if (!user) {
-      throw new Error('User not found');
+      throw new Error(`User not found with ID: ${userId}`);
     }
 
     // Format the response to include only necessary data
@@ -132,7 +136,7 @@ export const getUserProfile = async (userId: string) => {
       references: user.references
     };
   } catch (error) {
-    console.error('Error fetching user profile:', error);
+    console.error(`Error fetching user profile for ID ${userId}:`, error);
     throw error;
   }
 };

@@ -47,6 +47,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const userData = await response.json();
         setUser(userData);
       } else {
+        // Clear the session if user not found
+        if (response.status === 401 || response.status === 500) {
+          // Try to sign out to clear any invalid session
+          try {
+            await fetch('/api/auth/signout', { method: 'POST' });
+          } catch (e) {
+            console.error('Failed to sign out:', e);
+          }
+        }
         setUser(null);
       }
     } catch (error) {

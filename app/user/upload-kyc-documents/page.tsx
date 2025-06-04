@@ -38,6 +38,26 @@ const TextInput = ({
     </div>
   );
   
+// Helper function to get required documents for each account type
+const getRequiredDocumentsForAccountType = (type: string): string[] => {
+  switch (type) {
+    case 'individual':
+      return ['idCard']; // At minimum, require ID card
+    case 'partnership':
+      return ['certificateOfRegistration', 'validIdOfPartners'];
+    case 'enterprise':
+      return ['certificateOfRegistration', 'businessOwnerID'];
+    case 'llc':
+      return ['certificateOfIncorporation', 'directorsID'];
+    default:
+      return [];
+  }
+};
+
+const formatDocumentName = (docType: string): string => {
+  return docType.replace(/([A-Z])/g, ' $1').trim();
+};
+
 // Helper function to convert form docType to valid DocumentType enum
 const docTypeToEnumMapping = (docType: string): DocumentType => {
   const mapping: {[key: string]: DocumentType} = {
@@ -593,7 +613,20 @@ const UploadKYCDocumentsPage = () => {
 
       // Check if there are any documents to upload
       if (uploadPromises.length === 0) {
-        setError('Please upload at least one document');
+        setError('Please upload at least one document required for your account type');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Add validation for minimum required documents per account type
+      const requiredDocuments = getRequiredDocumentsForAccountType(accountType);
+      const missingDocuments = requiredDocuments.filter(docType => {
+        // Check if this document type is missing
+        return !documentsToSave.documents[docType];
+      });
+
+      if (missingDocuments.length > 0) {
+        setError(`Please upload the following required documents: ${missingDocuments.map(formatDocumentName).join(', ')}`);
         setIsSubmitting(false);
         return;
       }
@@ -613,6 +646,10 @@ const UploadKYCDocumentsPage = () => {
       // Set the error in a more user-friendly format
       if (errorMessage.includes('You have already uploaded')) {
         setError('You can only upload one document of each type. Please use the Change File option to replace an existing document.');
+      } else if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+        setError('Network error. Please check your internet connection and try again.');
+      } else if (errorMessage.includes('size')) {
+        setError('One or more files exceed the maximum allowed size (5MB).');
       } else {
         setError(errorMessage);
       }
@@ -635,6 +672,7 @@ const UploadKYCDocumentsPage = () => {
     // Determine if file is uploaded based on account type and document type
     let isFileUploaded = false;
     let fileName = '';
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
     switch (accountTypeKey) {
       case 'individual':
@@ -682,6 +720,29 @@ const UploadKYCDocumentsPage = () => {
           return null;
       }
     };
+    
+    // Create preview for image files
+    const handlePreview = (file: File) => {
+      // Only create previews for images, not PDFs
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          setPreviewUrl(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        // For PDFs, just show an icon
+        setPreviewUrl(null);
+      }
+    };
+    
+    // Update the component to show preview when a file is selected
+    useEffect(() => {
+      const file = getFileByType(accountTypeKey, docType);
+      if (file) {
+        handlePreview(file);
+      }
+    }, [accountTypeKey, docType]);
 
     return (
       <div>
@@ -712,6 +773,15 @@ const UploadKYCDocumentsPage = () => {
               <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center mb-2">
                 <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
+              {previewUrl && (
+                <div className="mb-2 max-w-xs">
+                  <img 
+                    src={previewUrl} 
+                    alt="Document preview" 
+                    className="max-h-32 max-w-full object-contain rounded border border-gray-200" 
+                  />
+                </div>
+              )}
               <p className="text-sm text-slate-600 text-center">{fileName}</p>
               <p className="text-sm text-green-600 mt-1">File uploaded successfully</p>
             </div>
@@ -735,6 +805,15 @@ const UploadKYCDocumentsPage = () => {
               <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center mb-2">
                 <CheckCircle className="h-6 w-6 text-blue-600" />
               </div>
+              {previewUrl && (
+                <div className="mb-2 max-w-xs">
+                  <img 
+                    src={previewUrl} 
+                    alt="Document preview" 
+                    className="max-h-32 max-w-full object-contain rounded border border-gray-200" 
+                  />
+                </div>
+              )}
               <p className="text-sm text-slate-600 text-center">{fileName}</p>
               <p className="text-sm text-blue-600 mt-1">File selected and ready</p>
               <button

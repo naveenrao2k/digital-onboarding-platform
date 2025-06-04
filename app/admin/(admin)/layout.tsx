@@ -117,7 +117,7 @@ export default function AdminLayout({
             {/* Main content */}
             <div className="flex-1 flex flex-col">
               <AdminHeader title={headerTitle} subtitle={headerSubtitle} />
-              <main className="flex-1 p-4 md:p-6 overflow-x-hidden">
+              <main className="flex-1 p-4  overflow-x-hidden">
                 {children}
               </main>
             </div>

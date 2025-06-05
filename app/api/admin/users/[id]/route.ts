@@ -85,11 +85,12 @@ export async function GET(request: NextRequest) {
         fileSize: doc.fileSize,
         mimeType: doc.mimeType,
         // Removed documentAnalysis and dojahVerification as they do not exist on doc
-      })),
-      dojahVerifications: {
+      })),      dojahVerifications: {
         total: user.dojahVerifications?.length || 0,
-        governmentVerifications: user.dojahVerifications?.filter(v => v.type === 'GOVERNMENT_ID') || [],
-        amlScreenings: user.dojahVerifications?.filter(v => v.type === 'AML_SCREENING') || [],
+        governmentVerifications: user.dojahVerifications?.filter(v => 
+          ['BVN_LOOKUP', 'NIN_LOOKUP', 'PASSPORT_LOOKUP', 'DRIVERS_LICENSE_LOOKUP'].includes(v.verificationType)
+        ) || [],
+        amlScreenings: user.dojahVerifications?.filter(v => v.verificationType === 'AML_SCREENING') || [],
       },
       adminReviews: user.adminReviews.map(review => ({
         id: review.id,

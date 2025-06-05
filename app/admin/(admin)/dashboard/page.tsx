@@ -392,18 +392,18 @@ const AdminDashboardPage = () => {
                             >
                               View
                             </button>
-                            <button
+                            {/* <button
                               onClick={() => handleApprove(review.id)}
                               className="px-2 py-1 md:px-3 md:py-1 bg-green-100 hover:bg-green-200 text-green-800 text-xs font-medium rounded"
                             >
                               Approve
-                            </button>
-                            <button
+                            </button> */}
+                            {/* <button
                               onClick={() => handleReject(review.id)}
                               className="px-2 py-1 md:px-3 md:py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-medium rounded"
                             >
                               Reject
-                            </button>
+                            </button> */}
                           </div>
                         </td>
                       </tr>

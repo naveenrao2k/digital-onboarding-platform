@@ -12,7 +12,9 @@ import {
   Shield, 
   User,
   Activity,
-  RotateCcw
+  RotateCcw,
+  Timer,
+  BarChart
 } from 'lucide-react';
 
 interface DojahVerificationProps {
@@ -38,6 +40,12 @@ interface DojahVerificationProps {
       governmentData?: any;
       errorMessage?: string;
       createdAt: string;
+      steps?: Array<{
+        name: string;
+        status: string;
+        completedAt?: string;
+        duration?: number;
+      }>;
     };
   };
   governmentVerifications: Array<{
@@ -80,7 +88,11 @@ export default function DojahVerificationDisplay({
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, isMatch?: boolean) => {
+    if (isMatch !== undefined) {
+      return isMatch ? 'bg-green-50 text-green-800 border-green-200' : 'bg-red-50 text-red-800 border-red-200';
+    }
+    
     switch (status.toUpperCase()) {
       case 'APPROVED':
       case 'SUCCESS':
@@ -121,6 +133,51 @@ export default function DojahVerificationDisplay({
     )
   );
 
+  // Calculate verification steps with status
+  const verificationSteps = [
+    {
+      name: 'Document Upload',
+      status: 'SUCCESS',
+      completedAt: document.dojahVerification?.createdAt,
+    },
+    {
+      name: 'Quality Check',
+      status: document.documentAnalysis?.isReadable ? 'SUCCESS' : 'FAILED',
+      score: document.documentAnalysis?.qualityScore,
+    },
+    {
+      name: 'Data Extraction',
+      status: document.dojahVerification?.extractedData ? 'SUCCESS' : 'FAILED',
+      confidence: document.dojahVerification?.confidence,
+    },
+    {
+      name: 'Government Database Match',
+      status: relevantGovVerifications.length > 0 ? 
+        relevantGovVerifications.every(v => v.isMatch) ? 'SUCCESS' : 'FAILED' : 
+        'PENDING',
+    }
+  ];
+  console.log('Detailed debug information:', {
+    showDetails,
+    hasDocumentAnalysis: !!document.documentAnalysis,
+    hasExtractedData: !!(document.documentAnalysis?.extractedData || document.dojahVerification?.extractedData),
+    hasGovernmentData: !!document.dojahVerification?.governmentData,
+    hasExtractedText: !!document.documentAnalysis?.extractedText,
+    documentAnalysisData: document.documentAnalysis?.extractedData,
+    dojahVerificationData: document.dojahVerification?.extractedData,
+    governmentData: document.dojahVerification?.governmentData,
+  });
+
+  // Debug logging
+  console.log('DojahVerificationDisplay render:', {
+    showDetails,
+    documentAnalysis: document.documentAnalysis ?? 'undefined',
+    dojahVerification: document.dojahVerification ?? 'undefined',
+    hasExtractedData: !!(document.documentAnalysis?.extractedData || document.dojahVerification?.extractedData),
+    hasGovernmentData: !!document.dojahVerification?.governmentData,
+    hasExtractedText: !!document.documentAnalysis?.extractedText
+  });
+
   return (
     <div className="border rounded-lg p-6 space-y-4">
       {/* Document Header */}
@@ -140,13 +197,13 @@ export default function DojahVerificationDisplay({
         </div>
       </div>
 
-      {/* Dojah Analysis Summary */}
+      {/* API Verification Status */}
       {document.dojahVerification && (
         <div className="bg-blue-50 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
               <Shield className="h-5 w-5 text-blue-600" />
-              <span className="font-medium text-blue-900">Dojah Verification</span>
+              <span className="font-medium text-blue-900">Dojah Verification Status</span>
             </div>
             <div className="flex items-center space-x-2">
               {getStatusIcon(document.dojahVerification.status)}
@@ -155,37 +212,46 @@ export default function DojahVerificationDisplay({
               </span>
             </div>
           </div>
-          
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-gray-600">Confidence Score:</span>
-              <span className="ml-2 font-medium">
-                {document.dojahVerification.confidence ? `${document.dojahVerification.confidence}%` : 'N/A'}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-600">Quality Score:</span>
-              <span className="ml-2 font-medium">
-                {document.documentAnalysis?.qualityScore ? `${document.documentAnalysis.qualityScore}%` : 'N/A'}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-600">Document Readable:</span>
-              <span className="ml-2 font-medium">
-                {document.documentAnalysis?.isReadable ? 'Yes' : 'No'}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-600">Detected Type:</span>
-              <span className="ml-2 font-medium">
-                {document.documentAnalysis?.documentType || 'Unknown'}
-              </span>
-            </div>
+
+          {/* Verification Steps Timeline */}
+          <div className="space-y-3">
+            {verificationSteps.map((step, index) => (
+              <div key={index} className="flex items-center space-x-3 text-sm">
+                {getStatusIcon(step.status)}
+                <div className="flex-grow">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{step.name}</span>
+                    <span className={`px-2 py-0.5 rounded text-xs ${getStatusColor(step.status)}`}>
+                      {step.status}
+                    </span>
+                  </div>
+                  {step.score !== undefined && (
+                    <div className="mt-1 flex items-center text-xs text-gray-600">
+                      <BarChart className="h-3 w-3 mr-1" />
+                      Quality Score: {step.score}%
+                    </div>
+                  )}
+                  {step.confidence !== undefined && (
+                    <div className="mt-1 flex items-center text-xs text-gray-600">
+                      <Shield className="h-3 w-3 mr-1" />
+                      Confidence: {step.confidence}%
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
 
+          {/* Error Message Display */}
           {document.dojahVerification.errorMessage && (
-            <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-              <strong>Error:</strong> {document.dojahVerification.errorMessage}
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded">
+              <div className="flex items-start">
+                <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 mr-2" />
+                <div>
+                  <p className="font-medium text-red-800">Verification Error</p>
+                  <p className="text-sm text-red-700">{document.dojahVerification.errorMessage}</p>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -196,59 +262,89 @@ export default function DojahVerificationDisplay({
         <div className="bg-green-50 rounded-lg p-4">
           <div className="flex items-center space-x-2 mb-3">
             <User className="h-5 w-5 text-green-600" />
-            <span className="font-medium text-green-900">Government Verification</span>
+            <span className="font-medium text-green-900">Government Verification Results</span>
           </div>
           
           <div className="space-y-2">
             {relevantGovVerifications.map((gv, index) => (
               <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
-                <span className="text-sm font-medium">{gv.type.replace(/_/g, ' ')}</span>
-                <div className="flex items-center space-x-2">
-                  {gv.isMatch ? (
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-red-500" />
-                  )}
-                  <span className="text-xs text-gray-600">
-                    {gv.confidence ? `${gv.confidence}%` : 'N/A'}
+                <div>
+                  <span className="text-sm font-medium block">{gv.type.replace(/_/g, ' ')}</span>
+                  <span className="text-xs text-gray-500">
+                    Verified on {new Date(gv.createdAt).toLocaleDateString()}
                   </span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-1">
+                    <Shield className="h-4 w-4 text-blue-500" />
+                    <span className="text-xs text-gray-600">
+                      {gv.confidence ? `${gv.confidence}%` : 'N/A'}
+                    </span>
+                  </div>
+                  <div className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(gv.status, gv.isMatch)}`}>
+                    {gv.isMatch ? 'Match' : 'No Match'}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </div>
-      )}
-
-      {/* Detailed Information Toggle */}
+      )}      {/* View Details Button */}
       <button
         onClick={() => setShowDetails(!showDetails)}
         className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 text-sm"
       >
         <Eye className="h-4 w-4" />
         <span>{showDetails ? 'Hide Details' : 'View Details'}</span>
-      </button>
-
-      {/* Detailed Information */}
+      </button>      {/* Detailed Information */}
       {showDetails && (
-        <div className="space-y-4 border-t pt-4">
+        <div className="mt-4 space-y-4 border-t pt-4">
+          {/* No Data Message */}
+          {!document.documentAnalysis && !document.dojahVerification && (
+            <div className="bg-gray-50 rounded-lg p-4 text-center">
+              <p className="text-gray-600">No detailed information available for this document.</p>
+            </div>
+          )}
+
           {/* Extracted Data */}
-          {document.dojahVerification?.extractedData && (
-            <div>
-              <h4 className="font-medium text-gray-900 mb-2">Extracted Data</h4>
-              <div className="bg-gray-50 rounded p-3 text-sm">
-                <pre className="whitespace-pre-wrap text-xs">
-                  {JSON.stringify(document.dojahVerification.extractedData, null, 2)}
-                </pre>
+          {(document.dojahVerification?.extractedData || document.documentAnalysis?.extractedData) && (
+            <div className="bg-white rounded-lg border p-4">
+              <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                <FileText className="h-4 w-4 mr-2 text-blue-600" />
+                Extracted Data
+              </h4>
+              <div className="bg-gray-50 rounded p-3">
+                <div className="space-y-4">
+                  {document.dojahVerification?.extractedData && (
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-700 mb-1">Dojah Verification Data</h5>
+                      <pre className="whitespace-pre-wrap text-xs text-gray-800 overflow-x-auto">
+                        {JSON.stringify(document.dojahVerification.extractedData, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                  {document.documentAnalysis?.extractedData && (
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-700 mb-1">Document Analysis Data</h5>
+                      <pre className="whitespace-pre-wrap text-xs text-gray-800 overflow-x-auto">
+                        {JSON.stringify(document.documentAnalysis.extractedData, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
 
           {/* Government Data */}
           {document.dojahVerification?.governmentData && (
-            <div>
-              <h4 className="font-medium text-gray-900 mb-2">Government Data</h4>
-              <div className="bg-gray-50 rounded p-3 text-sm">
-                <pre className="whitespace-pre-wrap text-xs">
+            <div className="bg-white rounded-lg border p-4">
+              <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                <Shield className="h-4 w-4 mr-2 text-green-600" />
+                Government Data
+              </h4>
+              <div className="bg-gray-50 rounded p-3">
+                <pre className="whitespace-pre-wrap text-xs text-gray-800 overflow-x-auto">
                   {JSON.stringify(document.dojahVerification.governmentData, null, 2)}
                 </pre>
               </div>
@@ -257,10 +353,15 @@ export default function DojahVerificationDisplay({
 
           {/* Extracted Text */}
           {document.documentAnalysis?.extractedText && (
-            <div>
-              <h4 className="font-medium text-gray-900 mb-2">Extracted Text</h4>
-              <div className="bg-gray-50 rounded p-3 text-sm max-h-40 overflow-y-auto">
-                {document.documentAnalysis.extractedText}
+            <div className="bg-white rounded-lg border p-4">
+              <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                <FileText className="h-4 w-4 mr-2 text-purple-600" />
+                Extracted Text
+              </h4>
+              <div className="bg-gray-50 rounded p-3 max-h-40 overflow-y-auto">
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                  {document.documentAnalysis.extractedText}
+                </p>
               </div>
             </div>
           )}

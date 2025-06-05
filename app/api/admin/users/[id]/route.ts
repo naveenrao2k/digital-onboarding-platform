@@ -86,7 +86,11 @@ export async function GET(request: NextRequest) {
         mimeType: doc.mimeType,
         // Removed documentAnalysis and dojahVerification as they do not exist on doc
       })),
-      dojahVerifications: user.dojahVerifications,
+      dojahVerifications: {
+        total: user.dojahVerifications?.length || 0,
+        governmentVerifications: user.dojahVerifications?.filter(v => v.type === 'GOVERNMENT_ID') || [],
+        amlScreenings: user.dojahVerifications?.filter(v => v.type === 'AML_SCREENING') || [],
+      },
       adminReviews: user.adminReviews.map(review => ({
         id: review.id,
         verificationType: review.verificationType,

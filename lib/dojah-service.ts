@@ -576,14 +576,11 @@ class DojahService {
       //TODO: Handle cases where documentType is not provided
 
 
-      let governmentResult: GovernmentLookupResult | null = null;
-
-      if (analysisResult.documentType) {
+      let governmentResult: GovernmentLookupResult | null = null;      if (analysisResult.documentType?.documentName && analysisResult.textData) {
+        const documentNumber = analysisResult.textData.find(field => field.fieldKey === "document_number");
         governmentResult = await this.performGovernmentLookup(
           analysisResult.documentType.documentName,
-          analysisResult.textData?.map((value) => {
-            return value.fieldKey == "document_number"
-          })
+          documentNumber
         );
       }
 
@@ -763,26 +760,36 @@ class DojahService {
       throw error;
     }
   }
-
-  private async performGovernmentLookup(extractedData: any, documentNo: any): Promise<GovernmentLookupResult | null> {
+  private async performGovernmentLookup(documentType: string, documentNo: any): Promise<GovernmentLookupResult | null> {
     try {
-      // Determine which government API to use based on document type and extracted data
-      if (extractedData == 'BVN') {
+      if (!documentType || !documentNo?.value) {
+        console.warn('Missing document type or number for government lookup');
+        return null;
+      }
+
+      // Normalize document type for comparison
+      const normalizedType = documentType.toLowerCase().trim();
+
+      // Determine which government API to use based on document type
+      if (normalizedType.includes('bvn')) {
         return await this.lookupBVN(documentNo.value);
       }
 
-      if (extractedData =='NIN') {
+      if (normalizedType.includes('nin') || normalizedType.includes('national id')) {
         return await this.lookupNIN(documentNo.value);
       }
 
-      // if (extractedData == "Passport") {
-      //   return await this.lookupPassport(documentNo.value, extractedData.surname);
-      // }
-
-      if (extractedData == "Driving License") {
+      if (normalizedType.includes('passport')) {
+        // Note: Surname needs to be extracted from analysisResult.textData for passport lookup
+        // For now, just use document number lookup
         return await this.lookupDriversLicense(documentNo.value);
       }
 
+      if (normalizedType.includes('driver') || normalizedType.includes('license')) {
+        return await this.lookupDriversLicense(documentNo.value);
+      }
+
+      console.warn('Unrecognized document type:', documentType);
       return null;
     } catch (error) {
       console.error('Government lookup failed:', error);

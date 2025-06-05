@@ -73,8 +73,29 @@ interface UserDetails {
 export default function UserDetailsPage() {
   const params = useParams();
   const userId = params?.id as string;
-  
-  const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
+    const [userDetails, setUserDetails] = useState<UserDetails | null>({
+    id: '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    accountType: '',
+    accountStatus: '',
+    createdAt: '',
+    verificationStatus: {
+      overallStatus: '',
+      kycStatus: '',
+      selfieStatus: '',
+      progress: 0
+    },
+    documents: [],
+    dojahVerifications: {
+      total: 0,
+      governmentVerifications: [],
+      amlScreenings: []
+    },
+    adminReviews: [],
+    canReupload: false
+  } as UserDetails);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isReviewing, setIsReviewing] = useState(false);
@@ -332,6 +353,30 @@ export default function UserDetailsPage() {
                 )}
               </div>
             </div>
+
+            {/* Account Information */}
+            <div className="bg-white rounded-lg border p-6 mt-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Account Information</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">Account Type</p>
+                  <p className="font-medium">{userDetails.accountType}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Account Status</p>
+                  <div className="flex items-center mt-1">
+                    {getStatusIcon(userDetails.accountStatus)}
+                    <span className={`ml-2 px-2 py-0.5 rounded text-sm ${getStatusColor(userDetails.accountStatus)}`}>
+                      {userDetails.accountStatus}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Member Since</p>
+                  <p className="font-medium">{new Date(userDetails.createdAt).toLocaleDateString()}</p>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Verification Summary */}
@@ -339,31 +384,47 @@ export default function UserDetailsPage() {
             <div className="bg-white rounded-lg border p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Verification Summary</h3>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Overall Progress</span>
-                  <span className="font-medium">{userDetails.verificationStatus.progress}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full"
-                    style={{ width: `${userDetails.verificationStatus.progress}%` }}
-                  ></div>
+                {/* Overall Progress */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-600">Overall Progress</span>
+                    <span className="font-medium">{userDetails.verificationStatus.progress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div 
+                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
+                      style={{ width: `${userDetails.verificationStatus.progress}%` }}
+                    ></div>
+                  </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">KYC Documents</span>
-                    <div className="flex items-center space-x-1">
+                {/* Verification Stages */}
+                <div className="border-t pt-4 space-y-3">
+                  {/* KYC Status */}
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">KYC Documents</p>
+                      <p className="text-xs text-gray-500">Identity verification</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
                       {getStatusIcon(userDetails.verificationStatus.kycStatus)}
-                      <span className="text-sm">{userDetails.verificationStatus.kycStatus}</span>
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(userDetails.verificationStatus.kycStatus)}`}>
+                        {userDetails.verificationStatus.kycStatus}
+                      </span>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Selfie Verification</span>
-                    <div className="flex items-center space-x-1">
+
+                  {/* Selfie Status */}
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Selfie Verification</p>
+                      <p className="text-xs text-gray-500">Liveness check & face match</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
                       {getStatusIcon(userDetails.verificationStatus.selfieStatus)}
-                      <span className="text-sm">{userDetails.verificationStatus.selfieStatus}</span>
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(userDetails.verificationStatus.selfieStatus)}`}>
+                        {userDetails.verificationStatus.selfieStatus}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -376,19 +437,63 @@ export default function UserDetailsPage() {
                 <Shield className="h-5 w-5 text-blue-600" />
                 <h3 className="text-lg font-semibold text-gray-900">Dojah Verification</h3>
               </div>
+
+              {/* Verification Statistics */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <p className="text-xs text-blue-600 mb-1">Total Verifications</p>
+                  <p className="text-2xl font-semibold text-blue-700">
+                    {userDetails?.dojahVerifications?.total || 0}
+                  </p>
+                </div>
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <p className="text-xs text-green-600 mb-1">Success Rate</p>
+                  <p className="text-2xl font-semibold text-green-700">
+                    {userDetails?.dojahVerifications?.total ? 
+                      Math.round((userDetails.dojahVerifications.governmentVerifications.filter(v => v.isMatch).length / 
+                      userDetails.dojahVerifications.total) * 100) : 0}%
+                  </p>
+                </div>
+              </div>
+
+              {/* Verification Types */}
               <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Total Verifications</span>
-                  <span className="font-medium">{userDetails.dojahVerifications.total}</span>
-                </div>
-                <div className="flex justify-between">
+                <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
                   <span className="text-sm text-gray-600">Government Lookups</span>
-                  <span className="font-medium">{userDetails.dojahVerifications.governmentVerifications.length}</span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-medium text-gray-900">
+                      {userDetails?.dojahVerifications?.governmentVerifications?.length || 0}
+                    </span>
+                    <User className="h-4 w-4 text-gray-400" />
+                  </div>
                 </div>
-                <div className="flex justify-between">
+                
+                <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
                   <span className="text-sm text-gray-600">AML Screenings</span>
-                  <span className="font-medium">{userDetails.dojahVerifications.amlScreenings.length}</span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-medium text-gray-900">
+                      {userDetails?.dojahVerifications?.amlScreenings?.length || 0}
+                    </span>
+                    <Shield className="h-4 w-4 text-gray-400" />
+                  </div>
                 </div>
+
+                {/* Latest Verification */}
+                {userDetails?.dojahVerifications?.governmentVerifications?.length > 0 && (
+                  <div className="mt-4 pt-4 border-t">
+                    <p className="text-xs text-gray-500 mb-2">Latest Verification</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-900">
+                        {userDetails.dojahVerifications.governmentVerifications[0].type.replace(/_/g, ' ')}
+                      </span>
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                        getStatusColor(userDetails.dojahVerifications.governmentVerifications[0].status)
+                      }`}>
+                        {userDetails.dojahVerifications.governmentVerifications[0].status}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -432,49 +537,69 @@ export default function UserDetailsPage() {
           <div className="space-y-4">
             {userDetails.adminReviews.map((review) => (
               <div key={review.id} className="bg-white rounded-lg border p-6">
+                {/* Review Header */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
                     <div className={`p-2 rounded-full ${getStatusColor(review.status)}`}>
                       {getStatusIcon(review.status)}
                     </div>
                     <div>
-                      <h3 className="font-medium text-gray-900">
-                        {review.verificationType.replace(/_/g, ' ')} Review
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        by {review.reviewer.firstName} {review.reviewer.lastName}
-                      </p>
+                      <div className="flex items-center space-x-2">
+                        <h3 className="font-medium text-gray-900">
+                          {review.verificationType.replace(/_/g, ' ')}
+                        </h3>
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(review.status)}`}>
+                          {review.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <User className="h-4 w-4 text-gray-400" />
+                        <p className="text-sm text-gray-600">
+                          {review.reviewer.firstName} {review.reviewer.lastName}
+                        </p>
+                        <span className="text-gray-300">•</span>
+                        <p className="text-sm text-gray-500">
+                          {new Date(review.createdAt).toLocaleString()}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(review.status)}`}>
-                      {review.status}
-                    </span>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(review.createdAt).toLocaleDateString()}
-                    </p>
                   </div>
                 </div>
 
-                {review.reviewNotes && (
-                  <div className="mb-3">
-                    <p className="text-sm text-gray-600 font-medium">Review Notes:</p>
-                    <p className="text-sm text-gray-800">{review.reviewNotes}</p>
-                  </div>
-                )}
+                {/* Review Details */}
+                <div className="space-y-4">
+                  {/* Review Notes */}
+                  {review.reviewNotes && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <FileText className="h-4 w-4 text-gray-500" />
+                        <p className="text-sm font-medium text-gray-700">Review Notes</p>
+                      </div>
+                      <p className="text-sm text-gray-800 whitespace-pre-wrap">{review.reviewNotes}</p>
+                    </div>
+                  )}
 
-                {review.rejectionReason && (
-                  <div className="mb-3">
-                    <p className="text-sm text-gray-600 font-medium">Rejection Reason:</p>
-                    <p className="text-sm text-red-800">{review.rejectionReason}</p>
-                  </div>
-                )}
+                  {/* Rejection Details */}
+                  {review.rejectionReason && (
+                    <div className="bg-red-50 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <AlertTriangle className="h-4 w-4 text-red-500" />
+                        <p className="text-sm font-medium text-red-700">Rejection Details</p>
+                      </div>
+                      <p className="text-sm text-red-800 whitespace-pre-wrap">{review.rejectionReason}</p>
+                    </div>
+                  )}
 
-                {review.allowReupload && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
-                    <p className="text-sm text-yellow-800">✓ User allowed to reupload document</p>
-                  </div>
-                )}
+                  {/* Reupload Status */}
+                  {review.allowReupload && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="flex items-center space-x-2">
+                        <Clock className="h-4 w-4 text-yellow-600" />
+                        <p className="text-sm text-yellow-800">User is allowed to reupload documents</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>

@@ -49,6 +49,7 @@ interface UserDetails {
     documentAnalysis?: any;
     dojahVerification?: any;
   }>;
+  documentDetails:any;
   dojahVerifications: {
     total: number;
     governmentVerifications: Array<any>;
@@ -88,6 +89,7 @@ export default function UserDetailsPage() {
       progress: 0
     },
     documents: [],
+    documentDetails: {},
     dojahVerifications: {
       total: 0,
       governmentVerifications: [],
@@ -127,6 +129,7 @@ export default function UserDetailsPage() {
       }
       
       const data = await response.json();
+      console.log('vishal', data);
       setUserDetails(data);
     } catch (error: any) {
       setError(error.message);
@@ -510,10 +513,12 @@ export default function UserDetailsPage() {
           </div>
 
           <div className="space-y-6">
-            {userDetails.documents.map((document) => (
+            
+            {userDetails.documents.map((document,i) => (
               <DojahVerificationDisplay
                 key={document.id}
                 document={document}
+                documentDetails={userDetails.documentDetails[i]}
                 governmentVerifications={userDetails.dojahVerifications.governmentVerifications}
                 onReview={handleReview}
                 isReviewing={isReviewing}

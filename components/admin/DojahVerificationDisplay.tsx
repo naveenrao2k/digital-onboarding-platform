@@ -2,14 +2,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  AlertTriangle, 
-  Eye, 
-  FileText, 
-  Shield, 
+import Image from 'next/image';
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
+  AlertTriangle,
+  Eye,
+  FileText,
+  Shield,
   User,
   Activity,
   RotateCcw,
@@ -48,6 +49,22 @@ interface DojahVerificationProps {
       }>;
     };
   };
+  documentDetails?: {
+    id: string;
+    userId: string;
+    type: "ID_CARD" | "PASSPORT" | "UTILITY_BILL" | string;
+    fileUrl: string;
+    s3Key: string;
+    fileSize: number;
+    mimeType: string;
+    fileName: string;
+    uploadedAt: string;
+    verified: boolean;
+    verifiedAt: string | null;
+    verifiedBy: string | null;
+    status: string;
+    notes: string | null;
+  };
   governmentVerifications: Array<{
     type: string;
     status: string;
@@ -60,17 +77,21 @@ interface DojahVerificationProps {
   isReviewing: boolean;
 }
 
-export default function DojahVerificationDisplay({ 
-  document, 
-  governmentVerifications, 
-  onReview, 
-  isReviewing 
+export default function DojahVerificationDisplay({
+  document,
+  documentDetails,
+  governmentVerifications,
+  onReview,
+  isReviewing
 }: DojahVerificationProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [reviewStatus, setReviewStatus] = useState('');
   const [reviewNotes, setReviewNotes] = useState('');
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [allowReupload, setAllowReupload] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState(''); const [allowReupload, setAllowReupload] = useState(false);
+
+  // Use document detail info if available
+  const documentInfo = documentDetails || document;
+  const documentType = documentInfo.type;
 
   const getStatusIcon = (status: string) => {
     switch (status.toUpperCase()) {
@@ -92,7 +113,7 @@ export default function DojahVerificationDisplay({
     if (isMatch !== undefined) {
       return isMatch ? 'bg-green-50 text-green-800 border-green-200' : 'bg-red-50 text-red-800 border-red-200';
     }
-    
+
     switch (status.toUpperCase()) {
       case 'APPROVED':
       case 'SUCCESS':
@@ -110,15 +131,15 @@ export default function DojahVerificationDisplay({
 
   const handleReview = () => {
     if (!reviewStatus) return;
-    
+
     onReview(
-      document.id, 
-      reviewStatus, 
-      reviewNotes, 
+      document.id,
+      reviewStatus,
+      reviewNotes,
       reviewStatus === 'REJECTED' ? rejectionReason : undefined,
       reviewStatus === 'REJECTED' ? allowReupload : false
     );
-    
+
     // Reset form
     setReviewStatus('');
     setReviewNotes('');
@@ -126,9 +147,9 @@ export default function DojahVerificationDisplay({
     setAllowReupload(false);
   };
 
-  const relevantGovVerifications = governmentVerifications.filter(gv => 
-    document.dojahVerification?.extractedData && 
-    Object.keys(document.dojahVerification.extractedData).some(key => 
+  const relevantGovVerifications = governmentVerifications.filter(gv =>
+    document.dojahVerification?.extractedData &&
+    Object.keys(document.dojahVerification.extractedData).some(key =>
       gv.type.toLowerCase().includes(key.toLowerCase())
     )
   );
@@ -152,8 +173,8 @@ export default function DojahVerificationDisplay({
     },
     {
       name: 'Government Database Match',
-      status: relevantGovVerifications.length > 0 ? 
-        relevantGovVerifications.every(v => v.isMatch) ? 'SUCCESS' : 'FAILED' : 
+      status: relevantGovVerifications.length > 0 ?
+        relevantGovVerifications.every(v => v.isMatch) ? 'SUCCESS' : 'FAILED' :
         'PENDING',
     }
   ];
@@ -183,10 +204,8 @@ export default function DojahVerificationDisplay({
       {/* Document Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <FileText className="h-5 w-5 text-gray-500" />
-          <div>
-            <h3 className="font-medium text-gray-900">{document.fileName}</h3>
-            <p className="text-sm text-gray-500">{document.type.replace(/_/g, ' ')}</p>
+          <FileText className="h-5 w-5 text-gray-500" />          <div>            <h3 className="font-medium text-gray-900">{documentInfo.fileName}</h3>
+            <p className="text-sm text-gray-500">{documentType.replace(/_/g, ' ')}</p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
@@ -264,7 +283,7 @@ export default function DojahVerificationDisplay({
             <User className="h-5 w-5 text-green-600" />
             <span className="font-medium text-green-900">Government Verification Results</span>
           </div>
-          
+
           <div className="space-y-2">
             {relevantGovVerifications.map((gv, index) => (
               <div key={index} className="flex items-center justify-between p-2 bg-white rounded border">
@@ -300,12 +319,51 @@ export default function DojahVerificationDisplay({
       {showDetails && (
         <div className="mt-4 space-y-4 border-t pt-4">
           {/* No Data Message */}
-          {!document.documentAnalysis && !document.dojahVerification && (
+          {!documentDetails && (
             <div className="bg-gray-50 rounded-lg p-4 text-center">
               <p className="text-gray-600">No detailed information available for this document.</p>
             </div>
           )}
+          {documentDetails && (
+            <div className="bg-gray-50 rounded-lg p-4 mb-4">
+              <h4 className="font-medium text-gray-900 mb-2">Document Details</h4>
+              <dl className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <dt className="text-gray-500">Upload Date</dt>
+                  <dd className="font-medium">{new Date(documentDetails.uploadedAt).toLocaleString()}</dd>
+                </div>
+               
+                
+               
+                <div>
+                  <dt className="text-gray-500">Document ID</dt>
+                  <dd className="font-medium">{documentDetails.id}</dd>
+                </div>
+                
+                <div>
+                  <dt className="text-gray-500">Verification Status</dt>
+                  <dd className="font-medium">{documentDetails.verified ? 'Verified' : 'Pending'}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500"></dt>
+                  <dd className="font-medium"></dd>
+                </div>
+                {documentDetails.verifiedAt && (
+                  <div>
+                    <dt className="text-gray-500">Verified On</dt>
+                    <dd className="font-medium">{new Date(documentDetails.verifiedAt).toLocaleString()}</dd>
+                  </div>
+                )}
 
+                 <div>
+                  <p className="text-gray-500">Doc Preview</p>
+                  <div className="font-medium">
+                    <Image src={documentDetails.fileUrl} alt={documentDetails.fileName} width={200} height={500} className="w-full inline-block mr-2" />
+                  </div>
+                </div>
+              </dl>
+            </div>
+          )}
           {/* Extracted Data */}
           {(document.dojahVerification?.extractedData || document.documentAnalysis?.extractedData) && (
             <div className="bg-white rounded-lg border p-4">

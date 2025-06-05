@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         { status: 404 }
       );
     }
-
+    console.log('GET_USER_DETAILS', user);
     // Transform data to match client expectations if needed
     const responseData = {
       id: user.id,
@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
       accountStatus: user.accountStatus,
       createdAt: user.createdAt.toISOString(),
       verificationStatus: user.verificationStatus,
+      documentDetails : user.kycDocuments,
       documents: user.kycDocuments.map(doc => ({
         id: doc.id,
         type: doc.type,
@@ -105,7 +106,7 @@ export async function GET(request: NextRequest) {
       // Removed canReupload as it does not exist on user
     };
 
-
+    console.log('GET_USER_DETAILS_SUCCESS', responseData);
     return NextResponse.json(responseData);
   } catch (error: any) {
     console.error('GET_USER_DETAILS_ERROR', error);

@@ -76,6 +76,15 @@ export async function GET(request: NextRequest) {
       accountStatus: user.accountStatus,
       createdAt: user.createdAt.toISOString(),
       verificationStatus: user.verificationStatus,
+      selfieVerification: user.selfieVerification ? {
+        id: user.selfieVerification.id,
+        status: user.selfieVerification.status,
+        fileUrl: user.selfieVerification.fileUrl,
+        fileName: user.selfieVerification.fileName,
+        mimeType: user.selfieVerification.mimeType,
+        fileSize: user.selfieVerification.fileSize,
+        capturedAt: user.selfieVerification.capturedAt ? user.selfieVerification.capturedAt.toISOString() : null,
+      } : null,
       documentDetails : user.kycDocuments,
       documents: user.kycDocuments.map(doc => ({
         id: doc.id,

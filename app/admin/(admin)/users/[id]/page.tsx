@@ -2,16 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Calendar, 
-  Shield, 
-  FileText, 
-  CheckCircle, 
-  XCircle, 
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Shield,
+  FileText,
+  CheckCircle,
+  XCircle,
   Clock,
   AlertTriangle,
   History,
@@ -38,6 +38,14 @@ interface UserDetails {
     selfieStatus: string;
     progress: number;
   };
+  selfieVerification?: {
+    id: string;
+    status: string;
+    fileUrl: string;
+    capturedAt: string;
+    fileName: string;
+
+  };
   documents: Array<{
     id: string;
     type: string;
@@ -49,7 +57,7 @@ interface UserDetails {
     documentAnalysis?: any;
     dojahVerification?: any;
   }>;
-  documentDetails:any;
+  documentDetails: any;
   dojahVerifications: {
     total: number;
     governmentVerifications: Array<any>;
@@ -74,7 +82,7 @@ interface UserDetails {
 export default function UserDetailsPage() {
   const params = useParams();
   const userId = params?.id as string;
-    const [userDetails, setUserDetails] = useState<UserDetails | null>({
+  const [userDetails, setUserDetails] = useState<UserDetails | null>({
     id: '',
     firstName: '',
     lastName: '',
@@ -87,6 +95,13 @@ export default function UserDetailsPage() {
       kycStatus: '',
       selfieStatus: '',
       progress: 0
+    },
+    selfieVerification: {
+      id: '',
+      status: '',
+      fileUrl: '',
+      capturedAt: '',
+      fileName: ''
     },
     documents: [],
     documentDetails: {},
@@ -111,7 +126,7 @@ export default function UserDetailsPage() {
   useEffect(() => {
     if (userDetails) {
       updateHeader(
-        `User: ${userDetails.firstName} ${userDetails.lastName}`, 
+        `User: ${userDetails.firstName} ${userDetails.lastName}`,
         `User profile and verification details`
       );
     } else {
@@ -123,11 +138,11 @@ export default function UserDetailsPage() {
     try {
       setLoading(true);
       const response = await fetch(`/api/admin/users/${userId}`);
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch user details');
       }
-      
+
       const data = await response.json();
       console.log('vishal', data);
       setUserDetails(data);
@@ -142,23 +157,23 @@ export default function UserDetailsPage() {
   const [reviewError, setReviewError] = React.useState<string | null>(null);
 
   const handleReview = async (
-    documentId: string, 
-    status: string, 
-    notes: string, 
-    rejectionReason?: string, 
+    documentId: string,
+    status: string,
+    notes: string,
+    rejectionReason?: string,
     allowReupload?: boolean
   ) => {
     try {
       setIsReviewing(true);
       setReviewMessage(null);
       setReviewError(null);
-      
+
       const document = userDetails?.documents.find(d => d.id === documentId);
-      const verificationType = document?.type === 'PASSPORT_PHOTOS' ? 
+      const verificationType = document?.type === 'PASSPORT_PHOTOS' ?
         'SELFIE_VERIFICATION' : 'DOCUMENT_VERIFICATION';
-      
+
       const dojahVerificationId = document?.dojahVerification?.id;
-      
+
       const response = await fetch('/api/admin/review', {
         method: 'POST',
         headers: {
@@ -183,7 +198,7 @@ export default function UserDetailsPage() {
 
       // Refresh user details to show updated status
       await fetchUserDetails();
-      
+
       // Show success message
       setReviewMessage('Review submitted successfully!');
     } catch (error: any) {
@@ -228,7 +243,7 @@ export default function UserDetailsPage() {
     try {
       const response = await fetch(`/api/admin/documents/${docId}/download`);
       if (!response.ok) throw new Error('Download failed');
-      
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -263,7 +278,7 @@ export default function UserDetailsPage() {
   return (
     <div className="relative max-w-7xl mx-auto">
       {/* User status badge */}
-      <div className="absolute right-0 top-2 flex justify-end">
+      <div className="md:absolute right-0 top-2 flex justify-center md:justify-end">
         <div className="flex items-center space-x-2">
           {getStatusIcon(userDetails.verificationStatus.overallStatus)}
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(userDetails.verificationStatus.overallStatus)}`}>
@@ -284,11 +299,10 @@ export default function UserDetailsPage() {
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={`group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === id
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm ${activeTab === id
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               <Icon className="h-5 w-5 mr-2" />
               {label}
@@ -316,7 +330,7 @@ export default function UserDetailsPage() {
           <div className="lg:col-span-2">
             <div className="bg-white rounded-lg border p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols gap-4">
                 <div className="flex items-center space-x-3">
                   <Mail className="h-5 w-5 text-gray-400" />
                   <div>
@@ -324,7 +338,7 @@ export default function UserDetailsPage() {
                     <p className="font-medium">{userDetails.email}</p>
                   </div>
                 </div>
-                
+
                 {userDetails.phone && (
                   <div className="flex items-center space-x-3">
                     <Phone className="h-5 w-5 text-gray-400" />
@@ -334,7 +348,7 @@ export default function UserDetailsPage() {
                     </div>
                   </div>
                 )}
-                
+
                 {userDetails.address && (
                   <div className="flex items-center space-x-3">
                     <MapPin className="h-5 w-5 text-gray-400" />
@@ -344,7 +358,8 @@ export default function UserDetailsPage() {
                     </div>
                   </div>
                 )}
-                
+
+
                 {userDetails.dateOfBirth && (
                   <div className="flex items-center space-x-3">
                     <Calendar className="h-5 w-5 text-gray-400" />
@@ -356,6 +371,7 @@ export default function UserDetailsPage() {
                 )}
               </div>
             </div>
+
 
             {/* Account Information */}
             <div className="bg-white rounded-lg border p-6 mt-6">
@@ -379,8 +395,81 @@ export default function UserDetailsPage() {
                   <p className="font-medium">{new Date(userDetails.createdAt).toLocaleDateString()}</p>
                 </div>
               </div>
+            </div>            <div className="bg-white rounded-lg border p-6 mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Selfie Verification</h2>
+                <div className="flex items-center space-x-2">
+                  {getStatusIcon(userDetails.selfieVerification?.status ?? '')}
+                  <span className={`px-2 py-1 text-sm font-medium rounded-full ${getStatusColor(userDetails.selfieVerification?.status ?? '')}`}>
+                    {userDetails.selfieVerification?.status}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">                {/* Selfie Image */}
+                <div className="relative">
+                  <div className="w-50 h-50 rounded-lg overflow-hidden bg-gray-100 border">
+                    {userDetails.selfieVerification?.fileUrl ? (
+                      <img
+                        src={userDetails.selfieVerification.fileUrl}
+                        alt="User Selfie"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <User className="h-12 w-12 text-gray-400" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Verification Details */}
+                <div className="space-y-4">
+                  <div>                    
+                    <p className="text-sm text-gray-600">Captured At</p>
+                    {userDetails.selfieVerification?.capturedAt && (
+                      <div className="space-y-1">
+                        <p className="font-medium">
+                          {new Date(userDetails.selfieVerification.capturedAt).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {new Date(userDetails.selfieVerification.capturedAt).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true,
+                            timeZoneName: 'short'
+                          })}
+                        </p>
+                      </div>
+                    )}
+                    {!userDetails.selfieVerification?.capturedAt && (
+                      <p className="font-medium">N/A</p>
+                    )}
+                  </div>
+
+
+
+                  {userDetails.selfieVerification?.fileUrl && (
+                    <a
+                      href={userDetails.selfieVerification.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center space-x-2 text-blue-600 hover:text-blue-700"
+                    >
+                      <Eye className="h-4 w-4" />
+                      <span>View Full Size</span>
+                    </a>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
+
 
           {/* Verification Summary */}
           <div className="space-y-6">
@@ -394,13 +483,13 @@ export default function UserDetailsPage() {
                     <span className="font-medium">{userDetails.verificationStatus.progress}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div 
+                    <div
                       className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
                       style={{ width: `${userDetails.verificationStatus.progress}%` }}
                     ></div>
                   </div>
                 </div>
-                
+
                 {/* Verification Stages */}
                 <div className="border-t pt-4 space-y-3">
                   {/* KYC Status */}
@@ -409,7 +498,7 @@ export default function UserDetailsPage() {
                       <p className="text-sm font-medium text-gray-900">KYC Documents</p>
                       <p className="text-xs text-gray-500">Identity verification</p>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex flex-col items-center space-y-2">
                       {getStatusIcon(userDetails.verificationStatus.kycStatus)}
                       <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(userDetails.verificationStatus.kycStatus)}`}>
                         {userDetails.verificationStatus.kycStatus}
@@ -423,7 +512,7 @@ export default function UserDetailsPage() {
                       <p className="text-sm font-medium text-gray-900">Selfie Verification</p>
                       <p className="text-xs text-gray-500">Liveness check & face match</p>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex flex-col items-center space-y-2">
                       {getStatusIcon(userDetails.verificationStatus.selfieStatus)}
                       <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(userDetails.verificationStatus.selfieStatus)}`}>
                         {userDetails.verificationStatus.selfieStatus}
@@ -452,9 +541,9 @@ export default function UserDetailsPage() {
                 <div className="p-3 bg-green-50 rounded-lg">
                   <p className="text-xs text-green-600 mb-1">Success Rate</p>
                   <p className="text-2xl font-semibold text-green-700">
-                    {userDetails?.dojahVerifications?.total ? 
-                      Math.round((userDetails.dojahVerifications.governmentVerifications.filter(v => v.isMatch).length / 
-                      userDetails.dojahVerifications.total) * 100) : 0}%
+                    {userDetails?.dojahVerifications?.total ?
+                      Math.round((userDetails.dojahVerifications.governmentVerifications.filter(v => v.isMatch).length /
+                        userDetails.dojahVerifications.total) * 100) : 0}%
                   </p>
                 </div>
               </div>
@@ -470,7 +559,7 @@ export default function UserDetailsPage() {
                     <User className="h-4 w-4 text-gray-400" />
                   </div>
                 </div>
-                
+
                 <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
                   <span className="text-sm text-gray-600">AML Screenings</span>
                   <div className="flex items-center space-x-2">
@@ -489,9 +578,8 @@ export default function UserDetailsPage() {
                       <span className="text-sm font-medium text-gray-900">
                         {userDetails.dojahVerifications.governmentVerifications[0].type.replace(/_/g, ' ')}
                       </span>
-                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                        getStatusColor(userDetails.dojahVerifications.governmentVerifications[0].status)
-                      }`}>
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(userDetails.dojahVerifications.governmentVerifications[0].status)
+                        }`}>
                         {userDetails.dojahVerifications.governmentVerifications[0].status}
                       </span>
                     </div>
@@ -510,11 +598,8 @@ export default function UserDetailsPage() {
             <div className="text-sm text-gray-600">
               {userDetails.documents.length} document{userDetails.documents.length !== 1 ? 's' : ''} uploaded
             </div>
-          </div>
-
-          <div className="space-y-6">
-            
-            {userDetails.documents.map((document,i) => (
+          </div>          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {userDetails.documents.map((document, i) => (
               <DojahVerificationDisplay
                 key={document.id}
                 document={document}

@@ -201,7 +201,7 @@ const AdminSubmissionsPage = () => {
   const documentTypes = Array.from(new Set(submissions.map(s => s.documentType)));
 
   return (
-    <div className="w-full p-2 sm:p-4 md:p-6">
+    <div className="w-full">
       
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-8">
         {/* Search and Filters */}

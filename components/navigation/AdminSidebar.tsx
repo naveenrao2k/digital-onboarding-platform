@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -36,15 +36,6 @@ const navItems = [
 const AdminSidebar = () => {
   const pathname = usePathname();
   const { close: closeSidebar } = useSidebar();
-  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
-
-  // Toggle a nav item's expanded state
-  const toggleItemExpanded = (name: string) => {
-    setExpandedItems(prev => ({
-      ...prev,
-      [name]: !prev[name]
-    }));
-  };
 
   return (
     <div className="w-full h-full bg-slate-50 border-r border-slate-200 flex flex-col overflow-y-auto">
@@ -60,19 +51,17 @@ const AdminSidebar = () => {
           </div>
         </Link>
       </div>
-      <div className="flex-1 p-4">
-        <nav className="space-y-1">
+      <div className="flex-1 p-4">        <nav className="space-y-1">
           {navItems.map((item) => {
             const isParentActive = pathname === item.href || 
                           (item.subItems && pathname?.startsWith(item.href) && item.href !== '/admin/dashboard');
-            const isExpanded = expandedItems[item.name] || isParentActive;
             
             return (
               <div key={item.name} className="mb-1">
-                <div className="flex flex-col">
-                  {item.subItems ? (
-                    <button
-                      onClick={() => toggleItemExpanded(item.name)}
+                <div className="flex flex-col">                  {item.subItems ? (
+                    <Link
+                      href={item.href}
+                      onClick={() => closeSidebar()}
                       className={`flex items-center justify-between px-4 py-3 text-sm rounded-lg ${
                         isParentActive
                           ? 'bg-blue-100 text-blue-700 font-medium'
@@ -83,12 +72,8 @@ const AdminSidebar = () => {
                         <item.icon size={18} className={`mr-3 ${isParentActive ? 'text-blue-700' : 'text-slate-500'}`} />
                         <span>{item.name}</span>
                       </div>
-                      {isExpanded ? (
-                        <ChevronDown size={16} className="text-gray-500" />
-                      ) : (
-                        <ChevronRight size={16} className="text-gray-500" />
-                      )}
-                    </button>
+                      <ChevronDown size={16} className="text-gray-500" />
+                    </Link>
                   ) : (
                     <Link
                       href={item.href}
@@ -103,12 +88,10 @@ const AdminSidebar = () => {
                       {item.name}
                     </Link>
                   )}
-                
-                  {item.subItems && isExpanded && (
+                  {item.subItems && (
                     <div className="mt-1 ml-7">
                       {item.subItems.map((subItem) => {
                         const isSubItemActive = pathname === subItem.href;
-                        
                         return (
                           <Link
                             key={subItem.name}

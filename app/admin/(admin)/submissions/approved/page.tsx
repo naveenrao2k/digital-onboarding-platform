@@ -70,55 +70,25 @@ const AdminApprovedSubmissionsPage = () => {
       // Mock approved submissions data
       setApprovedSubmissions([
         {
-          id: 'doc_6',
-          userId: 'user_6',
-          userName: 'Lisa Anderson',
+          id: '1',
+          userId: 'u123',
+          userName: 'John Doe',
           documentType: 'Passport',
-          dateSubmitted: '2025-05-19',
-          approvedAt: '2025-05-20 14:30:22',
+          dateSubmitted: '2024-06-01',
+          approvedAt: '2024-06-02',
           approvedBy: 'Admin User',
-          fileName: 'passport.jpg'
+          fileName: 'passport_john.pdf'
         },
         {
-          id: 'doc_8',
-          userId: 'user_8',
-          userName: 'Jennifer Taylor',
-          documentType: 'Utility Bill',
-          dateSubmitted: '2025-05-17',
-          approvedAt: '2025-05-18 11:15:45',
+          id: '2',
+          userId: 'u456',
+          userName: 'Jane Smith',
+          documentType: 'Selfie',
+          dateSubmitted: '2024-06-03',
+          approvedAt: '2024-06-04',
           approvedBy: 'Admin User',
-          fileName: 'utility_bill.pdf'
-        },
-        {
-          id: 'doc_10',
-          userId: 'user_10',
-          userName: 'Patricia Martin',
-          documentType: 'Certificate of Incorporation',
-          dateSubmitted: '2025-05-15',
-          approvedAt: '2025-05-16 09:45:10',
-          approvedBy: 'Admin Manager',
-          fileName: 'certificate.pdf'
-        },
-        {
-          id: 'doc_16',
-          userId: 'user_16',
-          userName: 'Richard Davis',
-          documentType: 'ID Card',
-          dateSubmitted: '2025-05-14',
-          approvedAt: '2025-05-15 16:20:33',
-          approvedBy: 'Admin User',
-          fileName: 'id_card.jpg'
-        },
-        {
-          id: 'doc_17',
-          userId: 'user_17',
-          userName: 'Michelle White',
-          documentType: 'Selfie Verification',
-          dateSubmitted: '2025-05-13',
-          approvedAt: '2025-05-14 10:05:18',
-          approvedBy: 'Admin Manager',
-          fileName: 'selfie.jpg'
-        },
+          fileName: 'selfie_jane.jpg'
+        }
       ]);
     } catch (err) {
       console.error('Error fetching approved submissions:', err);

@@ -258,9 +258,9 @@ export default function UserDetailsPage() {
     );
   }
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="relative max-w-7xl mx-auto">
       {/* User status badge */}
-      <div className="flex justify-end mb-4">
+      <div className="absolute right-0 top-2 flex justify-end">
         <div className="flex items-center space-x-2">
           {getStatusIcon(userDetails.verificationStatus.overallStatus)}
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(userDetails.verificationStatus.overallStatus)}`}>

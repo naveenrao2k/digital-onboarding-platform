@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Download, CheckCircle, XCircle, Flag, Loader2, AlertCircle, FileText, User } from "lucide-react";
 import { useHeader } from '../../layout';
+import DojahVerificationDisplay from '@/components/admin/DojahVerificationDisplay';
 
 // Mock types (replace with your real types)
 interface SubmissionDetail {
@@ -20,8 +21,41 @@ interface SubmissionDetail {
     type: string;
     fileName: string;
     url: string;
+    status?: string;
+    documentAnalysis?: {
+      extractedText?: string;
+      extractedData?: any;
+      documentType?: string;
+      confidence?: number;
+      isReadable: boolean;
+      qualityScore?: number;
+    };
+    dojahVerification?: {
+      id: string;
+      status: string;
+      confidence?: number;
+      matchResult?: any;
+      extractedData?: any;
+      governmentData?: any;
+      errorMessage?: string;
+      createdAt: string;
+      steps?: Array<{
+        name: string;
+        status: string;
+        completedAt?: string;
+        duration?: number;
+      }>;
+    };
   }>;
   notes: string;
+  governmentVerifications?: Array<{
+    type: string;
+    status: string;
+    isMatch: boolean;
+    confidence?: number;
+    governmentData?: any;
+    createdAt: string;
+  }>;
 }
 
 interface AuditLogEntry {
@@ -230,148 +264,209 @@ const AdminSubmissionDetailPage = () => {
         <p className="text-lg text-red-700">{error || "Submission not found."}</p>
       </div>
     );
-  }
-  return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <button onClick={() => router.back()} className="text-blue-600 hover:underline flex items-center">
-            <svg className="h-5 w-5 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-            Back
-          </button>
-        </div>
-        
+  }  return (
+    <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <button 
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className={`px-4 py-2 ${isRefreshing ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white text-sm font-medium rounded-lg flex items-center`}
+          onClick={() => router.back()} 
+          className="flex items-center text-gray-600 hover:text-gray-900"
         >
-          {isRefreshing ? (
-            <>
-              <div className="h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              Refreshing...
-            </>
-          ) : (
-            <>
-              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Submissions
+        </button>
+        <div className="flex items-center gap-2">
+          {successMessage && (
+            <span className="text-sm text-green-600">{successMessage}</span>
+          )}
+          <button 
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex items-center px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
+            {isRefreshing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Refresh
-            </>
-          )}
-        </button>
+            )}
+          </button>
+        </div>
       </div>
 
-      {/* Submission Info */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-          <div className="flex items-center gap-3 mb-4 md:mb-0">
-            <User className="h-8 w-8 text-blue-600" />
-            <div>
-              <div className="font-semibold text-lg">{submission.user.name}</div>
-              <div className="text-gray-500 text-sm">{submission.user.email}</div>
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - User Info & Documents */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* User Info Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                  <User className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold">{submission.user.name}</h2>
+                  <p className="text-sm text-gray-500">{submission.user.email}</p>
+                </div>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                submission.status === "APPROVED"
+                  ? "bg-green-100 text-green-700"
+                  : submission.status === "REJECTED"
+                  ? "bg-red-100 text-red-700"
+                  : submission.status === "FLAGGED"
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-blue-100 text-blue-700"
+              }`}>
+                {submission.status}
+              </span>
+            </div>
+            <div className="text-sm text-gray-600">
+              Submitted: {new Date(submission.submittedAt).toLocaleString()}
+            </div>
+            {submission.notes && (
+              <div className="mt-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
+                {submission.notes}
+              </div>
+            )}
+          </div>
+
+          {/* Documents Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold mb-4 flex items-center">
+              <FileText className="h-5 w-5 text-blue-600 mr-2" />
+              Submitted Documents
+            </h3>
+            <div className="space-y-4">
+              {submission.documents.map((doc) => (
+                <div key={doc.id} className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
+                    <div>
+                      <div className="font-medium">{doc.type}</div>
+                      <div className="text-sm text-gray-500">{doc.fileName}</div>
+                    </div>
+                    <a
+                      href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </a>
+                  </div>
+                  
+                  {/* Dojah Verification Display */}
+                  {(doc.documentAnalysis || doc.dojahVerification) && (
+                    <DojahVerificationDisplay
+                      document={{
+                        ...doc,
+                        status: doc.status || "PENDING" // Default to PENDING if no status
+                      }}
+                      documentDetails={{
+                        id: doc.id,
+                        userId: submission.user.id,
+                        type: doc.type,
+                        fileUrl: doc.url,
+                        s3Key: "", // This would need to come from your API
+                        fileSize: 0, // This would need to come from your API
+                        mimeType: "", // This would need to come from your API
+                        fileName: doc.fileName,
+                        uploadedAt: submission.submittedAt,
+                        verified: submission.status === "APPROVED",
+                        verifiedAt: submission.status === "APPROVED" ? submission.submittedAt : null,
+                        verifiedBy: null,
+                        status: submission.status,
+                        notes: submission.notes
+                      }}
+                      governmentVerifications={submission.governmentVerifications || []}
+                      onReview={async (documentId, status, notes, rejectionReason, allowReupload) => {
+                        await handleAction(status === "APPROVED" ? "APPROVE" : status === "REJECTED" ? "REJECT" : "FLAG");
+                      }}
+                      isReviewing={actionLoading}
+                    />
+                  )}
+                </div>
+              ))}
             </div>
           </div>
-          <div>
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-              submission.status === "APPROVED"
-                ? "bg-green-100 text-green-700"
-                : submission.status === "REJECTED"
-                ? "bg-red-100 text-red-700"
-                : submission.status === "FLAGGED"
-                ? "bg-amber-100 text-amber-700"
-                : "bg-blue-100 text-blue-700"
-            }`}>
-              {submission.status}
-            </span>
+        </div>
+
+        {/* Right Column - Actions & Audit Log */}
+        <div className="space-y-6">
+          {/* Actions Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold mb-4">Review Actions</h3>
+            {actionError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-700">
+                {actionError}
+              </div>
+            )}
+            <div className="space-y-3">
+              <button
+                onClick={() => handleAction("APPROVE")}
+                disabled={actionLoading || submission.status === "APPROVED"}
+                className="w-full flex items-center justify-center px-4 py-2 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 disabled:opacity-50"
+              >
+                {actionLoading && submission.status !== "APPROVED" ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                )}
+                Approve
+              </button>
+              <button
+                onClick={() => handleAction("REJECT")}
+                disabled={actionLoading || submission.status === "REJECTED"}
+                className="w-full flex items-center justify-center px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50"
+              >
+                {actionLoading && submission.status !== "REJECTED" ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <XCircle className="h-4 w-4 mr-2" />
+                )}
+                Reject
+              </button>
+              <button
+                onClick={() => handleAction("FLAG")}
+                disabled={actionLoading || submission.status === "FLAGGED"}
+                className="w-full flex items-center justify-center px-4 py-2 rounded-lg bg-amber-500 text-white font-medium hover:bg-amber-600 disabled:opacity-50"
+              >
+                {actionLoading && submission.status !== "FLAGGED" ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Flag className="h-4 w-4 mr-2" />
+                )}
+                Flag for Review
+              </button>
+            </div>
+          </div>
+
+          {/* Audit Log Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold mb-4">Activity History</h3>
+            <div className="space-y-4">
+              {auditLogs.map((log) => (
+                <div key={log.id} className="border-l-2 border-gray-200 pl-4 py-2">
+                  <div className="text-sm">
+                    <span className="font-medium">{log.action}</span>
+                    <span className="text-gray-500"> by {log.performedBy}</span>
+                  </div>
+                  {log.details && (
+                    <p className="text-sm text-gray-500 mt-1">{log.details}</p>
+                  )}
+                  <time className="text-xs text-gray-400 mt-1 block">
+                    {new Date(log.timestamp).toLocaleString()}
+                  </time>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-        <div className="text-gray-600 text-sm mb-2">Submitted: {new Date(submission.submittedAt).toLocaleString()}</div>
-        <div className="text-gray-700 text-sm">{submission.notes}</div>
-      </div>
-
-      {/* Documents */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4 flex items-center"><FileText className="h-5 w-5 mr-2 text-blue-600" />Documents</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {submission.documents.map((doc) => (
-            <div key={doc.id} className="border rounded-lg p-4 flex flex-col gap-2 bg-gray-50">
-              <div className="font-medium">{doc.type}</div>
-              <div className="text-gray-500 text-xs">{doc.fileName}</div>
-              <div className="flex gap-2 mt-2">
-                <a href={doc.url} target="_blank" rel="noopener noreferrer" className="flex items-center px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs">
-                  <Download className="h-4 w-4 mr-1" /> Download
-                </a>
-                {/* Optionally add a preview button for images/pdf */}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Review Actions</h2>
-        {successMessage && (
-          <div className="mb-4 p-3 bg-green-100 border border-green-200 rounded text-green-800">{successMessage}</div>
-        )}
-        {actionError && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-200 rounded text-red-800">{actionError}</div>
-        )}
-        <div className="flex gap-4">
-          <button
-            onClick={() => handleAction("APPROVE")}
-            disabled={actionLoading || submission.status === "APPROVED"}
-            className={`flex items-center px-4 py-2 rounded bg-green-600 text-white font-medium hover:bg-green-700 disabled:opacity-50`}
-          >
-            {actionLoading && submission.status !== "APPROVED" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-            Approve
-          </button>
-          <button
-            onClick={() => handleAction("REJECT")}
-            disabled={actionLoading || submission.status === "REJECTED"}
-            className={`flex items-center px-4 py-2 rounded bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50`}
-          >
-            {actionLoading && submission.status !== "REJECTED" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
-            Reject
-          </button>
-          <button
-            onClick={() => handleAction("FLAG")}
-            disabled={actionLoading || submission.status === "FLAGGED"}
-            className={`flex items-center px-4 py-2 rounded bg-amber-500 text-white font-medium hover:bg-amber-600 disabled:opacity-50`}
-          >
-            {actionLoading && submission.status !== "FLAGGED" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Flag className="h-4 w-4 mr-2" />}
-            Flag
-          </button>
-        </div>
-      </div>
-
-      {/* Refresh Button */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6 flex justify-end">
-        <button
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className="flex items-center px-4 py-2 rounded bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50"
-        >
-          {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16m-7 6h7" /></svg>}
-          Refresh
-        </button>
-      </div>
-
-      {/* Audit Log */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-        <h2 className="text-lg font-semibold mb-4">Audit Log</h2>
-        <ul className="divide-y divide-gray-200">
-          {auditLogs.map((log) => (
-            <li key={log.id} className="py-2 text-sm flex flex-col md:flex-row md:items-center md:justify-between">
-              <div>
-                <span className="font-medium">{log.action}</span> by {log.performedBy}
-                {log.details && <span className="text-gray-500 ml-2">({log.details})</span>}
-              </div>
-              <div className="text-gray-500 text-xs mt-1 md:mt-0">{new Date(log.timestamp).toLocaleString()}</div>
-            </li>
-          ))}
-        </ul>
       </div>
     </div>
   );

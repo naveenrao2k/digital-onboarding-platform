@@ -90,9 +90,7 @@ const AdminSubmissionsPage = () => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     fetchSubmissions();
-  };
-
-  const handleViewSubmission = (submissionId: string) => {
+  };  const handleViewSubmission = (submissionId: string) => {
     router.push(`/admin/submissions/${submissionId}`);
   };
 

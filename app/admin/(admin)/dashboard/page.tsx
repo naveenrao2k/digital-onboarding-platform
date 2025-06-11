@@ -41,6 +41,8 @@ interface DashboardStats {
   pendingVerifications: number;
   completedVerifications: number;
   rejectedVerifications: number;
+  weeklySubmissions?: { day: string; count: number; date: string }[];
+  statusDistribution?: { status: string; count: number; color: string; percentage: number }[];
 }
 
 const AdminDashboardPage = () => {
@@ -107,13 +109,13 @@ const AdminDashboardPage = () => {
         const data = await response.json();
         throw new Error(data.error || 'Failed to load dashboard data');
       }
-      const data = await response.json();
-
-      setStats({
+      const data = await response.json();      setStats({
         totalUsers: data.totalUsers,
         pendingVerifications: data.pendingVerifications,
         completedVerifications: data.completedVerifications,
         rejectedVerifications: data.rejectedVerifications,
+        weeklySubmissions: data.weeklySubmissions,
+        statusDistribution: data.statusDistribution,
       });
 
       setPendingReviews(data.pendingReviews);
@@ -252,15 +254,25 @@ const AdminDashboardPage = () => {
             icon={XCircle}
             isLoading={isLoading}
           />
-        </div>
-
-        {/* Charts */}
+        </div>        {/* Charts */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 md:mb-8">
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-6">
-            <WeeklySubmissionsChart />
+            {isLoading ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+              </div>
+            ) : (
+              <WeeklySubmissionsChart data={stats.weeklySubmissions} />
+            )}
           </div>
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-6">
-            <StatusDistributionChart />
+            {isLoading ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+              </div>
+            ) : (
+              <StatusDistributionChart data={stats.statusDistribution} />
+            )}
           </div>
         </div>
 

@@ -42,15 +42,29 @@ export async function GET(
         { status: 401 }
       );
     }
+    
+    // Get documentId from query parameters
+    const url = new URL(request.url);
+    const documentId = url.searchParams.get('documentId');
+    
+    if (!documentId) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Document ID is required' }),
+        { status: 400 }
+      );
+    }
 
     // Get document
-    const document = await prisma.kYCDocument.findUnique({
-      where: { id: params.id }
+    const document = await prisma.kYCDocument.findFirst({
+      where: { 
+        id: documentId,
+        userId: params.id // Use the URL param as userId
+      }
     });
 
     if (!document) {
       return new NextResponse(
-        JSON.stringify({ error: 'Document not found' }),
+        JSON.stringify({ error: 'Document not found or does not belong to the specified user' }),
         { status: 404 }
       );
     }

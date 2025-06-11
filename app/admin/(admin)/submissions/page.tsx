@@ -19,15 +19,18 @@ import {
 import { useAuth } from '@/lib/auth-context';
 import { useHeader } from '../layout';
 import { VerificationStatusEnum } from '@/app/generated/prisma';
+import Pagination from '@/components/common/Pagination';
 
 interface Submission {
   id: string;
   userId: string;
   userName: string;
+  userEmail?: string;
   documentType: string;
   dateSubmitted: string;
   status: VerificationStatusEnum;
   fileName: string;
+  totalDocuments: number;
 }
 
 const AdminSubmissionsPage = () => {
@@ -36,24 +39,23 @@ const AdminSubmissionsPage = () => {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState('');  const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [documentTypeFilter, setDocumentTypeFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const { updateHeader } = useHeader();
 
   useEffect(() => {
     updateHeader('Document Submissions', 'Manage and review all submitted documents');
   }, [updateHeader]);
-
   // Check if user is authenticated and has admin role
   useEffect(() => {
     if (!loading && user) {
       fetchSubmissions();
     }
-  }, [user, loading]);
-
+  }, [user, loading, currentPage]);
   const fetchSubmissions = async (isManualRefresh = false) => {
 
     if (isManualRefresh && isRefreshing) return; // Prevent multiple simultaneous refreshes
@@ -68,6 +70,8 @@ const AdminSubmissionsPage = () => {
       if (documentTypeFilter !== 'all') params.append('documentType', documentTypeFilter);
       if (dateFilter !== 'all') params.append('dateFilter', dateFilter);
       if (searchQuery) params.append('search', searchQuery);
+      params.append('page', currentPage.toString());
+      params.append('limit', '10'); // Adjust limit as needed
 
       const response = await fetch(`/api/admin/submissions?${params.toString()}`);
 
@@ -77,7 +81,14 @@ const AdminSubmissionsPage = () => {
       }
 
       const data = await response.json();
-      setSubmissions(data);
+      
+      if (data.data && data.pagination) {
+        setSubmissions(data.data);
+        setTotalPages(data.pagination.totalPages);
+      } else {
+        // Handle legacy response format
+        setSubmissions(data);
+      }
     } catch (err: any) {
       console.error('Error fetching submissions:', err);
       setError(err.message || 'An error occurred while fetching submissions');
@@ -86,17 +97,16 @@ const AdminSubmissionsPage = () => {
       setIsRefreshing(false);
     }
   };
-
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setCurrentPage(1); // Reset to page 1 when searching
     fetchSubmissions();
-  };  const handleViewSubmission = (submissionId: string) => {
-    router.push(`/admin/submissions/${submissionId}`);
+  };const handleViewSubmission = (userId: string) => {
+    router.push(`/admin/submissions/${userId}`);
   };
-
-  const handleDownloadSubmission = async (submissionId: string) => {
+  const handleDownloadSubmission = async (userId: string, documentId: string) => {
     try {
-      const response = await fetch(`/api/admin/submissions/${submissionId}/download`);
+      const response = await fetch(`/api/admin/submissions/${userId}/download?documentId=${documentId}`);
       if (!response.ok) throw new Error('Download failed');
 
       const blob = await response.blob();
@@ -113,62 +123,60 @@ const AdminSubmissionsPage = () => {
       // Show error notification in a real app
     }
   };
-
-  const handleApprove = async (submissionId: string) => {
+  const handleApprove = async (userId: string, documentId: string) => {
     try {
-      const submission = submissions.find(s => s.id === submissionId);
+      const submission = submissions.find(s => s.id === documentId);
       if (!submission) return;
 
-      const response = await fetch(`/api/admin/submissions/${submission.userId}/update`, {
+      const response = await fetch(`/api/admin/submissions/${userId}/update`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          documentId: submission.id,
+          documentId: documentId,
           documentStatus: 'APPROVED',
         }),
       });
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to approve document');
+        throw new Error(data.error || 'Failed to approve submission');
       }
 
       setSubmissions(prevSubmissions =>
         prevSubmissions.map(sub =>
-          sub.id === submissionId ? { ...sub, status: 'APPROVED' as VerificationStatusEnum } : sub
+          sub.id === documentId ? { ...sub, status: 'APPROVED' as VerificationStatusEnum } : sub
         )
       );
     } catch (err) {
-      console.error('Error approving document:', err);
+      console.error('Error approving submission:', err);
     }
   };
-
-  const handleReject = async (submissionId: string) => {
+  const handleReject = async (userId: string, documentId: string) => {
     try {
-      const submission = submissions.find(s => s.id === submissionId);
+      const submission = submissions.find(s => s.id === documentId);
       if (!submission) return;
 
-      const response = await fetch(`/api/admin/submissions/${submission.userId}/update`, {
+      const response = await fetch(`/api/admin/submissions/${userId}/update`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          documentId: submission.id,
+          documentId: documentId,
           documentStatus: 'REJECTED',
         }),
       });
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to reject document');
+        throw new Error(data.error || 'Failed to reject submission');
       }
 
       setSubmissions(prevSubmissions =>
         prevSubmissions.map(sub =>
-          sub.id === submissionId ? { ...sub, status: 'REJECTED' as VerificationStatusEnum } : sub
+          sub.id === documentId ? { ...sub, status: 'REJECTED' as VerificationStatusEnum } : sub
         )
       );
     } catch (err) {
-      console.error('Error rejecting document:', err);
+      console.error('Error rejecting submission:', err);
     }
   };
 
@@ -222,7 +230,11 @@ const AdminSubmissionsPage = () => {
                 <div className="relative">
                   <select
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
+                    onChange={(e) => {
+                      setStatusFilter(e.target.value);
+                      setCurrentPage(1); // Reset to page 1 when changing filters
+                      fetchSubmissions();
+                    }}
                     className="appearance-none bg-white border border-gray-300 rounded-md pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="all">All</option>
@@ -240,7 +252,11 @@ const AdminSubmissionsPage = () => {
                 <div className="relative">
                   <select
                     value={documentTypeFilter}
-                    onChange={(e) => setDocumentTypeFilter(e.target.value)}
+                    onChange={(e) => {
+                      setDocumentTypeFilter(e.target.value);
+                      setCurrentPage(1); // Reset to page 1 when changing filters
+                      fetchSubmissions();
+                    }}
                     className="appearance-none bg-white border border-gray-300 rounded-md pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="all">All Types</option>
@@ -250,9 +266,11 @@ const AdminSubmissionsPage = () => {
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 </div>
-              </div>
-              <button
-                onClick={() => fetchSubmissions(true)}
+              </div>              <button
+                onClick={() => {
+                  setCurrentPage(1); // Reset to page 1 when refreshing
+                  fetchSubmissions(true);
+                }}
                 className={`px-3 py-2 ${isRefreshing ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white text-sm font-medium rounded-lg flex items-center`}
                 disabled={isRefreshing}
               >
@@ -291,98 +309,114 @@ const AdminSubmissionsPage = () => {
             <p className="text-gray-600">No submissions match your filter criteria.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50 text-left">
-                  <th className="px-3 py-3 md:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                  <th className="px-3 py-3 md:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Document</th>
-                  <th className="px-3 py-3 md:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Date</th>
-                  <th className="px-3 py-3 md:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-3 py-3 md:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredSubmissions.map((submission) => (
-                  <tr key={submission.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-800 font-medium mr-2 md:mr-3 flex-shrink-0">
-                          {submission.userName.charAt(0)}
-                        </div>
-                        <div className="truncate">
-                          <div className="font-medium text-sm md:text-base truncate">{submission.userName}</div>
-                          <div className="text-xs md:text-sm text-gray-500 truncate hidden sm:block">ID: {submission.userId}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {submission.documentType.includes('Selfie') ? (
-                          <Camera className="h-4 w-4 text-gray-500 mr-2 flex-shrink-0" />
-                        ) : (
-                          <FileText className="h-4 w-4 text-gray-500 mr-2 flex-shrink-0" />
-                        )}
-                        <div>
-                          <div className="text-sm md:text-base truncate max-w-[120px] md:max-w-none">{submission.documentType}</div>
-                          <div className="text-xs text-gray-500 truncate max-w-[120px] hidden sm:block">{submission.fileName}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap text-sm hidden sm:table-cell">
-                      {submission.dateSubmitted}
-                    </td>
-                    <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${submission.status === 'PENDING' ? 'bg-amber-100 text-amber-800' :
-                          submission.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                            submission.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                              submission.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                                ''
-                        }`}>
-                        {submission.status === 'PENDING' ? 'Pending' :
-                          submission.status === 'IN_PROGRESS' ? 'In Progress' :
-                            submission.status === 'APPROVED' ? 'Approved' :
-                              submission.status === 'REJECTED' ? 'Rejected' :
-                                ''}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
-                      <div className="flex flex-wrap gap-1 md:space-x-2">                        
-                        <button
-                          onClick={() => handleViewSubmission(submission.id)}
-                          className="p-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded"
-                          title="View Details"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDownloadSubmission(submission.id)}
-                          className="p-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded"
-                          title="Download"
-                        >
-                          <Download className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleApprove(submission.id)}
-                          className="p-1 bg-green-100 hover:bg-green-200 text-green-800 rounded"
-                          title="Approve"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleReject(submission.id)}
-                          className="p-1 bg-red-100 hover:bg-red-200 text-red-800 rounded"
-                          title="Reject"
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 text-left">
+                    <th className="px-3 py-3 md:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                    <th className="px-3 py-3 md:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Document</th>
+                    <th className="px-3 py-3 md:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Date</th>
+                    <th className="px-3 py-3 md:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-3 py-3 md:px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredSubmissions.map((submission) => (
+                    <tr key={submission.id} className="hover:bg-gray-50">
+                      <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-800 font-medium mr-2 md:mr-3 flex-shrink-0">
+                            {submission.userName.charAt(0)}
+                          </div>
+                          <div className="truncate">
+                            <div className="font-medium text-sm md:text-base truncate">{submission.userName}</div>
+                            <div className="text-xs md:text-sm text-gray-500 truncate hidden sm:block">ID: {submission.userId}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <FileText className="h-4 w-4 text-gray-500 mr-2 flex-shrink-0" />
+                          <div>
+                            <div className="text-sm md:text-base truncate max-w-[120px] md:max-w-none">{submission.documentType}</div>
+                            <div className="text-xs text-gray-500 truncate max-w-[120px] hidden sm:block">
+                              {submission.totalDocuments > 1 
+                                ? `${submission.totalDocuments} documents submitted` 
+                                : submission.fileName}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap text-sm hidden sm:table-cell">
+                        {submission.dateSubmitted}
+                      </td>
+                      <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${submission.status === 'PENDING' ? 'bg-amber-100 text-amber-800' :
+                            submission.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
+                              submission.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                                submission.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                                  ''
+                          }`}>
+                          {submission.status === 'PENDING' ? 'Pending' :
+                            submission.status === 'IN_PROGRESS' ? 'In Progress' :
+                              submission.status === 'APPROVED' ? 'Approved' :
+                                submission.status === 'REJECTED' ? 'Rejected' :
+                                  ''}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
+                        <div className="flex flex-wrap gap-1 md:space-x-2">                        
+                          <button
+                            onClick={() => handleViewSubmission(submission.userId)}
+                            className="p-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded"
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDownloadSubmission(submission.userId, submission.id)}
+                            className="p-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded"
+                            title="Download"
+                          >
+                            <Download className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleApprove(submission.userId, submission.id)}
+                            className="p-1 bg-green-100 hover:bg-green-200 text-green-800 rounded"
+                            title="Approve"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleReject(submission.userId, submission.id)}
+                            className="p-1 bg-red-100 hover:bg-red-200 text-red-800 rounded"
+                            title="Reject"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Pagination component */}
+            {totalPages > 1 && (
+              <div className="p-4 border-t border-gray-200">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={(page) => {
+                    setCurrentPage(page);
+                    fetchSubmissions();
+                  }}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

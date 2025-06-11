@@ -1,19 +1,15 @@
-import import { Prisma } from '@prisma/client';
-
-type JsonValue = Prisma.JsonValue;
-type JsonObject = { [Key: string]: JsonValue };
-type JsonArray = JsonValue[];extRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { User, KYCDocument, DocumentAnalysis, DojahVerification, SelfieVerification, VerificationStatusEnum, UserRole } from '@/app/generated/prisma';
 
-export const dynamic = 'force-dynamic';
-
-type JsonValue = string | number | boolean | null | JsonObject | JsonArray;
-interface JsonObject { [Key: string]: JsonValue }
+// Definition of JSON types
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | { [key: string]: JsonValue } | JsonValue[];
+interface JsonObject {
+  [key: string]: JsonValue;
+}
 interface JsonArray extends Array<JsonValue> {}
-
-type DojahStatus = 'PENDING' | 'IN_PROGRESS' | 'SUCCESS' | 'FAILED' | 'INCOMPLETE_DATA' | 'RETRY_REQUIRED';
 
 interface ValidationResult {
   isValid: boolean;
@@ -24,108 +20,22 @@ interface ValidationResult {
 
 interface VerificationStep {
   name: string;
-  status: DojahStatus;
+  status: string;
   completedAt?: string;
   confidence?: number | null;
-  duration?: number;
-  validationResults?: ValidationResult[];
-  details?: {
-    isReadable?: boolean;
-    qualityScore?: number;
-    documentType?: string;
-    extractedFields?: number;
-    fieldsExtracted?: number;
-    fileName?: string;
-    fileSize?: number;
-    mimeType?: string;
-    extractedDataSummary?: JsonObject;
-    isMatch?: boolean;
-    verificationTypes?: string[];
-    verifications?: Array<{
-      type: string;
-      status: DojahStatus;
-      isMatch: boolean;
-      confidence: number | null;
-      matchDetails?: {
-        fieldsMatched: number;
-        matchSummary: JsonObject;
-      };
-    }>;
-    livenessScore?: number;
-    facialMatchScore?: number;
-    qualityMetrics?: {
-      brightness: number;
-      contrast: number;
-      sharpness: number;
-      resolution: number;
-    };
-  };
-  errors?: Array<{
-    code: string;
-    message: string;
-    field?: string;
-  }>;
-  matchResult?: JsonObject;
-}
-
-interface DojahGovernmentVerification {
-  id: string;
-  type: string;
-  status: DojahStatus;
-  isMatch: boolean;
-  confidence: number | null;
-  governmentData: JsonObject;
-  matchDetails?: {
-    fieldsMatched: string[];
-    fieldsNotMatched: string[];
-    confidenceByField: Record<string, number>;
-  };
-  createdAt: Date;
-  validationErrors?: Array<{
-    field: string;
-    error: string;
-  }>;
-}
-
-interface DocumentVerificationMetrics {
-  totalChecks: number;
-  passedChecks: number;
-  failedChecks: number;
-  overallConfidence: number;
-  qualityScore: number;
-  processingTime: number;
+  details?: JsonObject;
 }
 
 interface DojahVerificationResponse {
   id: string;
   status: string;
   confidence: number | null;
-  matchResult: JsonValue;
-  extractedData: JsonValue;
-  governmentData: JsonValue;
+  matchResult: JsonObject;
+  extractedData: JsonObject;
+  governmentData: JsonObject;
   errorMessage: string | null;
   createdAt: string;
   steps: VerificationStep[];
-  metrics?: DocumentVerificationMetrics;
-  adminReviews?: Array<{
-    id: string;
-    status: string;
-    notes?: string;
-    reviewer: {
-      name: string;
-    };
-    createdAt: string;
-  }>;
-}
-
-interface DocumentAnalysisResult {
-  extractedText: string | null;
-  extractedData: any;
-  documentType: string | null;
-  confidence: number | null;
-  isReadable: boolean;
-  qualityScore: number | null;
-  createdAt: string;
 }
 
 interface DocumentSubmission {
@@ -134,7 +44,15 @@ interface DocumentSubmission {
   fileName: string;
   url: string;
   status: string;
-  documentAnalysis?: DocumentAnalysisResult;
+  documentAnalysis?: {
+    extractedText: string | null;
+    extractedData: JsonObject;
+    documentType: string | null;
+    confidence: number | null;
+    isReadable: boolean;
+    qualityScore: number | null;
+    createdAt: string;
+  };
   dojahVerification?: DojahVerificationResponse;
 }
 
@@ -153,7 +71,7 @@ interface SubmissionResponse {
     status: string;
     isMatch: boolean;
     confidence: number | null;
-    governmentData: any;
+    governmentData: JsonObject;
     createdAt: string;
     documentId: string;
     documentType: string;
@@ -165,26 +83,140 @@ interface SubmissionResponse {
     dojahVerification?: {
       status: string;
       confidence: number | null;
-      matchResult: any;
+      matchResult: JsonObject;
       errorMessage: string | null;
     };
   } | null;
   notes: string;
 }
 
+// Define a more flexible type structure for the user with includes
 type UserWithIncludes = User & {
   kycDocuments: (KYCDocument & {
     documentAnalysis: DocumentAnalysis | null;
-    dojahVerification: (DojahVerification & {
-      governmentVerification: any[];
-    }) | null;
   })[];
-  selfieVerification: (SelfieVerification & {
-    dojahVerification: DojahVerification | null;
-  }) | null;
+  dojahVerifications: DojahVerification[];
+  selfieVerification: SelfieVerification | null;
 };
 
-function formatUserData(user: UserWithIncludes): SubmissionResponse {
+// Utility function to get current user ID from session cookie
+const getCurrentUserId = (): string | null => {
+  const sessionCookie = cookies().get('session')?.value;
+  if (!sessionCookie) return null;
+
+  try {
+    const session = JSON.parse(sessionCookie);
+    return typeof session.userId === 'string' ? session.userId : null;
+  } catch {
+    return null;
+  }
+};
+
+// Function to format verification steps
+const formatVerificationSteps = (
+  doc: KYCDocument & {
+    documentAnalysis: DocumentAnalysis | null;
+  },
+  dojahVerifications: DojahVerification[]
+): VerificationStep[] => {
+  // Find Dojah verifications related to this document
+  const docVerification = dojahVerifications.find(v => 
+    v.documentId === doc.id && v.verificationType === 'DOCUMENT_ANALYSIS'
+  );
+  
+  const govVerifications = dojahVerifications.filter(v => 
+    v.documentId === doc.id && 
+    ['BVN_LOOKUP', 'NIN_LOOKUP', 'PASSPORT_LOOKUP', 'DRIVERS_LICENSE_LOOKUP'].includes(v.verificationType)
+  );
+
+  return [
+    {
+      name: 'Document Upload',
+      status: 'SUCCESS',
+      completedAt: doc.uploadedAt.toISOString(),
+      details: {
+        fileName: doc.fileName,
+        fileSize: doc.fileSize,
+        mimeType: doc.mimeType,
+      },
+    },
+    {
+      name: 'Document Analysis',
+      status: doc.documentAnalysis?.isReadable ? 'SUCCESS' : doc.documentAnalysis ? 'FAILED' : 'PENDING',
+      completedAt: doc.documentAnalysis?.createdAt?.toISOString(),
+      confidence: doc.documentAnalysis?.confidence ?? null,
+      details: doc.documentAnalysis
+        ? {
+            isReadable: doc.documentAnalysis.isReadable,
+            qualityScore: doc.documentAnalysis.qualityScore,
+            documentType: typeof doc.documentAnalysis.documentType === 'object' 
+              ? JSON.stringify(doc.documentAnalysis.documentType)
+              : String(doc.documentAnalysis.documentType || ''),
+            extractedFields: doc.documentAnalysis.extractedData 
+              ? Object.keys(doc.documentAnalysis.extractedData as object).length
+              : 0,
+          } as JsonObject
+        : undefined,
+    },
+    {
+      name: 'Data Extraction',
+      status: doc.documentAnalysis?.extractedData ? 'SUCCESS' : doc.documentAnalysis ? 'FAILED' : 'PENDING',
+      completedAt: doc.documentAnalysis?.createdAt?.toISOString(),
+      confidence: doc.documentAnalysis?.confidence ?? null,
+      details: doc.documentAnalysis?.extractedData
+        ? {
+            fieldsExtracted: Object.keys(doc.documentAnalysis.extractedData as object).length,
+            documentType: typeof doc.documentAnalysis.documentType === 'object' 
+              ? JSON.stringify(doc.documentAnalysis.documentType)
+              : String(doc.documentAnalysis.documentType || ''),
+            extractedDataSummary: JSON.stringify(doc.documentAnalysis.extractedData),
+          } as JsonObject
+        : undefined,
+    },
+    {
+      name: 'Government Verification',
+      status: govVerifications.length > 0 
+        ? govVerifications.some(v => v.status === 'SUCCESS') ? 'SUCCESS' : 'FAILED'
+        : 'PENDING',
+      completedAt: govVerifications.length > 0 
+        ? new Date(Math.max(...govVerifications.map(v => v.updatedAt.getTime()))).toISOString()
+        : undefined,
+      confidence: govVerifications.length > 0
+        ? govVerifications.reduce((sum, v) => sum + (v.confidence || 0), 0) / govVerifications.length
+        : null,
+      details: govVerifications.length > 0
+        ? {
+            isMatch: govVerifications.some(v => v.matchResult && 
+                (v.matchResult as any).isMatch === true),            verificationTypes: govVerifications.map(v => String(v.verificationType)) as unknown as JsonValue,
+            verifications: govVerifications.map(v => ({
+              type: String(v.verificationType),
+              status: String(v.status),
+              isMatch: (v.matchResult as any)?.isMatch || false,
+              confidence: v.confidence,
+              matchDetails: v.governmentData
+                ? {
+                    fieldsMatched: Object.keys(v.governmentData as object).length,
+                    matchSummary: v.governmentData as unknown as JsonValue,
+                  }
+                : null,
+            })) as unknown as JsonValue,
+          } as JsonObject
+        : undefined,
+    },
+  ];
+};
+
+// Function to format user data
+const formatUserData = (user: any): SubmissionResponse => {
+  // Get selfie verification related Dojah verification if exists
+  const selfieVerificationId = user.selfieVerification?.id;
+  const selfieDojahVerification = selfieVerificationId 
+    ? user.dojahVerifications.find((v: DojahVerification) => 
+        v.documentId === selfieVerificationId && 
+        v.verificationType === 'SELFIE_PHOTO_ID_MATCH'
+      )
+    : null;
+
   return {
     id: user.id,
     user: {
@@ -194,456 +226,155 @@ function formatUserData(user: UserWithIncludes): SubmissionResponse {
     },
     submittedAt: user.createdAt.toISOString(),
     status: user.kycDocuments.length > 0 ? user.kycDocuments[0].status : VerificationStatusEnum.PENDING,
-    documents: user.kycDocuments.map(doc => ({
-      id: doc.id,
-      type: doc.type,
-      fileName: doc.fileName,
-      url: `/api/admin/submissions/${doc.id}/download`,
-      status: doc.status,
-      documentAnalysis: doc.documentAnalysis ? {
-        extractedText: doc.documentAnalysis.extractedText,
-        extractedData: doc.documentAnalysis.extractedData,
-        documentType: doc.documentAnalysis.documentType,
-        confidence: doc.documentAnalysis.confidence,
-        isReadable: doc.documentAnalysis.isReadable,
-        qualityScore: doc.documentAnalysis.qualityScore,
-        createdAt: doc.documentAnalysis.createdAt.toISOString()
-      } : undefined,
-      dojahVerification: doc.dojahVerification ? {
-        id: doc.dojahVerification.id,
-        status: doc.dojahVerification.status,
-        confidence: doc.dojahVerification.confidence,
-        matchResult: doc.dojahVerification.matchResult,
-        extractedData: doc.dojahVerification.extractedData,
-        governmentData: doc.dojahVerification.governmentData,
-        errorMessage: doc.dojahVerification.errorMessage,
-        createdAt: doc.dojahVerification.createdAt.toISOString(),
-        steps: [
-          {
-            name: "Document Upload",
-            status: "SUCCESS",
-            completedAt: doc.uploadedAt.toISOString(),
-            details: {
-              fileName: doc.fileName,
-              fileSize: doc.fileSize,
-              mimeType: doc.mimeType
-            }
-          },
-          {
-            name: "Document Analysis",
-            status: doc.documentAnalysis?.isReadable ? "SUCCESS" : doc.documentAnalysis ? "FAILED" : "PENDING",
-            completedAt: doc.documentAnalysis?.createdAt?.toISOString(),
-            confidence: doc.documentAnalysis?.confidence,
-            details: doc.documentAnalysis ? {
+    documents: user.kycDocuments.map((doc: any) => {
+      // Find document related Dojah verifications
+      const docVerification = user.dojahVerifications.find((v: DojahVerification) => 
+        v.documentId === doc.id && v.verificationType === 'DOCUMENT_ANALYSIS'
+      );
+      
+      return {
+        id: doc.id,
+        type: doc.type,
+        fileName: doc.fileName,
+        url: `/api/admin/submissions/${user.id}/download?documentId=${doc.id}`,
+        status: doc.status,
+        documentAnalysis: doc.documentAnalysis
+          ? {
+              extractedText: doc.documentAnalysis.extractedText,
+              extractedData: doc.documentAnalysis.extractedData as any as JsonObject,
+              documentType: doc.documentAnalysis.documentType 
+                ? (typeof doc.documentAnalysis.documentType === 'object' 
+                  ? (doc.documentAnalysis.documentType as any).type || null 
+                  : String(doc.documentAnalysis.documentType)
+                  )
+                : null,
+              confidence: doc.documentAnalysis.confidence,
               isReadable: doc.documentAnalysis.isReadable,
               qualityScore: doc.documentAnalysis.qualityScore,
-              documentType: doc.documentAnalysis.documentType,
-              extractedFields: Object.keys(doc.documentAnalysis.extractedData || {}).length
-            } : undefined
-          },
-          {
-            name: "Data Extraction",
-            status: doc.documentAnalysis?.extractedData ? "SUCCESS" : doc.documentAnalysis ? "FAILED" : "PENDING",
-            completedAt: doc.documentAnalysis?.createdAt?.toISOString(),
-            confidence: doc.documentAnalysis?.confidence,
-            details: doc.documentAnalysis?.extractedData ? {
-              fieldsExtracted: Object.keys(doc.documentAnalysis.extractedData).length,
-              documentType: doc.documentAnalysis.documentType,
-              extractedDataSummary: doc.documentAnalysis.extractedData
-            } : undefined
-          },
-          {
-            name: "Government Verification",
-            status: doc.dojahVerification ? doc.dojahVerification.status : "PENDING",
-            completedAt: doc.dojahVerification?.updatedAt?.toISOString(),
-            confidence: doc.dojahVerification?.confidence,
-            matchResult: doc.dojahVerification?.matchResult,
-            details: doc.dojahVerification?.governmentVerification ? {
-              isMatch: doc.dojahVerification.governmentVerification.some(gv => gv.isMatch),
-              verificationTypes: doc.dojahVerification.governmentVerification.map(gv => gv.type),
-              verifications: doc.dojahVerification.governmentVerification.map(gv => ({
-                type: gv.type,
-                status: gv.status,
-                isMatch: gv.isMatch,
-                confidence: gv.confidence,
-                matchDetails: gv.governmentData ? {
-                  fieldsMatched: Object.keys(gv.governmentData).length,
-                  matchSummary: gv.governmentData
-                } : undefined
-              }))
-            } : undefined
-          }
-        ]
-      } : undefined
+              createdAt: doc.documentAnalysis.createdAt.toISOString(),
+            }
+          : undefined,
+        dojahVerification: docVerification
+          ? {
+              id: docVerification.id,
+              status: docVerification.status,
+              confidence: docVerification.confidence,
+              matchResult: docVerification.matchResult as any as JsonObject,
+              extractedData: docVerification.extractedData as any as JsonObject,
+              governmentData: docVerification.governmentData as any as JsonObject,
+              errorMessage: docVerification.errorMessage,
+              createdAt: docVerification.createdAt.toISOString(),
+              steps: formatVerificationSteps(doc, user.dojahVerifications),
+            }
+          : undefined,
+      };
     }),
-    governmentVerifications: user.kycDocuments.flatMap(doc =>
-      doc.dojahVerification?.governmentVerification?.map(gv => ({
-        type: gv.type,
-        status: gv.status,
-        isMatch: gv.isMatch,
-        confidence: gv.confidence,
-        governmentData: gv.governmentData,
-        createdAt: gv.createdAt.toISOString(),
-        documentId: doc.id,
-        documentType: doc.type
-      })) || []
-    ),
-    selfieVerification: user.selfieVerification ? {
-      id: user.selfieVerification.id,
-      status: user.selfieVerification.status,
-      capturedAt: user.selfieVerification.capturedAt.toISOString(),
-      dojahVerification: user.selfieVerification.dojahVerification ? {
-        status: user.selfieVerification.dojahVerification.status,
-        confidence: user.selfieVerification.dojahVerification.confidence,
-        matchResult: user.selfieVerification.dojahVerification.matchResult,
-        errorMessage: user.selfieVerification.dojahVerification.errorMessage,
-      } : undefined
-    } : null,
+    governmentVerifications: user.dojahVerifications
+      .filter((v: DojahVerification) => 
+        ['BVN_LOOKUP', 'NIN_LOOKUP', 'PASSPORT_LOOKUP', 'DRIVERS_LICENSE_LOOKUP'].includes(v.verificationType) &&
+        user.kycDocuments.some((doc: any) => doc.id === v.documentId)
+      )
+      .map((v: DojahVerification) => {
+        const doc = user.kycDocuments.find((d: any) => d.id === v.documentId);
+        return {
+          type: v.verificationType,
+          status: v.status,
+          isMatch: (v.matchResult as any)?.isMatch || false,
+          confidence: v.confidence,
+          governmentData: v.governmentData as any as JsonObject,
+          createdAt: v.createdAt.toISOString(),
+          documentId: v.documentId || '',
+          documentType: doc?.type || '',
+        };
+      }),
+    selfieVerification: user.selfieVerification
+      ? {
+          id: user.selfieVerification.id,
+          status: user.selfieVerification.status,
+          capturedAt: user.selfieVerification.capturedAt.toISOString(),
+          dojahVerification: selfieDojahVerification
+            ? {
+                status: selfieDojahVerification.status,
+                confidence: selfieDojahVerification.confidence,
+                matchResult: selfieDojahVerification.matchResult as any as JsonObject,
+                errorMessage: selfieDojahVerification.errorMessage,
+              }
+            : undefined,
+        }
+      : null,
     notes: user.kycDocuments[0]?.notes || '',
   };
-}
+};
 
-const getCurrentUserId = (): string | null => {
-  const sessionCookie = cookies().get('session')?.value;
-  if (!sessionCookie) return null;
-  
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = JSON.parse(sessionCookie);
-    return session.userId || null;
-  } catch {
-    return null;
-  }
-};
-
-type UserWithIncludes = User & {
-  kycDocuments: (KYCDocument & {
-    documentAnalysis: DocumentAnalysis | null;
-    dojahVerification: (DojahVerification & {
-      governmentVerification: any[];
-    }) | null;
-  })[];
-  selfieVerification: (SelfieVerification & {
-    dojahVerification: DojahVerification | null;
-  }) | null;
-};
-
-interface VerificationStep {
-  name: string;
-  status: 'SUCCESS' | 'FAILED' | 'PENDING' | 'IN_PROGRESS';
-  completedAt?: string;
-  confidence?: number | null;
-  details?: Record<string, any>;
-  matchResult?: Record<string, any>;
-}
-
-function formatVerificationSteps(doc: KYCDocument & {
-  documentAnalysis: DocumentAnalysis | null;
-  dojahVerification: (DojahVerification & {
-    governmentVerification: any[];
-  }) | null;
-}): VerificationStep[] {
-  return [
-    {
-      name: "Document Upload",
-      status: "SUCCESS",
-      completedAt: doc.uploadedAt.toISOString(),
-      details: {
-        fileName: doc.fileName,
-        fileSize: doc.fileSize,
-        mimeType: doc.mimeType
-      }
-    },
-    {
-      name: "Document Analysis",
-      status: doc.documentAnalysis?.isReadable ? "SUCCESS" : doc.documentAnalysis ? "FAILED" : "PENDING",
-      completedAt: doc.documentAnalysis?.createdAt?.toISOString(),
-      confidence: doc.documentAnalysis?.confidence,
-      details: doc.documentAnalysis ? {
-        isReadable: doc.documentAnalysis.isReadable,
-        qualityScore: doc.documentAnalysis.qualityScore,
-        documentType: doc.documentAnalysis.documentType,
-        extractedFields: Object.keys(doc.documentAnalysis.extractedData || {}).length
-      } : undefined
-    },
-    {
-      name: "Data Extraction",
-      status: doc.documentAnalysis?.extractedData ? "SUCCESS" : doc.documentAnalysis ? "FAILED" : "PENDING",
-      completedAt: doc.documentAnalysis?.createdAt?.toISOString(),
-      confidence: doc.documentAnalysis?.confidence,
-      details: doc.documentAnalysis?.extractedData ? {
-        fieldsExtracted: Object.keys(doc.documentAnalysis.extractedData).length,
-        documentType: doc.documentAnalysis.documentType,
-        extractedDataSummary: doc.documentAnalysis.extractedData
-      } : undefined
-    },
-    {
-      name: "Government Verification",
-      status: doc.dojahVerification ? doc.dojahVerification.status : "PENDING",
-      completedAt: doc.dojahVerification?.updatedAt?.toISOString(),
-      confidence: doc.dojahVerification?.confidence,
-      matchResult: doc.dojahVerification?.matchResult,
-      details: doc.dojahVerification?.governmentVerification ? {
-        isMatch: doc.dojahVerification.governmentVerification.some(gv => gv.isMatch),
-        verificationTypes: doc.dojahVerification.governmentVerification.map(gv => gv.type),
-        verifications: doc.dojahVerification.governmentVerification.map(gv => ({
-          type: gv.type,
-          status: gv.status,
-          isMatch: gv.isMatch,
-          confidence: gv.confidence,
-          matchDetails: gv.governmentData ? {
-            fieldsMatched: Object.keys(gv.governmentData).length,
-            matchSummary: gv.governmentData
-          } : undefined
-        }))
-      } : undefined
+    // Validate input
+    if (!params.id || typeof params.id !== 'string') {
+      return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
     }
-  ];
-}
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
+    // Authenticate user
     const userId = getCurrentUserId();
-    
     if (!userId) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized: No valid session' }, { status: 401 });
     }
 
-    // Check if user is admin
+    // Check admin privileges
     const adminUser = await prisma.user.findUnique({
       where: { id: userId },
-    });
-
-    if (!adminUser || !['ADMIN', 'SUPER_ADMIN'].includes(adminUser.role)) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized - Admin access required' }),
-        { status: 401 }
-      );
-    }    type UserWithVerifications = {
-      id: string;
-      email: string;
-      firstName: string;
-      lastName: string;
-      createdAt: Date;
-      kycDocuments: Array<{
-        id: string;
-        type: string;
-        fileName: string;
-        status: string;
-        uploadedAt: Date;
-        notes: string | null;
-        documentAnalysis?: {
-          id: string;
-          extractedText: string | null;
-          extractedData: any;
-          documentType: string | null;
-          confidence: number | null;
-          isReadable: boolean;
-          qualityScore: number | null;
-          createdAt: Date;
-        };
-        dojahVerification?: {
-          id: string;
-          status: string;
-          confidence: number | null;
-          matchResult: any;
-          extractedData: any;
-          governmentData: any;
-          errorMessage: string | null;
-          createdAt: Date;
-          updatedAt: Date;
-          governmentVerification: Array<{
-            type: string;
-            status: string;
-            isMatch: boolean;
-            confidence: number | null;
-            governmentData: any;
-            createdAt: Date;
-          }>;
-        };
-      }>;
-      selfieVerification?: {
-        id: string;
-        status: string;
-        capturedAt: Date;
-        dojahVerification?: {
-          status: string;
-          confidence: number | null;
-          matchResult: any;
-          errorMessage: string | null;
-        };
-      };
-    };
-
-    // Get submission details from user and their documents
+      select: { role: true },
+    });    if (!adminUser || !(adminUser.role === 'ADMIN' || adminUser.role === 'SUPER_ADMIN')) {
+      return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 403 });
+    }
+  // Fetch user data with necessary includes
     const user = await prisma.user.findUnique({
       where: { id: params.id },
       include: {
         kycDocuments: {
           include: {
             documentAnalysis: true,
-            dojahVerification: {
-              include: {
-                governmentVerification: true
-              }
-            }
-          }
+          },
         },
-        selfieVerification: {
-          include: {
-            dojahVerification: true
-          }
-        }
-      }
+        dojahVerifications: true,
+        selfieVerification: true,
+      },
     });
 
     if (!user) {
-      return new NextResponse(
-        JSON.stringify({ error: 'User not found' }),
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Format response    const submission = {
-      id: user.id,
-      user: {
-        id: user.id,
-        name: `${user.firstName} ${user.lastName}`,
-        email: user.email,
-      },
-      submittedAt: user.createdAt.toISOString(),
-      status: user.kycDocuments.length > 0 ? user.kycDocuments[0].status : VerificationStatusEnum.PENDING,
-      documents: user.kycDocuments.map(doc => ({
-        id: doc.id,
-        type: doc.type,
-        fileName: doc.fileName,
-        url: `/api/admin/submissions/${doc.id}/download`,
-        status: doc.status,
-        documentAnalysis: doc.documentAnalysis ? {
-          extractedText: doc.documentAnalysis.extractedText,
-          extractedData: doc.documentAnalysis.extractedData,
-          documentType: doc.documentAnalysis.documentType,
-          confidence: doc.documentAnalysis.confidence,
-          isReadable: doc.documentAnalysis.isReadable,
-          qualityScore: doc.documentAnalysis.qualityScore,
-          createdAt: doc.documentAnalysis.createdAt.toISOString()
-        } : undefined,
-        dojahVerification: doc.dojahVerification ? {
-          id: doc.dojahVerification.id,
-          status: doc.dojahVerification.status,
-          confidence: doc.dojahVerification.confidence,
-          matchResult: doc.dojahVerification.matchResult,
-          extractedData: doc.dojahVerification.extractedData,
-          governmentData: doc.dojahVerification.governmentData,
-          errorMessage: doc.dojahVerification.errorMessage,
-          createdAt: doc.dojahVerification.createdAt.toISOString(),
-          steps: [
-            {
-              name: "Document Upload",
-              status: "SUCCESS",
-              completedAt: doc.uploadedAt.toISOString(),
-              details: {
-                fileName: doc.fileName,
-                fileSize: doc.fileSize,
-                mimeType: doc.mimeType
-              }
-            },
-            {
-              name: "Document Analysis",
-              status: doc.documentAnalysis?.isReadable ? "SUCCESS" : doc.documentAnalysis ? "FAILED" : "PENDING",
-              completedAt: doc.documentAnalysis?.createdAt?.toISOString(),
-              confidence: doc.documentAnalysis?.confidence,
-              details: doc.documentAnalysis ? {
-                isReadable: doc.documentAnalysis.isReadable,
-                qualityScore: doc.documentAnalysis.qualityScore,
-                documentType: doc.documentAnalysis.documentType,
-                extractedFields: Object.keys(doc.documentAnalysis.extractedData || {}).length
-              } : undefined
-            },
-            {
-              name: "Data Extraction",
-              status: doc.documentAnalysis?.extractedData ? "SUCCESS" : doc.documentAnalysis ? "FAILED" : "PENDING",
-              completedAt: doc.documentAnalysis?.createdAt?.toISOString(),
-              confidence: doc.documentAnalysis?.confidence,
-              details: doc.documentAnalysis?.extractedData ? {
-                fieldsExtracted: Object.keys(doc.documentAnalysis.extractedData).length,
-                documentType: doc.documentAnalysis.documentType,
-                extractedDataSummary: doc.documentAnalysis.extractedData
-              } : undefined
-            },
-            {
-              name: "Government Verification",
-              status: doc.dojahVerification ? doc.dojahVerification.status : "PENDING",
-              completedAt: doc.dojahVerification?.updatedAt?.toISOString(),
-              confidence: doc.dojahVerification?.confidence,
-              matchResult: doc.dojahVerification?.matchResult,
-              details: doc.dojahVerification?.governmentVerification ? {
-                isMatch: doc.dojahVerification.governmentVerification.some(gv => gv.isMatch),
-                verificationTypes: doc.dojahVerification.governmentVerification.map(gv => gv.type),
-                verifications: doc.dojahVerification.governmentVerification.map(gv => ({
-                  type: gv.type,
-                  status: gv.status,
-                  isMatch: gv.isMatch,
-                  confidence: gv.confidence,
-                  matchDetails: gv.governmentData ? {
-                    fieldsMatched: Object.keys(gv.governmentData).length,
-                    matchSummary: gv.governmentData
-                  } : undefined
-                }))
-              } : undefined
-            }
-          ]
-        } : undefined
-      }),
-      governmentVerifications: user.kycDocuments.flatMap(doc => 
-        doc.dojahVerification?.governmentVerification?.map(gv => ({
-          type: gv.type,
-          status: gv.status,
-          isMatch: gv.isMatch,
-          confidence: gv.confidence,
-          governmentData: gv.governmentData,
-          createdAt: gv.createdAt.toISOString(),
-          documentId: doc.id,
-          documentType: doc.type
-        })) || []
-      ),
-      selfieVerification: user.selfieVerification ? {
-        id: user.selfieVerification.id,
-        status: user.selfieVerification.status,
-        capturedAt: user.selfieVerification.capturedAt.toISOString(),
-        dojahVerification: user.selfieVerification.dojahVerification ? {
-          status: user.selfieVerification.dojahVerification.status,
-          confidence: user.selfieVerification.dojahVerification.confidence,
-          matchResult: user.selfieVerification.dojahVerification.matchResult,
-          errorMessage: user.selfieVerification.dojahVerification.errorMessage,
-        } : undefined
-      } : null,
-      notes: user.kycDocuments[0]?.notes || '',
-    };
+    // Format submission data
+    const submission = formatUserData(user);
 
-    // Get audit logs
+    // Fetch audit logs
     const auditLogs = await prisma.auditLog.findMany({
       where: {
         OR: [
-          { targetId: user.id },
-          { targetId: { in: user.kycDocuments.map(doc => doc.id) } }
+          { targetId: user.id, targetType: 'KYC_SUBMISSION' },
+          {
+            targetId: { in: user.kycDocuments.map((doc) => doc.id) },
+            targetType: 'KYC_DOCUMENT',
+          },
+          {
+            targetId: user.selfieVerification?.id,
+            targetType: 'SELFIE_VERIFICATION',
+          },
         ],
-        targetType: {
-          in: ['KYC_DOCUMENT', 'KYC_SUBMISSION', 'SELFIE_VERIFICATION']
-        }
       },
-      orderBy: {
-        createdAt: 'desc'
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: {
+        id: true,
+        action: true,
+        details: true,
+        targetId: true,
+        targetType: true,
+        createdAt: true,
       },
-      take: 50
     });
 
-    // Log this access in audit trail
+    // Log access in audit trail
     await prisma.auditLog.create({
       data: {
         userId,
@@ -654,17 +385,15 @@ export async function GET(
       },
     });
 
-    return NextResponse.json({
-      submission,
-      auditLogs
+    return NextResponse.json({ submission, auditLogs });
+  } catch (error) {
+    console.error('SUBMISSION_DETAILS_ERROR', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
     });
-  } catch (error: any) {
-    console.error('SUBMISSION_DETAILS_ERROR', error);
-    
-    return new NextResponse(
-      JSON.stringify({
-        error: error.message || 'An error occurred while fetching submission details',
-      }),
+
+    return NextResponse.json(
+      { error: 'Failed to fetch submission details' },
       { status: 500 }
     );
   }

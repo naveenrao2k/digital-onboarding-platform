@@ -1,4 +1,4 @@
-// app/api/admin/submissions/route.ts
+// app/api/admin/submissions/approved/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
@@ -42,7 +42,6 @@ export async function GET(request: NextRequest) {
       );
     }    // Get query parameters
     const searchParams = request.nextUrl.searchParams;
-    const status = searchParams.get('status');
     const documentType = searchParams.get('documentType');
     const searchQuery = searchParams.get('search');
     const dateFilter = searchParams.get('dateFilter');
@@ -50,12 +49,10 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
 
-    // Build where clause
-    const where: any = {};
-
-    if (status && status !== 'all') {
-      where.status = status as VerificationStatusEnum;
-    }
+    // Build where clause specifically for approved documents
+    const where: any = {
+      status: VerificationStatusEnum.APPROVED,
+    };
 
     if (documentType && documentType !== 'all') {
       where.type = documentType;
@@ -81,76 +78,78 @@ export async function GET(request: NextRequest) {
       const now = new Date();
       switch (dateFilter) {
         case 'today':
-          where.uploadedAt = {
+          where.verifiedAt = {
             gte: new Date(now.setHours(0, 0, 0, 0)),
           };
           break;
         case 'week':
-          where.uploadedAt = {
+          where.verifiedAt = {
             gte: new Date(now.setDate(now.getDate() - 7)),
           };
           break;
         case 'month':
-          where.uploadedAt = {
+          where.verifiedAt = {
             gte: new Date(now.setMonth(now.getMonth() - 1)),
           };
           break;
       }
-    }    // First, get all users with KYC documents based on the filters
-    const usersWithDocuments = await prisma.user.findMany({
-      where: {
-        kycDocuments: {
-          some: where,
-        },
-        role: {
-          not: {
-            in: ['ADMIN', 'SUPER_ADMIN'],
+    }    // Get the total count of documents matching the criteria
+    const totalCount = await prisma.kYCDocument.count({ where });
+
+    // Get approved documents
+    const approvedDocuments = await prisma.kYCDocument.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
           },
         },
       },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        kycDocuments: {
-          where,
-          orderBy: {
-            uploadedAt: 'desc',
-          },
-        },
+      orderBy: {
+        verifiedAt: 'desc',
+      },
+      skip,
+      take: limit,
+    });
+
+    // Find the audit logs for these documents to get approval information
+    const documentIds = approvedDocuments.map(doc => doc.id);
+    const auditLogs = await prisma.auditLog.findMany({
+      where: {
+        targetId: { in: documentIds },
+        action: { contains: 'APPROVE', mode: 'insensitive' },
       },
       orderBy: {
         createdAt: 'desc',
       },
     });
-    
-    // Get the total count of users that match the criteria for pagination
-    const totalCount = usersWithDocuments.length;
-    
-    // Apply pagination to the users array
-    const paginatedUsers = usersWithDocuments.slice(skip, skip + limit);
 
-    // Format the data for the frontend
-    const formattedSubmissions = paginatedUsers.map(user => {
-      // Get the most recent document for this user
-      const mostRecentDoc = user.kycDocuments[0];
+    // Format the response for the UI
+    const formattedApprovedSubmissions = approvedDocuments.map(doc => {
+      // Find the most recent audit log entry for this document's approval
+      const approvalLog = auditLogs.find(log => log.targetId === doc.id);
       
       return {
-        id: mostRecentDoc.id, // Keep the document ID for download purposes
-        userId: user.id,
-        userName: `${user.firstName} ${user.lastName}`,
-        userEmail: user.email,
-        documentType: `${user.kycDocuments.length} Document${user.kycDocuments.length !== 1 ? 's' : ''}`,
-        dateSubmitted: mostRecentDoc.uploadedAt,
-        status: mostRecentDoc.status,
-        fileName: mostRecentDoc.fileName,
-        totalDocuments: user.kycDocuments.length,
+        id: doc.id,
+        userId: doc.userId,
+        userName: `${doc.user.firstName} ${doc.user.lastName}`,
+        userEmail: doc.user.email,
+        documentType: doc.type,
+        dateSubmitted: doc.uploadedAt.toISOString(),
+        dateApproved: doc.verifiedAt?.toISOString() || null,
+        status: doc.status,
+        fileName: doc.fileName,
+        approvedBy: doc.verifiedBy || approvalLog?.userId || 'Admin User',
+        notes: doc.notes || '',
       };
     });
 
     return NextResponse.json({
-      data: formattedSubmissions,
+      data: formattedApprovedSubmissions,
       pagination: {
         total: totalCount,
         page,
@@ -160,11 +159,11 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error: any) {
-    console.error('FETCH_SUBMISSIONS_ERROR', error);
+    console.error('FETCH_APPROVED_SUBMISSIONS_ERROR', error);
     
     return new NextResponse(
       JSON.stringify({
-        error: error.message || 'An error occurred while fetching submissions',
+        error: error.message || 'An error occurred while fetching approved submissions',
       }),
       { status: 500 }
     );

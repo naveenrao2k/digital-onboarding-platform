@@ -66,10 +66,9 @@ interface AuditLogEntry {
   details?: string;
 }
 
-const AdminSubmissionDetailPage = () => {
-  const router = useRouter();
+const AdminSubmissionDetailPage = () => {  const router = useRouter();
   const params = useParams();
-  const submissionId = params?.id as string;
+  const userId = params?.id as string; // This is now the user ID, not submission ID
 
   const [submission, setSubmission] = useState<SubmissionDetail | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
@@ -92,12 +91,11 @@ const AdminSubmissionDetailPage = () => {
     }
   }, [submission, updateHeader]);
 
-  useEffect(() => {
-    const fetchSubmission = async () => {
+  useEffect(() => {    const fetchSubmission = async () => {
       setIsLoading(true);
       setError("");
       try {
-        const response = await fetch(`/api/admin/submissions/${submissionId}`);
+        const response = await fetch(`/api/admin/submissions/${userId}`);
         if (!response.ok) {
           const data = await response.json();
           throw new Error(data.error || 'Submission not found');
@@ -125,7 +123,7 @@ const AdminSubmissionDetailPage = () => {
                 id: doc.id,
                 type: doc.type || doc.documentType,
                 fileName: doc.fileName,
-                url: `/api/admin/submissions/${doc.id}/download`
+                url: `/api/admin/submissions/${data.user?.id || userId}/download?documentId=${doc.id}`
               })) : []),
             notes: data.notes || ''
           });
@@ -142,9 +140,8 @@ const AdminSubmissionDetailPage = () => {
       }
     };
     
-    if (submissionId) fetchSubmission();
-  }, [submissionId]);
-  const handleAction = async (action: "APPROVE" | "REJECT" | "FLAG") => {
+    if (userId) fetchSubmission();
+  }, [userId]);  const handleAction = async (action: "APPROVE" | "REJECT" | "FLAG") => {
     if (!submission) return;
     
     setActionLoading(true);
@@ -152,7 +149,7 @@ const AdminSubmissionDetailPage = () => {
     setSuccessMessage("");
     try {
       // Call the real API endpoint to update status
-      const response = await fetch(`/api/admin/submissions/${submissionId}/update`, {
+      const response = await fetch(`/api/admin/submissions/${userId}/update`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -201,7 +198,7 @@ const AdminSubmissionDetailPage = () => {
     setIsRefreshing(true);
     
     try {
-      const response = await fetch(`/api/admin/submissions/${submissionId}`);
+      const response = await fetch(`/api/admin/submissions/${userId}`);
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Failed to refresh submission data');
@@ -229,7 +226,7 @@ const AdminSubmissionDetailPage = () => {
               id: doc.id,
               type: doc.type || doc.documentType,
               fileName: doc.fileName,
-              url: `/api/admin/submissions/${doc.id}/download`
+              url: `/api/admin/submissions/${data.user?.id || userId}/download?documentId=${doc.id}`
             })) : []),
           notes: data.notes || ''
         });

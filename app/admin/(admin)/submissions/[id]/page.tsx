@@ -1,472 +1,1037 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { Download, CheckCircle, XCircle, Flag, Loader2, AlertCircle, FileText, User } from "lucide-react";
-import { useHeader } from '../../layout';
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Shield,
+  FileText,
+  CheckCircle,
+  XCircle,
+  Clock,
+  AlertTriangle,
+  History,
+  Download,
+  Eye
+} from 'lucide-react';
 import DojahVerificationDisplay from '@/components/admin/DojahVerificationDisplay';
+import { useHeader } from '../../layout';
 
-// Mock types (replace with your real types)
-interface SubmissionDetail {
+interface UserDetails {
   id: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  dateOfBirth?: string;
+  accountType: string;
+  accountStatus: string;
+  createdAt: string;
+  verificationStatus: {
+    overallStatus: string;
+    kycStatus: string;
+    selfieStatus: string;
+    progress: number;
   };
-  submittedAt: string;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "FLAGGED";
+  selfieVerification?: {
+    id: string;
+    status: string;
+    fileUrl: string;
+    capturedAt: string;
+    fileName: string;
+
+  };
   documents: Array<{
     id: string;
     type: string;
     fileName: string;
-    url: string;
-    status?: string;
-    documentAnalysis?: {
-      extractedText?: string;
-      extractedData?: any;
-      documentType?: string;
-      confidence?: number;
-      isReadable: boolean;
-      qualityScore?: number;
-    };
-    dojahVerification?: {
-      id: string;
-      status: string;
-      confidence?: number;
-      matchResult?: any;
-      extractedData?: any;
-      governmentData?: any;
-      errorMessage?: string;
-      createdAt: string;
-      steps?: Array<{
-        name: string;
-        status: string;
-        completedAt?: string;
-        duration?: number;
-      }>;
-    };
-  }>;
-  notes: string;
-  governmentVerifications?: Array<{
-    type: string;
+    uploadedAt: string;
     status: string;
-    isMatch: boolean;
-    confidence?: number;
-    governmentData?: any;
+    fileSize: number;
+    mimeType: string;
+    documentAnalysis?: any;
+    dojahVerification?: any;
+  }>;
+  documentDetails: any;
+  dojahVerifications: {
+    total: number;
+    governmentVerifications: Array<any>;
+    amlScreenings: Array<any>;
+  };
+  adminReviews: Array<{
+    id: string;
+    verificationType: string;
+    status: string;
+    reviewNotes?: string;
+    rejectionReason?: string;
+    allowReupload: boolean;
+    reviewer: {
+      firstName: string;
+      lastName: string;
+    };
     createdAt: string;
   }>;
+  canReupload: boolean;
 }
 
-interface AuditLogEntry {
-  id: string;
-  action: string;
-  performedBy: string;
-  timestamp: string;
-  details?: string;
-}
-
-const AdminSubmissionDetailPage = () => {  const router = useRouter();
-  const params = useParams();
-  const userId = params?.id as string; // This is now the user ID, not submission ID
-
-  const [submission, setSubmission] = useState<SubmissionDetail | null>(null);
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [actionLoading, setActionLoading] = useState(false);
-  const [actionError, setActionError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
-  const [isRefreshing, setIsRefreshing] = useState(false);
+export default function UserDetailsPage() {
+  const { id: userId } = useParams<{ id: string }>();
+  const [loading, setLoading] = useState(true);
+  const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [documentReviewNotes, setDocumentReviewNotes] = useState<{ [key: string]: string }>({});
+  const [expandedDocuments, setExpandedDocuments] = useState<{ [key: string]: boolean }>({});
   const { updateHeader } = useHeader();
 
   useEffect(() => {
-    if (submission) {
+    fetchUserDetails();
+  }, [userId]);
+
+  useEffect(() => {
+    if (userDetails) {
       updateHeader(
-        `Submission: ${submission.documents[0]?.type || 'Document'}`, 
-        `Review submission from ${submission.user.name}`
+        `User: ${userDetails.firstName} ${userDetails.lastName}`,
+        `User profile and verification details`
       );
     } else {
-      updateHeader('Submission Details', 'Loading submission information...');
+      updateHeader('User Details', 'Loading user information...');
     }
-  }, [submission, updateHeader]);
+  }, [userDetails, updateHeader]);
 
-  useEffect(() => {    const fetchSubmission = async () => {
-      setIsLoading(true);
-      setError("");
-      try {
-        const response = await fetch(`/api/admin/submissions/${userId}`);
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Submission not found');
-        }
-        const data = await response.json();
-        console.log("Submission data received:", data);
-        
-        // Handle different API response formats
-        if (data.submission) {
-          setSubmission(data.submission);
-          setAuditLogs(data.auditLogs || []);
-        } else {
-          // If the API returns data directly without a submission wrapper
-          setSubmission({
-            id: data.id,
-            user: {
-              id: data.userId,
-              name: data.userName || `${data.user?.firstName || ''} ${data.user?.lastName || ''}`.trim(),
-              email: data.userEmail || data.user?.email || '',
-            },
-            submittedAt: data.submissionDate || data.createdAt || new Date().toISOString(),
-            status: data.status || 'PENDING',
-            documents: data.documents || 
-              (data.KYCDocument ? data.KYCDocument.map((doc: any) => ({
-                id: doc.id,
-                type: doc.type || doc.documentType,
-                fileName: doc.fileName,
-                url: `/api/admin/submissions/${data.user?.id || userId}/download?documentId=${doc.id}`
-              })) : []),
-            notes: data.notes || ''
-          });
-          
-          // Format audit logs if they exist
-          if (data.auditLogs) setAuditLogs(data.auditLogs);
-        }
-      } catch (err: any) {
-        console.error("Error fetching submission:", err);
-        setError(err.message || 'Failed to load submission details');
-        setSubmission(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    if (userId) fetchSubmission();
-  }, [userId]);  const handleAction = async (action: "APPROVE" | "REJECT" | "FLAG") => {
-    if (!submission) return;
-    
-    setActionLoading(true);
-    setActionError("");
-    setSuccessMessage("");
+  const fetchUserDetails = async () => {
     try {
-      // Call the real API endpoint to update status
-      const response = await fetch(`/api/admin/submissions/${userId}/update`, {
+      setLoading(true);
+      const response = await fetch(`/api/admin/users/${userId}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user details');
+      }
+
+      const data = await response.json();
+      console.log('vishal', data);
+      setUserDetails(data);
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const [reviewMessage, setReviewMessage] = React.useState<string | null>(null);
+  const [reviewError, setReviewError] = React.useState<string | null>(null);
+  const handleReview = async (
+    documentId: string,
+    status: string,
+    notes: string,
+    rejectionReason?: string,
+    allowReupload?: boolean
+  ) => {
+    try {
+      setIsReviewing(true);
+      setReviewMessage(null);
+      setReviewError(null);
+
+      const document = userDetails?.documents.find(d => d.id === documentId);
+      const verificationType = document?.type === 'PASSPORT_PHOTOS' ?
+        'SELFIE_VERIFICATION' : 'DOCUMENT_VERIFICATION';
+
+      const dojahVerificationId = document?.dojahVerification?.id;
+
+      // Get the review notes from the state or use the provided notes
+      const reviewNotes = documentReviewNotes[documentId] || notes;
+
+      const response = await fetch('/api/admin/review', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          status: action,
-          notes: submission.notes
+        body: JSON.stringify({
+          userId: userDetails?.id,
+          documentId,
+          verificationType,
+          dojahVerificationId,
+          status,
+          reviewNotes: reviewNotes,
+          rejectionReason,
+          allowReupload: allowReupload || false
         }),
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to update submission status');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit review');
       }
-      
-      // Update local state with the new status
-      setSubmission((prev) =>
-        prev ? { ...prev, status: action === "APPROVE" ? "APPROVED" : action === "REJECT" ? "REJECTED" : "FLAGGED" } : prev
-      );
-      
-      // Add a local audit log entry (the real one will be fetched on refresh)
-      const newAuditLog = {
-        id: `log${Date.now()}`,
-        action,
-        performedBy: "Admin User",
-        timestamp: new Date().toISOString(),
-        details: `Submission ${action.toLowerCase()}d by admin.`
-      };
-      
-      setAuditLogs((prev) => [newAuditLog, ...prev]);
-      setSuccessMessage(`Submission ${action.toLowerCase()}d successfully!`);
-      
-      // Refresh data after short delay to get updated audit logs
-      setTimeout(() => handleRefresh(), 1000);
-    } catch (err: any) {
-      console.error("Error updating submission:", err);
-      setActionError(err.message || "Failed to update submission status. Please try again.");
-    } finally {
-      setActionLoading(false);
-      setTimeout(() => setSuccessMessage(""), 2500);
-    }
-  };
-  // Add function to refresh submission data
-  const handleRefresh = async () => {
-    if (isRefreshing) return;
-    setIsRefreshing(true);
-    
-    try {
-      const response = await fetch(`/api/admin/submissions/${userId}`);
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to refresh submission data');
-      }
-      
-      const data = await response.json();
-      
-      // Handle different API response formats
-      if (data.submission) {
-        setSubmission(data.submission);
-        setAuditLogs(data.auditLogs || []);
-      } else {
-        // If the API returns data directly without a submission wrapper
-        setSubmission({
-          id: data.id,
-          user: {
-            id: data.userId,
-            name: data.userName || `${data.user?.firstName || ''} ${data.user?.lastName || ''}`.trim(),
-            email: data.userEmail || data.user?.email || '',
-          },
-          submittedAt: data.submissionDate || data.createdAt || new Date().toISOString(),
-          status: data.status || 'PENDING',
-          documents: data.documents || 
-            (data.KYCDocument ? data.KYCDocument.map((doc: any) => ({
-              id: doc.id,
-              type: doc.type || doc.documentType,
-              fileName: doc.fileName,
-              url: `/api/admin/submissions/${data.user?.id || userId}/download?documentId=${doc.id}`
-            })) : []),
-          notes: data.notes || ''
-        });
-        
-        // Format audit logs if they exist
-        if (data.auditLogs) setAuditLogs(data.auditLogs);
-      }
-      
-      setSuccessMessage("Submission data refreshed successfully!");
-      setTimeout(() => setSuccessMessage(""), 2500);
+
+      // Refresh user details to show updated status
+      await fetchUserDetails();
+
+      // Show success message
+      setReviewMessage(`Document ${status.toLowerCase()} successfully!`);
+
+      // Reset the form
+      setDocumentReviewNotes({
+        ...documentReviewNotes,
+        [documentId]: ''
+      });
+
     } catch (error: any) {
-      console.error("Error refreshing submission:", error);
-      setActionError(error.message || 'Failed to refresh submission data');
-      setTimeout(() => setActionError(""), 2500);
+      setReviewError(`Error submitting review: ${error.message}`);
     } finally {
-      setIsRefreshing(false);
+      setIsReviewing(false);
     }
   };
 
-  if (isLoading) {
+
+  const getStatusIcon = (status: string) => {
+    switch (status.toUpperCase()) {
+      case 'APPROVED':
+        return <CheckCircle className="h-5 w-5 text-green-500" />;
+      case 'REJECTED':
+        return <XCircle className="h-5 w-5 text-red-500" />;
+      case 'PENDING':
+        return <Clock className="h-5 w-5 text-yellow-500" />;
+      case 'IN_PROGRESS':
+        return <AlertTriangle className="h-5 w-5 text-blue-500" />;
+      default:
+        return <Clock className="h-5 w-5 text-gray-500" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status.toUpperCase()) {
+      case 'APPROVED':
+        return 'bg-green-100 text-green-800';
+      case 'REJECTED':
+        return 'bg-red-100 text-red-800';
+      case 'PENDING':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'IN_PROGRESS':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+  const downloadDocument = async (docId: string, docFileName: string) => {
+    try {
+      // Use the correct endpoint format with userId and documentId
+      const response = await fetch(`/api/admin/submissions/${userId}/download?documentId=${docId}`);
+      if (!response.ok) throw new Error('Download failed');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = docFileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error: any) {
+      setError('Failed to download document');
+    }
+  };
+
+
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        <span className="ml-3 text-lg text-blue-700">Loading submission...</span>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     );
   }
-  if (error || !submission) {
+
+  if (error || !userDetails) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <AlertCircle className="h-8 w-8 text-red-600 mb-2" />
-        <p className="text-lg text-red-700">{error || "Submission not found."}</p>
+      <div className="text-center py-12">
+        <div className="text-red-600 text-lg">{error || 'User not found'}</div>
       </div>
     );
-  }  return (
-    <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <button 
-          onClick={() => router.back()} 
-          className="flex items-center text-gray-600 hover:text-gray-900"
-        >
-          <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Submissions
-        </button>
-        <div className="flex items-center gap-2">
-          {successMessage && (
-            <span className="text-sm text-green-600">{successMessage}</span>
-          )}
-          <button 
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="flex items-center px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-          >
-            {isRefreshing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            )}
-          </button>
+  }
+  return (
+    <div className="relative max-w-7xl mx-auto">
+      {/* User status badge */}
+      <div className="md:absolute right-0 top-2 flex justify-center md:justify-end">
+        <div className="flex items-center space-x-2">
+          {getStatusIcon(userDetails.verificationStatus.overallStatus)}
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(userDetails.verificationStatus.overallStatus)}`}>
+            {userDetails.verificationStatus.overallStatus}
+          </span>
         </div>
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - User Info & Documents */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* User Info Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                  <User className="h-6 w-6 text-blue-600" />
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="-mb-px flex space-x-8">
+          {[
+            { id: 'overview', label: 'Overview', icon: User },
+            { id: 'documents', label: 'Documents & Verification', icon: FileText },
+            { id: 'history', label: 'Review History', icon: History }
+          ].map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={`group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm ${activeTab === id
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+            >
+              <Icon className="h-5 w-5 mr-2" />
+              {label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Display review success or error messages */}
+      {reviewMessage && (
+        <div className="mb-4 p-4 bg-green-100 text-green-800 rounded">
+          {reviewMessage}
+        </div>
+      )}
+      {reviewError && (
+        <div className="mb-4 p-4 bg-red-100 text-red-800 rounded">
+          {reviewError}
+        </div>
+      )}
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Personal Information */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-lg border p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h2>
+              <div className="grid grid-cols gap-4">
+                <div className="flex items-center space-x-3">
+                  <Mail className="h-5 w-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-600">Email</p>
+                    <p className="font-medium">{userDetails.email}</p>
+                  </div>
+                </div>
+
+                {userDetails.phone && (
+                  <div className="flex items-center space-x-3">
+                    <Phone className="h-5 w-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-600">Phone</p>
+                      <p className="font-medium">{userDetails.phone}</p>
+                    </div>
+                  </div>
+                )}
+
+                {userDetails.address && (
+                  <div className="flex items-center space-x-3">
+                    <MapPin className="h-5 w-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-600">Address</p>
+                      <p className="font-medium">{userDetails.address}</p>
+                    </div>
+                  </div>
+                )}
+
+
+                {userDetails.dateOfBirth && (
+                  <div className="flex items-center space-x-3">
+                    <Calendar className="h-5 w-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-600">Date of Birth</p>
+                      <p className="font-medium">{userDetails.dateOfBirth}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+
+            {/* Account Information */}
+            <div className="bg-white rounded-lg border p-6 mt-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Account Information</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">Account Type</p>
+                  <p className="font-medium">{userDetails.accountType}</p>
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold">{submission.user.name}</h2>
-                  <p className="text-sm text-gray-500">{submission.user.email}</p>
+                  <p className="text-sm text-gray-600">Account Status</p>
+                  <div className="flex items-center mt-1">
+                    {getStatusIcon(userDetails.accountStatus)}
+                    <span className={`ml-2 px-2 py-0.5 rounded text-sm ${getStatusColor(userDetails.accountStatus)}`}>
+                      {userDetails.accountStatus}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Member Since</p>
+                  <p className="font-medium">{new Date(userDetails.createdAt).toLocaleDateString()}</p>
                 </div>
               </div>
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                submission.status === "APPROVED"
-                  ? "bg-green-100 text-green-700"
-                  : submission.status === "REJECTED"
-                  ? "bg-red-100 text-red-700"
-                  : submission.status === "FLAGGED"
-                  ? "bg-amber-100 text-amber-700"
-                  : "bg-blue-100 text-blue-700"
-              }`}>
-                {submission.status}
-              </span>
-            </div>
-            <div className="text-sm text-gray-600">
-              Submitted: {new Date(submission.submittedAt).toLocaleString()}
-            </div>
-            {submission.notes && (
-              <div className="mt-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
-                {submission.notes}
+            </div>            <div className="bg-white rounded-lg border p-6 mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Selfie Verification</h2>
+                <div className="flex items-center space-x-2">
+                  {getStatusIcon(userDetails.selfieVerification?.status ?? '')}
+                  <span className={`px-2 py-1 text-sm font-medium rounded-full ${getStatusColor(userDetails.selfieVerification?.status ?? '')}`}>
+                    {userDetails.selfieVerification?.status}
+                  </span>
+                </div>
               </div>
-            )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Selfie Image */}
+                <div className="relative">
+                  <div className="w-50 h-50 rounded-lg overflow-hidden bg-gray-100 border">
+                    {userDetails.selfieVerification?.fileUrl ? (
+                      <img
+                        src={userDetails.selfieVerification.fileUrl}
+                        alt="User Selfie"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <User className="h-12 w-12 text-gray-400" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Verification Details */}
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Captured At</p>
+                    {userDetails.selfieVerification?.capturedAt && (
+                      <div className="space-y-1">
+                        <p className="font-medium">
+                          {new Date(userDetails.selfieVerification.capturedAt).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {new Date(userDetails.selfieVerification.capturedAt).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true,
+                            timeZoneName: 'short'
+                          })}
+                        </p>
+                      </div>
+                    )}
+                    {!userDetails.selfieVerification?.capturedAt && (
+                      <p className="font-medium">N/A</p>
+                    )}
+                  </div>
+
+
+
+                  {userDetails.selfieVerification?.fileUrl && (
+                    <a
+                      href={userDetails.selfieVerification.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center space-x-2 text-blue-600 hover:text-blue-700"
+                    >
+                      <Eye className="h-4 w-4" />
+                      <span>View Full Size</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
+
+          {/* Verification Summary */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg border p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Verification Summary</h3>
+              <div className="space-y-4">
+                {/* Overall Progress */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-600">Overall Progress</span>
+                    <span className="font-medium">{userDetails.verificationStatus.progress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div
+                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
+                      style={{ width: `${userDetails.verificationStatus.progress}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                {/* Verification Stages */}
+                <div className="border-t pt-4 space-y-3">
+                  {/* KYC Status */}
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">KYC Documents</p>
+                      <p className="text-xs text-gray-500">Identity verification</p>
+                    </div>
+                    <div className="flex flex-col items-center space-y-2">
+                      {getStatusIcon(userDetails.verificationStatus.kycStatus)}
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(userDetails.verificationStatus.kycStatus)}`}>
+                        {userDetails.verificationStatus.kycStatus}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Selfie Status */}
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Selfie Verification</p>
+                      <p className="text-xs text-gray-500">Liveness check & face match</p>
+                    </div>
+                    <div className="flex flex-col items-center space-y-2">
+                      {getStatusIcon(userDetails.verificationStatus.selfieStatus)}
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(userDetails.verificationStatus.selfieStatus)}`}>
+                        {userDetails.verificationStatus.selfieStatus}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Dojah Summary */}
+            <div className="bg-white rounded-lg border p-6">
+              <div className="flex items-center space-x-2 mb-4">
+                <Shield className="h-5 w-5 text-blue-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Dojah Verification</h3>
+              </div>
+
+              {/* Verification Statistics */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <p className="text-xs text-blue-600 mb-1">Total Verifications</p>
+                  <p className="text-2xl font-semibold text-blue-700">
+                    {userDetails?.dojahVerifications?.total || 0}
+                  </p>
+                </div>
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <p className="text-xs text-green-600 mb-1">Success Rate</p>
+                  <p className="text-2xl font-semibold text-green-700">
+                    {userDetails?.dojahVerifications?.total ?
+                      Math.round((userDetails.dojahVerifications.governmentVerifications.filter(v => v.isMatch).length /
+                        userDetails.dojahVerifications.total) * 100) : 0}%
+                  </p>
+                </div>
+              </div>
+
+              {/* Verification Types */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
+                  <span className="text-sm text-gray-600">Government Lookups</span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-medium text-gray-900">
+                      {userDetails?.dojahVerifications?.governmentVerifications?.length || 0}
+                    </span>
+                    <User className="h-4 w-4 text-gray-400" />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
+                  <span className="text-sm text-gray-600">AML Screenings</span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-medium text-gray-900">
+                      {userDetails?.dojahVerifications?.amlScreenings?.length || 0}
+                    </span>
+                    <Shield className="h-4 w-4 text-gray-400" />
+                  </div>
+                </div>
+
+                {/* Latest Verification */}
+                {userDetails?.dojahVerifications?.governmentVerifications?.length > 0 && (
+                  <div className="mt-4 pt-4 border-t">
+                    <p className="text-xs text-gray-500 mb-2">Latest Verification</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-900">
+                        {userDetails.dojahVerifications.governmentVerifications[0].type.replace(/_/g, ' ')}
+                      </span>
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(userDetails.dojahVerifications.governmentVerifications[0].status)
+                        }`}>
+                        {userDetails.dojahVerifications.governmentVerifications[0].status}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}      {activeTab === 'documents' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">Documents & Dojah Verification</h2>
+            <div className="text-sm text-gray-600">
+              {userDetails.documents.length} document{userDetails.documents.length !== 1 ? 's' : ''} uploaded
+            </div>
+          </div>
           {/* Documents Section */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
+            <h3 className="text-lg font-semibold mb-6 flex items-center">
               <FileText className="h-5 w-5 text-blue-600 mr-2" />
               Submitted Documents
             </h3>
-            <div className="space-y-4">
-              {submission.documents.map((doc) => (
-                <div key={doc.id} className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
-                    <div>
-                      <div className="font-medium">{doc.type}</div>
-                      <div className="text-sm text-gray-500">{doc.fileName}</div>
-                    </div>
-                    <a
-                      href={doc.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </a>
-                  </div>
-                  
-                  {/* Dojah Verification Display */}
-                  {(doc.documentAnalysis || doc.dojahVerification) && (
-                    <DojahVerificationDisplay
-                      document={{
-                        ...doc,
-                        status: doc.status || "PENDING" // Default to PENDING if no status
-                      }}
-                      documentDetails={{
-                        id: doc.id,
-                        userId: submission.user.id,
-                        type: doc.type,
-                        fileUrl: doc.url,
-                        s3Key: "", // This would need to come from your API
-                        fileSize: 0, // This would need to come from your API
-                        mimeType: "", // This would need to come from your API
-                        fileName: doc.fileName,
-                        uploadedAt: submission.submittedAt,
-                        verified: submission.status === "APPROVED",
-                        verifiedAt: submission.status === "APPROVED" ? submission.submittedAt : null,
-                        verifiedBy: null,
-                        status: submission.status,
-                        notes: submission.notes
-                      }}
-                      governmentVerifications={submission.governmentVerifications || []}
-                      onReview={async (documentId, status, notes, rejectionReason, allowReupload) => {
-                        await handleAction(status === "APPROVED" ? "APPROVE" : status === "REJECTED" ? "REJECT" : "FLAG");
-                      }}
-                      isReviewing={actionLoading}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
 
-        {/* Right Column - Actions & Audit Log */}
-        <div className="space-y-6">
-          {/* Actions Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold mb-4">Review Actions</h3>
-            {actionError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-700">
-                {actionError}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+              {userDetails.documents.map((doc) => {
+                // Calculate verification steps with status
+                const docStatus = doc.status || "PENDING";
+                const verificationSteps = [
+                  {
+                    name: "Document Upload",
+                    status: "SUCCESS",
+                  },
+                  {
+                    name: "Quality Check",
+                    status: doc.documentAnalysis?.isReadable ? "SUCCESS" : doc.documentAnalysis ? "FAILED" : "PENDING",
+                  },
+                  {
+                    name: "Data Extraction",
+                    status: doc.dojahVerification?.extractedData ? "SUCCESS" : doc.dojahVerification ? "FAILED" : "PENDING",
+                  },
+                  {
+                    name: "Government Database Match",
+                    status: userDetails.dojahVerifications?.governmentVerifications?.some(v => v.isMatch)
+                      ? "SUCCESS"
+                      : userDetails.dojahVerifications?.governmentVerifications?.length > 0
+                        ? "FAILED"
+                        : "PENDING",
+                  }
+                ];
+
+                return (
+                  <div key={doc.id} className="border border-gray-200 rounded-lg overflow-hidden">                    {/* Document header */}
+                    <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
+                      <div className="flex items-center">
+                        <div className={`p-2 rounded-md ${docStatus === "APPROVED" ? "bg-green-100" :
+                          docStatus === "REJECTED" ? "bg-red-100" :
+                            "bg-yellow-100"
+                          }`}>
+                          <FileText className={`h-5 w-5 ${docStatus === "APPROVED" ? "text-green-600" :
+                            docStatus === "REJECTED" ? "text-red-600" :
+                              "text-yellow-600"
+                            }`} />
+                        </div>
+                        <div className="ml-3">
+                          <div className="font-medium">{doc.type.replace(/_/g, ' ')}</div>
+                          <div className="text-sm text-gray-500">{doc.fileName}</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        {docStatus === "APPROVED" ? (
+                          <div className="relative">
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                            <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-1 rounded-full flex items-center">
+                              <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                              APPROVED
+                            </span>
+                          </div>
+                        ) : docStatus === "REJECTED" ? (
+                          <div className="relative">
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 border-2 border-white rounded-full"></div>
+                            <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-1 rounded-full flex items-center">
+                              <XCircle className="h-3.5 w-3.5 mr-1" />
+                              REJECTED
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 border-2 border-white rounded-full pulse-animation"></div>
+                            <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-1 rounded-full flex items-center">
+                              <Clock className="h-3.5 w-3.5 mr-1" />
+                              PENDING
+                            </span>
+                          </div>
+                        )}
+
+                      
+                      </div>
+                    </div>
+
+                    {/* Document content */}
+                    <div className="p-4">                      {/* Document info */}
+                      <div className="flex items-center">
+                        {/* <div className="flex-shrink-0 mr-4">
+                          <div className={`h-20 w-20 border-2 ${docStatus === "APPROVED" ? "border-green-200 bg-green-50" :
+                            docStatus === "REJECTED" ? "border-red-200 bg-red-50" :
+                              "border-yellow-200 bg-yellow-50"
+                            } rounded-lg flex items-center justify-center p-1 overflow-hidden`}>
+                            {doc.documentAnalysis?.isReadable ? (
+                              <div className="relative w-full h-full bg-white rounded overflow-hidden">
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <FileText className="h-8 w-8 text-gray-400" />
+                                </div>
+                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-blue-500/20 to-transparent h-1/2"></div>
+                              </div>
+                            ) : (
+                              <FileText className={`h-10 w-10 ${docStatus === "APPROVED" ? "text-green-400" :
+                                docStatus === "REJECTED" ? "text-red-400" :
+                                  "text-yellow-400"
+                                }`} />
+                            )}
+                          </div>
+                        </div> */}
+                        {/* <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium text-gray-900">{doc.fileName}</p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(doc.uploadedAt || "").toLocaleDateString()}
+                            </p>
+                          </div>
+                          <p className="text-sm text-gray-500 mt-1">{doc.type.replace(/_/g, ' ')}</p>
+
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {doc.documentAnalysis?.isReadable && (
+                              <span className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-md">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Readable
+                              </span>
+                            )}
+                            {doc.dojahVerification?.extractedData && (
+                              <span className="inline-flex items-center px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded-md">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Data Extracted
+                              </span>
+                            )}
+                            {doc.dojahVerification?.confidence && (
+                              <span className="inline-flex items-center px-2 py-1 bg-green-50 text-green-700 text-xs rounded-md">
+                                <Shield className="h-3 w-3 mr-1" />
+                                {doc.dojahVerification.confidence}% Confidence
+                              </span>
+                            )}
+                          </div>
+                        </div> */}
+                      </div>
+
+                      {/* Verification status */}                      
+                      <div>
+                        <h4 className="text-sm font-medium text-blue-700 flex items-center mb-3">
+                          <Shield className="h-4 w-4 mr-1.5" />
+                          Verification Process
+                        </h4>
+
+                        <div className="bg-blue-50 bg-opacity-50 rounded-lg p-4">
+                          <div className="relative">
+                            {/* Vertical timeline line */}
+                            <div className="absolute left-4 top-1 bottom-0 w-0.5 bg-blue-200"></div>
+
+                            {/* Steps */}
+                            <div className="space-y-6">
+                              {verificationSteps.map((step, i) => (
+                                <div key={i} className="flex items-start ml-2">
+                                  <div className="relative z-10">
+                                    <div className={`flex items-center justify-center w-5 h-5 rounded-full border-2 ${step.status === "SUCCESS"
+                                      ? "bg-green-500 border-green-500"
+                                      : step.status === "FAILED"
+                                        ? "bg-red-500 border-red-500"
+                                        : "bg-yellow-400 border-yellow-400"
+                                      }`}>
+                                      {step.status === "SUCCESS" ? (
+                                        <CheckCircle className="h-3 w-3 text-white" />
+                                      ) : step.status === "FAILED" ? (
+                                        <XCircle className="h-3 w-3 text-white" />
+                                      ) : (
+                                        <Clock className="h-3 w-3 text-white" />
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="ml-4 flex-grow">
+                                    <div className="flex items-center justify-between">
+                                      <p className="text-sm font-medium text-gray-800">{step.name}</p>
+                                      <span className={`px-2 py-0.5 text-xs font-medium rounded ${step.status === "SUCCESS"
+                                        ? "bg-green-100 text-green-800"
+                                        : step.status === "FAILED"
+                                          ? "bg-red-100 text-red-800"
+                                          : "bg-yellow-100 text-yellow-800"
+                                        }`}>
+                                        {step.status}
+                                      </span>
+                                    </div>
+                                    {step.status === "FAILED" && (
+                                      <p className="text-xs mt-1 text-red-600">Verification failed at this step</p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* View details button */}
+                      <div className="mt-5">
+                        <button
+                          onClick={() => {
+                            // Toggle expanded state for this document
+                            const isCurrentlyExpanded = expandedDocuments[doc.id] || false;
+                            console.log(`Toggling document ${doc.id} expanded state from ${isCurrentlyExpanded} to ${!isCurrentlyExpanded}`);
+                            setExpandedDocuments(prev => ({
+                              ...prev,
+                              [doc.id]: !isCurrentlyExpanded
+                            }));
+                          }}
+                          className="w-full flex items-center justify-center py-2 px-4 border border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors"
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          <span className="font-medium">{expandedDocuments[doc.id] ? 'Hide Detailed Analysis' : 'View Detailed Analysis'}</span>
+                        </button>
+                        {/* Debug information - showing expanded state for this document */}
+                        <div className="text-xs text-gray-500 hidden">
+                          Current document {doc.id} expanded status: {expandedDocuments[doc.id] ? 'Expanded' : 'Collapsed'}
+                        </div>
+                        {expandedDocuments[doc.id] && (<div className="mt-6 pt-5 border-t border-dashed border-gray-200 bg-gray-50 -mx-4 px-4 py-5 rounded-b-lg animate-fadeIn">
+                          <div className="mb-4">
+                            <h3 className="text-base font-medium text-gray-900 mb-4">Document Details</h3>
+
+                            <div className="bg-white rounded-lg border shadow-sm p-4">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <p className="text-sm text-gray-600 mb-1">Upload Date</p>
+                                  <p className="font-medium text-sm">{new Date(doc.uploadedAt || "").toLocaleString()}</p>
+                                </div>
+
+                                <div>
+                                  <p className="text-sm text-gray-600 mb-1">Document ID</p>
+                                  <p className="font-medium text-sm text-gray-800">{doc.id}</p>
+                                </div>
+
+                                <div>
+                                  <p className="text-sm text-gray-600 mb-1">Verification Status</p>
+                                  <div className="flex items-center">
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${doc.status === "APPROVED" ? "bg-green-100 text-green-800" : doc.status === "REJECTED" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>
+                                      {doc.status === "APPROVED" ? "Verified" : doc.status === "REJECTED" ? "Rejected" : "Pending"}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <p className="text-sm text-gray-600 mb-1">Document Type</p>
+                                  <p className="font-medium text-sm">{doc.type.replace(/_/g, ' ')}</p>
+                                </div>
+                              </div>
+                              <div className="mt-4">
+                                <p className="text-sm text-gray-600 mb-2">Doc Preview</p>
+                                <div className="bg-white border border-gray-200 rounded-md p-3">
+                                  <div className="flex flex-col md:flex-row gap-4">
+                                    <div className="w-full md:w-2/3  rounded-md overflow-hidden bg-gray-50 border border-gray-200">                                      
+                                      <img
+                                        src={`/api/admin/submissions/${userId}/download?documentId=${doc.id}`}
+                                        alt={doc.fileName}
+                                        className="w-full h-full object-contain"
+                                        onError={(e) => {
+                                          e.currentTarget.src = '';
+                                          e.currentTarget.classList.add('bg-gray-100');
+                                          e.currentTarget.parentElement?.classList.add('flex', 'items-center', 'justify-center');
+                                          const icon = document.createElement('div');
+                                          icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>';
+                                          e.currentTarget.parentElement?.appendChild(icon);
+                                        }}
+                                      />
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-800 mb-1">{doc.fileName}</p>
+                                      <div className="space-y-1">
+                                        {doc.fileSize && (
+                                          <p className="text-xs text-gray-500">Size: {Math.round(doc.fileSize / 1024)} KB</p>
+                                        )}
+                                        <p className="text-xs text-gray-500">Type: {doc.type.replace(/_/g, ' ')}</p>                                        </div>
+                                    </div>
+                                  </div>
+                                  <div className="mt-3 flex justify-end space-x-2">                                      <a
+                                    href={`/api/admin/submissions/${userId}/download?documentId=${doc.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 text-xs font-medium text-gray-700"
+                                    title="Download Document"
+                                  >
+                                    <Download className="h-3.5 w-3.5" />
+                                  </a>
+
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        )}
+                      </div>
+                      {/* Admin review section */}
+                      <div className="mt-6 pt-4 border-t border-gray-200">
+                        <h4 className="text-sm font-medium text-purple-700 flex items-center mb-3">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                          </svg>
+                          Admin Review
+                        </h4>
+
+                        <div>
+                          <div className="mt-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Review Notes
+                            </label>
+                            <textarea
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Add any notes about this document..."
+                              value={documentReviewNotes[doc.id] || ""}
+                              onChange={(e) => setDocumentReviewNotes({
+                                ...documentReviewNotes,
+                                [doc.id]: e.target.value
+                              })}
+                              rows={3}
+                            />
+                          </div>
+
+                          {isReviewing && (
+                            <div className="mt-4 flex items-center justify-center space-x-2 p-2 bg-blue-50 rounded-lg">
+                              <div className="animate-spin h-5 w-5 border-2 border-blue-600 rounded-full border-t-transparent"></div>
+                              <span className="text-sm text-blue-600">Processing review submission...</span>
+                            </div>
+                          )}
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Review Decision
+                          </label>
+                          <div className="grid grid-cols-3 gap-2 mb-4">
+                            <button
+                              onClick={() => handleReview(doc.id, "APPROVED", documentReviewNotes[doc.id] || "Document approved after verification")}
+                              disabled={isReviewing}
+                              className="flex flex-col items-center justify-center px-3 py-2 bg-white border-2 border-green-500 hover:bg-green-50 text-green-700 rounded-lg transition-colors"
+                            >
+                              <CheckCircle className="h-5 w-5 mb-1" />
+                              <span className="text-sm font-medium">Approve</span>
+                            </button>
+                            <button
+                              onClick={() => handleReview(doc.id, "REJECTED", documentReviewNotes[doc.id] || "Document rejected after verification", "Document did not meet verification requirements", true)}
+                              disabled={isReviewing}
+                              className="flex flex-col items-center justify-center px-3 py-2 bg-white border-2 border-red-500 hover:bg-red-50 text-red-700 rounded-lg transition-colors"
+                            >
+                              <XCircle className="h-5 w-5 mb-1" />
+                              <span className="text-sm font-medium">Reject</span>
+                            </button>
+                            <button
+                              onClick={() => handleReview(doc.id, "PENDING", documentReviewNotes[doc.id] || "Document flagged for additional review")}
+                              disabled={isReviewing}
+                              className="flex flex-col items-center justify-center px-3 py-2 bg-white border-2 border-yellow-500 hover:bg-yellow-50 text-yellow-700 rounded-lg transition-colors"
+                            >
+                              <Clock className="h-5 w-5 mb-1" />
+                              <span className="text-sm font-medium">Flag</span>
+                            </button>
+                          </div>
+
+
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {userDetails.documents.length === 0 && (
+              <div className="text-center py-12">
+                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">No documents uploaded yet</p>
               </div>
             )}
-            <div className="space-y-3">
-              <button
-                onClick={() => handleAction("APPROVE")}
-                disabled={actionLoading || submission.status === "APPROVED"}
-                className="w-full flex items-center justify-center px-4 py-2 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 disabled:opacity-50"
-              >
-                {actionLoading && submission.status !== "APPROVED" ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                )}
-                Approve
-              </button>
-              <button
-                onClick={() => handleAction("REJECT")}
-                disabled={actionLoading || submission.status === "REJECTED"}
-                className="w-full flex items-center justify-center px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 disabled:opacity-50"
-              >
-                {actionLoading && submission.status !== "REJECTED" ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <XCircle className="h-4 w-4 mr-2" />
-                )}
-                Reject
-              </button>
-              <button
-                onClick={() => handleAction("FLAG")}
-                disabled={actionLoading || submission.status === "FLAGGED"}
-                className="w-full flex items-center justify-center px-4 py-2 rounded-lg bg-amber-500 text-white font-medium hover:bg-amber-600 disabled:opacity-50"
-              >
-                {actionLoading && submission.status !== "FLAGGED" ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Flag className="h-4 w-4 mr-2" />
-                )}
-                Flag for Review
-              </button>
-            </div>
-          </div>
-
-          {/* Audit Log Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold mb-4">Activity History</h3>
-            <div className="space-y-4">
-              {auditLogs.map((log) => (
-                <div key={log.id} className="border-l-2 border-gray-200 pl-4 py-2">
-                  <div className="text-sm">
-                    <span className="font-medium">{log.action}</span>
-                    <span className="text-gray-500"> by {log.performedBy}</span>
-                  </div>
-                  {log.details && (
-                    <p className="text-sm text-gray-500 mt-1">{log.details}</p>
-                  )}
-                  <time className="text-xs text-gray-400 mt-1 block">
-                    {new Date(log.timestamp).toLocaleString()}
-                  </time>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {activeTab === 'history' && (
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold text-gray-900">Review History</h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+            {userDetails.adminReviews.map((review) => (
+              <div key={review.id} className="bg-white rounded-lg border p-6">
+                {/* Review Header */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className={`p-2 rounded-full ${getStatusColor(review.status)}`}>
+                      {getStatusIcon(review.status)}
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <h3 className="font-medium text-gray-900">
+                          {review.verificationType.replace(/_/g, ' ')}
+                        </h3>
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(review.status)}`}>
+                          {review.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <User className="h-4 w-4 text-gray-400" />
+                        <p className="text-sm text-gray-600">
+                          {review.reviewer.firstName} {review.reviewer.lastName}
+                        </p>
+                        <span className="text-gray-300">•</span>
+                        <p className="text-sm text-gray-500">
+                          {new Date(review.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Review Details */}
+                <div className="space-y-4">
+                  {/* Review Notes */}
+                  {review.reviewNotes && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <FileText className="h-4 w-4 text-gray-500" />
+                        <p className="text-sm font-medium text-gray-700">Review Notes</p>
+                      </div>
+                      <p className="text-sm text-gray-800 whitespace-pre-wrap">{review.reviewNotes}</p>
+                    </div>
+                  )}
+
+                  {/* Rejection Details */}
+                  {review.rejectionReason && (
+                    <div className="bg-red-50 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <AlertTriangle className="h-4 w-4 text-red-500" />
+                        <p className="text-sm font-medium text-red-700">Rejection Details</p>
+                      </div>
+                      <p className="text-sm text-red-800 whitespace-pre-wrap">{review.rejectionReason}</p>
+                    </div>
+                  )}
+
+                  {/* Reupload Status */}
+                  {review.allowReupload && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="flex items-center space-x-2">
+                        <Clock className="h-4 w-4 text-yellow-600" />
+                        <p className="text-sm text-yellow-800">User is allowed to reupload documents</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {userDetails.adminReviews.length === 0 && (
+            <div className="text-center py-12">
+              <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No review history available</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
-};
-
-export default AdminSubmissionDetailPage;
+}

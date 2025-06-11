@@ -101,7 +101,8 @@ const AdminSubmissionsPage = () => {
     e.preventDefault();
     setCurrentPage(1); // Reset to page 1 when searching
     fetchSubmissions();
-  };const handleViewSubmission = (userId: string) => {
+  };
+  const handleViewSubmission = (userId: string) => {
     router.push(`/admin/submissions/${userId}`);
   };
   const handleDownloadSubmission = async (userId: string, documentId: string) => {

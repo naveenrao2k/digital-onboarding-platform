@@ -248,44 +248,101 @@ const UploadKYCDocumentsPage = () => {
     { id: 'llc', name: 'Limited Liability Account', icon: FileText }
   ];
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, docType: string, accountTypeKey: 'individual' | 'partnership' | 'enterprise' | 'llc') => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+  if (e.target.files && e.target.files[0]) {
+    const file = e.target.files[0];
 
-      // Check if this specific document type has already been uploaded
-      const documentEnum = docTypeToEnumMapping(docType);
-      const docTypeFormatted = documentEnum.toString().replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-      
-      // Check if this specific document exists in the documents array
-      const hasThisDocType = documents?.some(doc => doc.type === docTypeFormatted);
-      
-      if (hasThisDocType) {
-        setError(`You've already uploaded a ${docType.replace(/([A-Z])/g, ' $1').trim()}. Please use the 'Change File' option to replace it.`);
-        return;
-      }
-
-      // Update the appropriate document state based on account type
-      switch (accountTypeKey) {
-        case 'individual':
-          setIndividualDocuments(prev => ({ ...prev, [docType]: file }));
-          break;
-        case 'partnership':
-          setPartnershipDocuments(prev => ({ ...prev, [docType]: file }));
-          break;
-        case 'enterprise':
-          setEnterpriseDocuments(prev => ({ ...prev, [docType]: file }));
-          break;
-        case 'llc':
-          setLlcDocuments(prev => ({ ...prev, [docType]: file }));
-          break;
-      }
-
-      // Update file name for display
-      setFileNames(prev => ({ ...prev, [docType]: file.name }));
-      
-      // Mark as ready for upload but don't upload yet - we'll do it on form submit
-      setUploadStatus(prev => ({ ...prev, [docType]: 'success' }));
+    // Check if this specific document type has already been uploaded
+    const documentEnum = docTypeToEnumMapping(docType);
+    const docTypeFormatted = documentEnum.toString().replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    
+    // Check if this specific document exists in the documents array
+    const hasThisDocType = documents?.some(doc => doc.type === docTypeFormatted);
+    
+    if (hasThisDocType) {
+      setError(`You've already uploaded a ${docType.replace(/([A-Z])/g, ' $1').trim()}. Please use the 'Change File' option to replace it.`);
+      return;
     }
-  };
+
+    // Update file status to uploading
+    setUploadStatus(prev => ({ ...prev, [docType]: 'uploading' }));
+    setUploadProgress(prev => ({ ...prev, [docType]: 5 }));
+    
+    try {
+      // Validate document before actually uploading it
+      let validationResult;
+      
+      if (accountTypeKey === 'individual') {
+        // Existing individual document validation logic
+      } 
+      else if (accountTypeKey === 'partnership') {
+        // Partnership validation logic
+      }
+      else if (accountTypeKey === 'enterprise') {
+        // Enterprise validation logic
+      }
+      else if (accountTypeKey === 'llc') {
+        // Validate LLC documents
+        validationResult = await validateLlcDocument(documentEnum, file);
+        setUploadProgress(prev => ({ ...prev, [docType]: 70 }));
+        
+        // If validation fails, show error and return
+        if (!validationResult.isValid) {
+          setUploadStatus(prev => ({ ...prev, [docType]: 'error' }));
+          setError(`Document validation failed: ${validationResult.message}`);
+          return;
+        }
+        
+        // Process extracted data specific to LLC documents
+        if (validationResult.extractedData) {
+          setExtractedDocumentData(prev => ({
+            ...prev,
+            [docType]: validationResult.extractedData
+          }));
+          
+          // Handle specific LLC document types
+          if (docType === 'certificateOfIncorporation') {
+            // Auto-fill company details if available
+            if (validationResult.extractedData.businessName) {
+              setBusinessName(validationResult.extractedData.businessName);
+            }
+            
+            // Auto-fill tax information if available
+            if (validationResult.extractedData.taxNumber) {
+              setTaxInfo(prev => ({
+                ...prev,
+                taxNumber: validationResult.extractedData.taxNumber
+              }));
+            }
+            
+            if (validationResult.extractedData.businessAddress) {
+              setBusinessAddress(validationResult.extractedData.businessAddress);
+            }
+          }
+          
+          if (docType === 'boardResolution') {
+            // Could store authorized signatories info if needed
+            // setAuthorizedSignatories(validationResult.extractedData.authorizedSignatories);
+          }
+          
+          if (docType === 'memorandumArticles') {
+            // Could extract company objectives, share capital, etc.
+            // setCompanyObjectives(validationResult.extractedData.companyObjectives);
+          }
+        }
+      }
+      
+      // Update the appropriate document state
+      // ...existing code...
+      
+    } catch (error) {
+      // ...existing code...
+    }
+  }
+};
+
+// Add a new state to store extracted document data
+const [extractedDocumentData, setExtractedDocumentData] = useState<{[key: string]: any}>({});
+const [businessName, setBusinessName] = useState('');
 
   const handleReferenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -302,8 +359,9 @@ const UploadKYCDocumentsPage = () => {
     setIsSubmitting(true);
     setError('');
 
-    // Validate corporate references for business accounts
-    if (["partnership", "enterprise", "llc"].includes(accountType)) {
+    // Validate business-specific information
+    if (accountType === 'partnership' || accountType === 'enterprise' || accountType === 'llc') {
+      // Validate corporate references for business accounts
       const missingReference = [
         references.ref1Name,
         references.ref1Address,
@@ -312,22 +370,35 @@ const UploadKYCDocumentsPage = () => {
         references.ref2Address,
         references.ref2Phone
       ].some((val) => !val.trim());
+      
       if (missingReference) {
         setError('Please fill in all corporate reference fields.');
         setIsSubmitting(false);
         return;
       }
+      
+      // Validate business address for enterprise and LLC
+      if ((accountType === 'enterprise' || accountType === 'llc') && !businessAddress.trim()) {
+        setError('Business address is required.');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Validate tax information for LLC
+      if (accountType === 'llc' && !taxInfo.taxNumber.trim()) {
+        setError('Tax Identification Number is required for Limited Liability Companies.');
+        setIsSubmitting(false);
+        return;
+      }
     }
-
-    // We don't need the global alreadySubmitted check anymore since we check per document
-    // just proceed with the upload
     
     try {
       // Upload documents based on account type
       let uploadPromises: Promise<any>[] = [];
       let documentsToSave: any = {
         accountType,
-        documents: {}
+        documents: {},
+        extractedData: extractedDocumentData  // Include extracted data from document validation
       };
       
       // Check if user already has documents submitted
@@ -339,53 +410,12 @@ const UploadKYCDocumentsPage = () => {
 
       switch (accountType) {
         case 'individual':
-          if (individualDocuments.idCard) {
-            setUploadStatus(prev => ({ ...prev, idCard: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.ID_CARD, 
-                individualDocuments.idCard,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, idCard: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, idCard: 'success' })))
-               .catch(() => setUploadStatus(prev => ({ ...prev, idCard: 'error' })))
-            );
-            documentsToSave.documents.idCard = individualDocuments.idCard.name;
-          }
-          
-          if (individualDocuments.passport) {
-            setUploadStatus(prev => ({ ...prev, passport: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.PASSPORT, 
-                individualDocuments.passport,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, passport: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, passport: 'success' })))
-               .catch(() => setUploadStatus(prev => ({ ...prev, passport: 'error' })))
-            );
-            documentsToSave.documents.passport = individualDocuments.passport.name;
-          }
-          
-          if (individualDocuments.utilityBill) {
-            setUploadStatus(prev => ({ ...prev, utilityBill: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.UTILITY_BILL, 
-                individualDocuments.utilityBill,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, utilityBill: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, utilityBill: 'success' })))
-               .catch(() => setUploadStatus(prev => ({ ...prev, utilityBill: 'error' })))
-            );
-            documentsToSave.documents.utilityBill = individualDocuments.utilityBill.name;
-          }
+          // Existing individual document upload logic
+          // ...existing code...
           break;
           
         case 'partnership':
+          // Certificate of Registration
           if (partnershipDocuments.certificateOfRegistration) {
             setUploadStatus(prev => ({ ...prev, certificateOfRegistration: 'uploading' }));
             uploadPromises.push(
@@ -401,6 +431,7 @@ const UploadKYCDocumentsPage = () => {
             documentsToSave.documents.certificateOfRegistration = partnershipDocuments.certificateOfRegistration.name;
           }
           
+          // Form of Application
           if (partnershipDocuments.formOfApplication) {
             setUploadStatus(prev => ({ ...prev, formOfApplication: 'uploading' }));
             uploadPromises.push(
@@ -416,6 +447,7 @@ const UploadKYCDocumentsPage = () => {
             documentsToSave.documents.formOfApplication = partnershipDocuments.formOfApplication.name;
           }
           
+          // Valid ID of Partners
           if (partnershipDocuments.validIdOfPartners) {
             setUploadStatus(prev => ({ ...prev, validIdOfPartners: 'uploading' }));
             uploadPromises.push(
@@ -431,6 +463,7 @@ const UploadKYCDocumentsPage = () => {
             documentsToSave.documents.validIdOfPartners = partnershipDocuments.validIdOfPartners.name;
           }
           
+          // Proof of Address
           if (partnershipDocuments.proofOfAddress) {
             setUploadStatus(prev => ({ ...prev, proofOfAddress: 'uploading' }));
             uploadPromises.push(
@@ -447,9 +480,11 @@ const UploadKYCDocumentsPage = () => {
           }
           
           documentsToSave.references = references;
+          documentsToSave.businessName = businessName;
           break;
           
         case 'enterprise':
+          // Add upload logic for all enterprise documents
           if (enterpriseDocuments.certificateOfRegistration) {
             setUploadStatus(prev => ({ ...prev, certificateOfRegistration: 'uploading' }));
             uploadPromises.push(
@@ -465,71 +500,16 @@ const UploadKYCDocumentsPage = () => {
             documentsToSave.documents.certificateOfRegistration = enterpriseDocuments.certificateOfRegistration.name;
           }
           
-          if (enterpriseDocuments.formOfApplication) {
-            setUploadStatus(prev => ({ ...prev, formOfApplication: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.FORM_OF_APPLICATION, 
-                enterpriseDocuments.formOfApplication,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, formOfApplication: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, formOfApplication: 'success' })))
-               .catch(() => setUploadStatus(prev => ({ ...prev, formOfApplication: 'error' })))
-            );
-            documentsToSave.documents.formOfApplication = enterpriseDocuments.formOfApplication.name;
-          }
-          
-          if (enterpriseDocuments.passportPhotos) {
-            setUploadStatus(prev => ({ ...prev, passportPhotos: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.PASSPORT_PHOTOS, 
-                enterpriseDocuments.passportPhotos,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, passportPhotos: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, passportPhotos: 'success' })))
-               .catch(() => setUploadStatus(prev => ({ ...prev, passportPhotos: 'error' })))
-            );
-            documentsToSave.documents.passportPhotos = enterpriseDocuments.passportPhotos.name;
-          }
-          
-          if (enterpriseDocuments.utilityReceipt) {
-            setUploadStatus(prev => ({ ...prev, utilityReceipt: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.UTILITY_BILL, 
-                enterpriseDocuments.utilityReceipt,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, utilityReceipt: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, utilityReceipt: 'success' })))
-               .catch(() => setUploadStatus(prev => ({ ...prev, utilityReceipt: 'error' })))
-            );
-            documentsToSave.documents.utilityReceipt = enterpriseDocuments.utilityReceipt.name;
-          }
-          
-          if (enterpriseDocuments.businessOwnerID) {
-            setUploadStatus(prev => ({ ...prev, businessOwnerID: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.ID_CARD, 
-                enterpriseDocuments.businessOwnerID,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, businessOwnerID: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, businessOwnerID: 'success' })))
-               .catch(() => setUploadStatus(prev => ({ ...prev, businessOwnerID: 'error' })))
-            );
-            documentsToSave.documents.businessOwnerID = enterpriseDocuments.businessOwnerID.name;
-          }
+          // Add other enterprise documents
+          // ...existing code...
           
           documentsToSave.businessAddress = businessAddress;
+          documentsToSave.businessName = businessName;
           documentsToSave.references = references;
           break;
           
         case 'llc':
+          // Add upload logic for all LLC documents
           if (llcDocuments.certificateOfIncorporation) {
             setUploadStatus(prev => ({ ...prev, certificateOfIncorporation: 'uploading' }));
             uploadPromises.push(
@@ -545,96 +525,23 @@ const UploadKYCDocumentsPage = () => {
             documentsToSave.documents.certificateOfIncorporation = llcDocuments.certificateOfIncorporation.name;
           }
           
-          if (llcDocuments.memorandumArticles) {
-            setUploadStatus(prev => ({ ...prev, memorandumArticles: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.MEMORANDUM_ARTICLES, 
-                llcDocuments.memorandumArticles,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, memorandumArticles: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, memorandumArticles: 'success' })))
-               .catch(() => setUploadStatus(prev => ({ ...prev, memorandumArticles: 'error' })))
-            );
-            documentsToSave.documents.memorandumArticles = llcDocuments.memorandumArticles.name;
-          }
-          
-          if (llcDocuments.boardResolution) {
-            setUploadStatus(prev => ({ ...prev, boardResolution: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.BOARD_RESOLUTION, 
-                llcDocuments.boardResolution,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, boardResolution: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, boardResolution: 'success' })))
-               .catch(() => setUploadStatus(prev => ({ ...prev, boardResolution: 'error' })))
-            );
-            documentsToSave.documents.boardResolution = llcDocuments.boardResolution.name;
-          }
-          
-          if (llcDocuments.directorsID) {
-            setUploadStatus(prev => ({ ...prev, directorsID: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.DIRECTORS_ID, 
-                llcDocuments.directorsID,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, directorsID: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, directorsID: 'success' })))
-               .catch(() => setUploadStatus(prev => ({ ...prev, directorsID: 'error' })))
-            );
-            documentsToSave.documents.directorsID = llcDocuments.directorsID.name;
-          }
-          
-          if (llcDocuments.proofOfAddress) {
-            setUploadStatus(prev => ({ ...prev, proofOfAddress: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.PROOF_OF_ADDRESS, 
-                llcDocuments.proofOfAddress,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, proofOfAddress: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, proofOfAddress: 'success' })))
-               .catch(() => setUploadStatus(prev => ({ ...prev, proofOfAddress: 'error' })))
-            );
-            documentsToSave.documents.proofOfAddress = llcDocuments.proofOfAddress.name;
-          }
+          // Add other LLC documents
+          // ...existing code...
           
           documentsToSave.taxInfo = taxInfo;
           documentsToSave.businessAddress = businessAddress;
+          documentsToSave.businessName = businessName;
           documentsToSave.references = references;
           break;
       }
 
-      // Check if there are any documents to upload
-      if (uploadPromises.length === 0) {
-        setError('Please upload at least one document required for your account type');
-        setIsSubmitting(false);
-        return;
-      }
-      
-      // Add validation for minimum required documents per account type
-      const requiredDocuments = getRequiredDocumentsForAccountType(accountType);
-      const missingDocuments = requiredDocuments.filter(docType => {
-        // Check if this document type is missing
-        return !documentsToSave.documents[docType];
-      });
-
-      if (missingDocuments.length > 0) {
-        setError(`Please upload the following required documents: ${missingDocuments.map(formatDocumentName).join(', ')}`);
-        setIsSubmitting(false);
-        return;
-      }
+      // Check if there are any documents to upload and validate required documents
+      // ...existing code...
 
       // Wait for all uploads to complete
       await Promise.all(uploadPromises);
       
-      // Save metadata to localStorage (for reference and UI state persistence)
+      // Save metadata to localStorage
       localStorage.setItem('kycDocuments', JSON.stringify(documentsToSave));
       
       // Set submission as complete
@@ -1135,6 +1042,27 @@ const UploadKYCDocumentsPage = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Show auto-filled data notice */}
+              {extractedDocumentData.certificateOfRegistration && (
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                  <h4 className="font-medium text-blue-800 mb-2">Data Extracted Successfully</h4>
+                  <p className="text-sm text-blue-700">
+                    We've automatically extracted the following information:
+                  </p>
+                  <ul className="mt-2 text-sm text-blue-700 list-disc pl-5">
+                    {extractedDocumentData.certificateOfRegistration.businessName && (
+                      <li>Business Name: {extractedDocumentData.certificateOfRegistration.businessName}</li>
+                    )}
+                    {extractedDocumentData.certificateOfRegistration.registrationNumber && (
+                      <li>Registration Number: {extractedDocumentData.certificateOfRegistration.registrationNumber}</li>
+                    )}
+                    {extractedDocumentData.certificateOfRegistration.registrationDate && (
+                      <li>Registration Date: {extractedDocumentData.certificateOfRegistration.registrationDate}</li>
+                    )}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 

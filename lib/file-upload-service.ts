@@ -167,3 +167,141 @@ export const getVerificationStatus = async (userId?: string) => {
     throw error;
   }
 };
+
+export const validatePartnershipDocument = async (
+  documentType: DocumentType,
+  file: File
+): Promise<{
+  isValid: boolean;
+  extractedData?: any;
+  message: string;
+}> => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('document_type', mapDocTypeForDojah(documentType));
+
+    const response = await fetch('/api/validate-business-document', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to validate document');
+    }
+
+    return {
+      isValid: data.isValid,
+      extractedData: data.extractedData,
+      message: data.message || 'Document validated successfully',
+    };
+  } catch (error) {
+    console.error('Document validation error:', error);
+    return {
+      isValid: false,
+      message: error instanceof Error ? error.message : 'Failed to validate document',
+    };
+  }
+}
+
+export const validateEnterpriseDocument = async (
+  documentType: DocumentType,
+  file: File
+): Promise<{
+  isValid: boolean;
+  extractedData?: any;
+  message: string;
+}> => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('document_type', mapDocTypeForDojah(documentType));
+    formData.append('business_type', 'enterprise');
+
+    const response = await fetch('/api/validate-business-document', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to validate document');
+    }
+
+    return {
+      isValid: data.isValid,
+      extractedData: data.extractedData,
+      message: data.message || 'Document validated successfully',
+    };
+  } catch (error) {
+    console.error('Document validation error:', error);
+    return {
+      isValid: false,
+      message: error instanceof Error ? error.message : 'Failed to validate document',
+    };
+  }
+}
+
+export const validateLlcDocument = async (
+  documentType: DocumentType,
+  file: File
+): Promise<{
+  isValid: boolean;
+  extractedData?: any;
+  message: string;
+}> => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('document_type', mapDocTypeForDojah(documentType));
+    formData.append('business_type', 'llc');
+
+    const response = await fetch('/api/validate-business-document', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to validate document');
+    }
+
+    return {
+      isValid: data.isValid,
+      extractedData: data.extractedData,
+      message: data.message || 'Document validated successfully',
+    };
+  } catch (error) {
+    console.error('Document validation error:', error);
+    return {
+      isValid: false,
+      message: error instanceof Error ? error.message : 'Failed to validate document',
+    };
+  }
+}
+
+// Helper to map our document types to Dojah API document types
+function mapDocTypeForDojah(documentType: DocumentType): string {
+  const mapping: Record<DocumentType, string> = {
+    [DocumentType.ID_CARD]: 'id_card',
+    [DocumentType.PASSPORT]: 'passport',
+    [DocumentType.UTILITY_BILL]: 'utility_bill',
+    [DocumentType.CERTIFICATE_OF_REGISTRATION]: 'business_registration',
+    [DocumentType.FORM_OF_APPLICATION]: 'business_reg_form',
+    [DocumentType.VALID_ID_OF_PARTNERS]: 'id_card',
+    [DocumentType.PROOF_OF_ADDRESS]: 'proof_of_address',
+    [DocumentType.CERTIFICATE_OF_INCORPORATION]: 'certificate_of_incorporation',
+    [DocumentType.MEMORANDUM_ARTICLES]: 'memorandum_articles',
+    [DocumentType.BOARD_RESOLUTION]: 'board_resolution',
+    [DocumentType.DIRECTORS_ID]: 'id_card',
+    [DocumentType.PASSPORT_PHOTOS]: 'passport_photo',
+    [DocumentType.UTILITY_RECEIPT]: 'utility_bill',
+    // Add any other document types as needed
+  };
+  
+  return mapping[documentType] || 'generic_document';
+}

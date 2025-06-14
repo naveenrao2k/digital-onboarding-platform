@@ -168,18 +168,26 @@ export const getVerificationStatus = async (userId?: string) => {
   }
 };
 
-export const validatePartnershipDocument = async (
-  documentType: DocumentType,
-  file: File
-): Promise<{
+// Types for validation responses
+interface ValidationResult {
   isValid: boolean;
   extractedData?: any;
   message: string;
-}> => {
+}
+
+// Common validation function to reduce code duplication
+const validateDocument = async (
+  documentType: DocumentType,
+  file: File,
+  businessType?: 'individual' | 'partnership' | 'enterprise' | 'llc'
+): Promise<ValidationResult> => {
   try {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('document_type', mapDocTypeForDojah(documentType));
+    if (businessType) {
+      formData.append('business_type', businessType);
+    }
 
     const response = await fetch('/api/validate-business-document', {
       method: 'POST',
@@ -204,21 +212,23 @@ export const validatePartnershipDocument = async (
       message: error instanceof Error ? error.message : 'Failed to validate document',
     };
   }
-}
+};
 
-export const validateEnterpriseDocument = async (
+export const validateIndividualDocument = async (
   documentType: DocumentType,
-  file: File
-): Promise<{
-  isValid: boolean;
-  extractedData?: any;
-  message: string;
-}> => {
+  file: File,
+  backFile?: File
+): Promise<ValidationResult> => {
   try {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('document_type', mapDocTypeForDojah(documentType));
-    formData.append('business_type', 'enterprise');
+    formData.append('business_type', 'individual');
+    
+    // If this is an ID card and we have both sides, include the back
+    if (documentType === DocumentType.ID_CARD && backFile) {
+      formData.append('back_file', backFile);
+    }
 
     const response = await fetch('/api/validate-business-document', {
       method: 'POST',
@@ -243,46 +253,19 @@ export const validateEnterpriseDocument = async (
       message: error instanceof Error ? error.message : 'Failed to validate document',
     };
   }
-}
+};
 
-export const validateLlcDocument = async (
-  documentType: DocumentType,
-  file: File
-): Promise<{
-  isValid: boolean;
-  extractedData?: any;
-  message: string;
-}> => {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('document_type', mapDocTypeForDojah(documentType));
-    formData.append('business_type', 'llc');
+export const validatePartnershipDocument = (documentType: DocumentType, file: File): Promise<ValidationResult> => {
+  return validateDocument(documentType, file, 'partnership');
+};
 
-    const response = await fetch('/api/validate-business-document', {
-      method: 'POST',
-      body: formData,
-    });
+export const validateEnterpriseDocument = (documentType: DocumentType, file: File): Promise<ValidationResult> => {
+  return validateDocument(documentType, file, 'enterprise');
+};
 
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to validate document');
-    }
-
-    return {
-      isValid: data.isValid,
-      extractedData: data.extractedData,
-      message: data.message || 'Document validated successfully',
-    };
-  } catch (error) {
-    console.error('Document validation error:', error);
-    return {
-      isValid: false,
-      message: error instanceof Error ? error.message : 'Failed to validate document',
-    };
-  }
-}
+export const validateLlcDocument = (documentType: DocumentType, file: File): Promise<ValidationResult> => {
+  return validateDocument(documentType, file, 'llc');
+};
 
 // Helper to map our document types to Dojah API document types
 function mapDocTypeForDojah(documentType: DocumentType): string {  const mapping: Record<DocumentType, string> = {

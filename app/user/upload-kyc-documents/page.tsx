@@ -4,10 +4,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Upload, CheckCircle, User, Building, Building2, FileText } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { uploadKycDocument, 
-  validateLlcDocument, 
-  validatePartnershipDocument, 
-  validateEnterpriseDocument 
+import { 
+  uploadKycDocument,
+  validateIndividualDocument,
+  validatePartnershipDocument,
+  validateEnterpriseDocument,
+  validateLlcDocument
 } from '@/lib/file-upload-service';
 import { DocumentType, VerificationStatusEnum } from '@/app/generated/prisma';
 import { useVerificationStore } from '@/lib/verification-store';
@@ -46,7 +48,7 @@ const TextInput = ({
 const getRequiredDocumentsForAccountType = (type: string): string[] => {
   switch (type) {
     case 'individual':
-      return ['idCard']; // At minimum, require ID card
+      return ['idCardFront', 'idCardBack']; // Now require both front and back of ID card
     case 'partnership':
       return ['certificateOfRegistration', 'validIdOfPartners'];
     case 'enterprise':
@@ -66,7 +68,8 @@ const formatDocumentName = (docType: string): string => {
 const docTypeToEnumMapping = (docType: string): DocumentType => {
   const mapping: {[key: string]: DocumentType} = {
     // Individual documents
-    idCard: DocumentType.ID_CARD,
+    idCard: DocumentType.ID_CARD,    idCardFront: DocumentType.ID_CARD,
+    idCardBack: DocumentType.ID_CARD,
     passport: DocumentType.PASSPORT,
     utilityBill: DocumentType.UTILITY_BILL,
     
@@ -145,7 +148,8 @@ const UploadKYCDocumentsPage = () => {
 
   // Individual account documents
   const [individualDocuments, setIndividualDocuments] = useState({
-    idCard: null as File | null,
+    idCardFront: null as File | null,
+    idCardBack: null as File | null,
     passport: null as File | null,
     utilityBill: null as File | null
   });
@@ -198,7 +202,8 @@ const UploadKYCDocumentsPage = () => {
   // File names for display
   const [fileNames, setFileNames] = useState({
     // Individual
-    idCard: '',
+    idCardFront: '',
+    idCardBack: '',
     passport: '',
     utilityBill: '',
 
@@ -223,7 +228,8 @@ const UploadKYCDocumentsPage = () => {
   // File input refs
   const fileInputRefs = {
     // Individual
-    idCard: useRef<HTMLInputElement>(null),
+    idCardFront: useRef<HTMLInputElement>(null),
+    idCardBack: useRef<HTMLInputElement>(null),
     passport: useRef<HTMLInputElement>(null),
     utilityBill: useRef<HTMLInputElement>(null),
 
@@ -251,80 +257,193 @@ const UploadKYCDocumentsPage = () => {
     { id: 'enterprise', name: 'Enterprise Account', icon: Building2 },
     { id: 'llc', name: 'Limited Liability Account', icon: FileText }
   ];
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, docType: string, accountTypeKey: 'individual' | 'partnership' | 'enterprise' | 'llc') => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, docType: string, accountTypeKey: 'individual' | 'partnership' | 'enterprise' | 'llc') => {
   if (e.target.files && e.target.files[0]) {
     const file = e.target.files[0];
 
-    // Check if this specific document type has already been uploaded
+    // Map docType to appropriate DocumentType enum
     const documentEnum = docTypeToEnumMapping(docType);
     const docTypeFormatted = documentEnum.toString().replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+      // Check if this specific document exists in the documents array
+    // For ID cards, we handle front and back separately
+    let hasThisDocType = false;
     
-    // Check if this specific document exists in the documents array
-    const hasThisDocType = documents?.some(doc => doc.type === docTypeFormatted);
+    console.log(`Checking for existing document: ${docType}, enum: ${documentEnum}`);
+    
+    if (docType === 'idCardFront') {
+      hasThisDocType = documents?.some(doc => doc.type === 'ID_CARD_FRONT' || doc.type === 'Id Card Front');
+      console.log(`ID Card Front exists: ${hasThisDocType}`);
+    } else if (docType === 'idCardBack') {
+      hasThisDocType = documents?.some(doc => doc.type === 'ID_CARD_BACK' || doc.type === 'Id Card Back');
+      console.log(`ID Card Back exists: ${hasThisDocType}`);
+    } else {
+      hasThisDocType = documents?.some(doc => doc.type === docTypeFormatted);
+      console.log(`Other document exists: ${hasThisDocType}, looking for: ${docTypeFormatted}`);
+    }
     
     if (hasThisDocType) {
       setError(`You've already uploaded a ${docType.replace(/([A-Z])/g, ' $1').trim()}. Please use the 'Change File' option to replace it.`);
       return;
-    }
-
-    // Update file status to uploading
+    }    // Update file status to uploading
     setUploadStatus(prev => ({ ...prev, [docType]: 'uploading' }));
     setUploadProgress(prev => ({ ...prev, [docType]: 5 }));
+      // Set up a progress simulation for the validation phase
+    // Start at minimum 5% so user sees immediate feedback
+    setUploadProgress(prev => ({ ...prev, [docType]: 5 }));
     
-    try {
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prev => {
+        const currentProgress = prev[docType] || 0;
+        // Don't let the simulated progress go beyond 60% - real progress updates will take over
+        return { ...prev, [docType]: Math.min(currentProgress + 3, 60) };
+      });
+    }, 300);
+      try {
       // Validate document before actually uploading it
-      let validationResult: ValidationResult | undefined;
+      let validationResult: { isValid: boolean; extractedData?: any; message: string; };
       
       if (accountTypeKey === 'individual') {
-        // Individual documents don't require validation yet
-        validationResult = { isValid: true, message: 'Individual document accepted' };
+        // For individual documents, validate with appropriate method
+        if (docType === 'idCardFront' || docType === 'idCardBack') {
+          validationResult = await validateIndividualDocument(documentEnum, file);
+          setUploadProgress(prev => ({ ...prev, [docType]: 70 }));
+          
+          if (!validationResult.isValid) {
+            // Clear the progress simulation interval for ID card validation
+            clearInterval(progressInterval);
+            
+            setUploadStatus(prev => ({ ...prev, [docType]: 'error' }));
+            setError(`Document validation failed: ${validationResult.message}`);
+            return;
+          }
+          
+          if (validationResult.extractedData) {
+            setExtractedDocumentData(prev => ({
+              ...prev,
+              [docType]: validationResult.extractedData
+            }));
+          }
+            // Update the documents state based on which side was uploaded
+          if (docType === 'idCardFront') {
+            console.log('Setting ID Card Front document:', file.name);
+            setIndividualDocuments(prev => ({ ...prev, idCardFront: file }));
+            setFileNames(prev => ({ ...prev, idCardFront: file.name }));
+          } else if (docType === 'idCardBack') {
+            console.log('Setting ID Card Back document:', file.name);
+            setIndividualDocuments(prev => ({ ...prev, idCardBack: file }));
+            setFileNames(prev => ({ ...prev, idCardBack: file.name }));
+          }
+          
+          // Clear the progress simulation interval
+          clearInterval(progressInterval);
+          
+          // Set upload as completed
+          setUploadProgress(prev => ({ ...prev, [docType]: 100 }));
+          setUploadStatus(prev => ({ ...prev, [docType]: 'success' }));
+            // For ID cards, we'll let the useEffect handle verification
+          console.log(`ID card ${docType} uploaded successfully`);
+          
+          return;
+        } else {
+          // Handle other individual documents (passport, utility bill)
+          validationResult = await validateIndividualDocument(documentEnum, file);
+        }
       } 
       else if (accountTypeKey === 'partnership') {
+        // Partnership validation logic
         validationResult = await validatePartnershipDocument(documentEnum, file);
       }
       else if (accountTypeKey === 'enterprise') {
+        // Enterprise validation logic
         validationResult = await validateEnterpriseDocument(documentEnum, file);
       }
       else if (accountTypeKey === 'llc') {
+        // Validate LLC documents
         validationResult = await validateLlcDocument(documentEnum, file);
-      }
-
-      // If validation fails, show error and return
-      if (validationResult && !validationResult.isValid) {
-        setUploadStatus(prev => ({ ...prev, [docType]: 'error' }));
-        setError(`Document validation failed: ${validationResult.message}`);
-        return;
-      }
-
-      // Process extracted data if available
-      if (validationResult?.extractedData) {
-        setExtractedDocumentData(prev => ({
-          ...prev,
-          [docType]: validationResult.extractedData
-        }));
-
-        // Handle specific document types
-        if (docType === 'certificateOfIncorporation' && validationResult.extractedData.businessName) {
-          setBusinessName(validationResult.extractedData.businessName);
+        setUploadProgress(prev => ({ ...prev, [docType]: 70 }));
+        
+        // If validation fails, show error and return
+        if (!validationResult.isValid) {
+          setUploadStatus(prev => ({ ...prev, [docType]: 'error' }));
+          setError(`Document validation failed: ${validationResult.message}`);
+          return;
         }
         
-        if (validationResult.extractedData.taxNumber) {
-          setTaxInfo(prev => ({
+        // Process extracted data specific to LLC documents
+        if (validationResult.extractedData) {
+          setExtractedDocumentData(prev => ({
             ...prev,
-            taxNumber: validationResult.extractedData.taxNumber
+            [docType]: validationResult.extractedData
           }));
+          
+          // Handle specific LLC document types
+          if (docType === 'certificateOfIncorporation') {
+            // Auto-fill company details if available
+            if (validationResult.extractedData.businessName) {
+              setBusinessName(validationResult.extractedData.businessName);
+            }
+            
+            // Auto-fill tax information if available
+            if (validationResult.extractedData.taxNumber) {
+              setTaxInfo(prev => ({
+                ...prev,
+                taxNumber: validationResult.extractedData.taxNumber
+              }));
+            }
+            
+            if (validationResult.extractedData.businessAddress) {
+              setBusinessAddress(validationResult.extractedData.businessAddress);
+            }
+          }
+          
+          if (docType === 'boardResolution') {
+            // Could store authorized signatories info if needed
+            // setAuthorizedSignatories(validationResult.extractedData.authorizedSignatories);
+          }
+          
+          if (docType === 'memorandumArticles') {
+            // Could extract company objectives, share capital, etc.
+            // setCompanyObjectives(validationResult.extractedData.companyObjectives);
+          }
         }
-        
-        if (validationResult.extractedData.businessAddress) {
-          setBusinessAddress(validationResult.extractedData.businessAddress);
-        }
-      }
-      
-      // Update the appropriate document state
-      // ...existing code...
+      }      // Update the appropriate document state based on account type
+      switch (accountTypeKey) {
+        case 'individual':
+          // For individual documents that aren't ID card front/back (which are handled above)
+          if (docType === 'passport') {
+            setIndividualDocuments(prev => ({ ...prev, passport: file }));
+            setFileNames(prev => ({ ...prev, passport: file.name }));
+          } else if (docType === 'utilityBill') {
+            setIndividualDocuments(prev => ({ ...prev, utilityBill: file }));
+            setFileNames(prev => ({ ...prev, utilityBill: file.name }));
+          }
+          break;
+        case 'partnership':
+          (partnershipDocuments as any)[docType] = file;
+          setFileNames(prev => ({ ...prev, [docType]: file.name }));
+          break;
+        case 'enterprise':
+          (enterpriseDocuments as any)[docType] = file;
+          setFileNames(prev => ({ ...prev, [docType]: file.name }));
+          break;
+        case 'llc':
+          (llcDocuments as any)[docType] = file;
+          setFileNames(prev => ({ ...prev, [docType]: file.name }));
+          break;
+      }      // Clear the progress simulation interval
+      clearInterval(progressInterval);
+
+      // Update progress and status
+      setUploadProgress(prev => ({ ...prev, [docType]: 100 }));
+      setUploadStatus(prev => ({ ...prev, [docType]: 'success' }));
       
     } catch (error) {
-      // ...existing code...
+      // Clear the progress simulation interval
+      clearInterval(progressInterval);
+      
+      console.error(`Error handling file upload for ${docType}:`, error);
+      setUploadStatus(prev => ({ ...prev, [docType]: 'error' }));
+      setError(error instanceof Error ? error.message : 'An error occurred during file processing');
     }
   }
 };
@@ -332,6 +451,75 @@ const UploadKYCDocumentsPage = () => {
 // Add a new state to store extracted document data
 const [extractedDocumentData, setExtractedDocumentData] = useState<{[key: string]: any}>({});
 const [businessName, setBusinessName] = useState('');
+
+// Function to trigger combined ID card verification when both front and back are uploaded
+const triggerCombinedIdCardVerification = async (): Promise<void> => {
+  try {
+    console.log("Triggering combined ID card verification");
+    setError('');
+    
+    // Double check that both documents are still available
+    if (!individualDocuments.idCardFront || !individualDocuments.idCardBack) {
+      console.error('Missing front or back ID card documents', {
+        front: !!individualDocuments.idCardFront,
+        back: !!individualDocuments.idCardBack
+      });
+      setError('Both front and back ID card documents must be uploaded before verification');
+      return;
+    }
+    
+    console.log('Front document ready:', individualDocuments.idCardFront?.name);
+    console.log('Back document ready:', individualDocuments.idCardBack?.name);
+    
+    try {
+      // Perform the combined verification
+      const result = await validateIndividualDocument(
+        DocumentType.ID_CARD,
+        individualDocuments.idCardFront,
+        individualDocuments.idCardBack
+      );
+      
+      if (!result.isValid) {
+        setError(result.message || 'ID card verification failed');
+        return;
+      }
+      
+      // If validation succeeds, proceed with the upload
+      await Promise.all([
+        uploadKycDocument(
+          DocumentType.ID_CARD,
+          individualDocuments.idCardFront,
+          (progress) => setUploadProgress(prev => ({ ...prev, idCardFront: progress }))
+        ),
+        uploadKycDocument(
+          DocumentType.ID_CARD,
+          individualDocuments.idCardBack,
+          (progress) => setUploadProgress(prev => ({ ...prev, idCardBack: progress }))
+        )
+      ]);
+      
+      // Update status after successful upload
+      setUploadStatus(prev => ({
+        ...prev,
+        idCardFront: 'success',
+        idCardBack: 'success'
+      }));
+      
+    } catch (error) {
+      console.error('Error during combined verification:', error);
+      setError('Failed to verify ID card. Please try again.');
+      setUploadStatus(prev => ({
+        ...prev,
+        idCardFront: 'error',
+        idCardBack: 'error'
+      }));
+    }
+    
+  } catch (error) {
+    console.error('Error in triggerCombinedIdCardVerification:', error);
+    setError('An unexpected error occurred. Please try again.');
+  }
+};
 
   const handleReferenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -395,12 +583,76 @@ const [businessName, setBusinessName] = useState('');
         setError('You have already submitted documents. Please check your verification status.');
         setIsSubmitting(false);
         return;
-      }
-
-      switch (accountType) {
+      }      switch (accountType) {
         case 'individual':
-          // Existing individual document upload logic
-          // ...existing code...
+          // ID Card Front
+          if (individualDocuments.idCardFront) {
+            setUploadStatus(prev => ({ ...prev, idCardFront: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.ID_CARD, 
+                individualDocuments.idCardFront,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, idCardFront: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, idCardFront: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, idCardFront: 'error' })))
+            );
+            documentsToSave.documents.idCardFront = individualDocuments.idCardFront.name;
+          }
+          
+          // ID Card Back
+          if (individualDocuments.idCardBack) {
+            setUploadStatus(prev => ({ ...prev, idCardBack: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.ID_CARD, 
+                individualDocuments.idCardBack,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, idCardBack: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, idCardBack: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, idCardBack: 'error' })))
+            );
+            documentsToSave.documents.idCardBack = individualDocuments.idCardBack.name;
+          }
+          
+          // Passport
+          if (individualDocuments.passport) {
+            setUploadStatus(prev => ({ ...prev, passport: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.PASSPORT, 
+                individualDocuments.passport,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, passport: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, passport: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, passport: 'error' })))
+            );
+            documentsToSave.documents.passport = individualDocuments.passport.name;
+          }
+          
+          // Utility Bill
+          if (individualDocuments.utilityBill) {
+            setUploadStatus(prev => ({ ...prev, utilityBill: 'uploading' }));
+            uploadPromises.push(
+              uploadKycDocument(
+                DocumentType.UTILITY_BILL, 
+                individualDocuments.utilityBill,
+                (progress) => {
+                  setUploadProgress(prev => ({ ...prev, utilityBill: progress }));
+                }
+              ).then(() => setUploadStatus(prev => ({ ...prev, utilityBill: 'success' })))
+               .catch(() => setUploadStatus(prev => ({ ...prev, utilityBill: 'error' })))
+            );
+            documentsToSave.documents.utilityBill = individualDocuments.utilityBill.name;
+          }
+          
+          // If both front and back ID cards are uploaded, trigger combined verification
+          if (individualDocuments.idCardFront && individualDocuments.idCardBack) {
+            documentsToSave.hasBothIdCardSides = true;
+          }
           break;
           
         case 'partnership':
@@ -522,16 +774,78 @@ const [businessName, setBusinessName] = useState('');
           documentsToSave.businessName = businessName;
           documentsToSave.references = references;
           break;
+      }      // Check if there are any documents to upload and validate required documents
+      if (uploadPromises.length === 0) {
+        setError('Please upload at least one document.');
+        setIsSubmitting(false);
+        return;
       }
-
-      // Check if there are any documents to upload and validate required documents
-      // ...existing code...
+      
+      // Validate required documents based on account type
+      const requiredDocs = getRequiredDocumentsForAccountType(accountType);
+      let missingRequired = false;
+      
+      if (accountType === 'individual') {
+        // For individual accounts, require both front and back of ID card
+        if (!individualDocuments.idCardFront || !individualDocuments.idCardBack) {
+          setError('Please upload both the front and back sides of your ID card.');
+          missingRequired = true;
+        }
+      } else if (accountType === 'partnership') {
+        // Check for required partnership documents
+        const hasAllRequired = requiredDocs.every(doc => {
+          const docKey = doc as keyof typeof partnershipDocuments;
+          return !!partnershipDocuments[docKey];
+        });
+        
+        if (!hasAllRequired) {
+          setError('Please upload all required documents for partnership account.');
+          missingRequired = true;
+        }
+      } else if (accountType === 'enterprise') {
+        // Check for required enterprise documents
+        const hasAllRequired = requiredDocs.every(doc => {
+          const docKey = doc as keyof typeof enterpriseDocuments;
+          return !!enterpriseDocuments[docKey];
+        });
+        
+        if (!hasAllRequired) {
+          setError('Please upload all required documents for enterprise account.');
+          missingRequired = true;
+        }
+      } else if (accountType === 'llc') {
+        // Check for required LLC documents
+        const hasAllRequired = requiredDocs.every(doc => {
+          const docKey = doc as keyof typeof llcDocuments;
+          return !!llcDocuments[docKey];
+        });
+        
+        if (!hasAllRequired) {
+          setError('Please upload all required documents for LLC account.');
+          missingRequired = true;
+        }
+      }
+      
+      if (missingRequired) {
+        setIsSubmitting(false);
+        return;
+      }
 
       // Wait for all uploads to complete
       await Promise.all(uploadPromises);
       
       // Save metadata to localStorage
       localStorage.setItem('kycDocuments', JSON.stringify(documentsToSave));
+        // For individual accounts, trigger combined verification if both ID card sides are uploaded
+      if (accountType === 'individual' && documentsToSave.hasBothIdCardSides) {
+        try {
+          await triggerCombinedIdCardVerification();
+          console.log('Combined verification triggered after submission');
+        } catch (error) {
+          console.warn('Failed to trigger combined verification after submission:', error);
+          // Continue with submission even if combined verification fails
+        }
+      }
       
       // Set submission as complete
       setIsSubmitted(true);
@@ -653,16 +967,22 @@ const [businessName, setBusinessName] = useState('');
             'border-slate-200 hover:border-blue-400'
           }`}
         >
-          {status === 'uploading' ? (
-            <div className="flex flex-col items-center">
+          {status === 'uploading' ? (            <div className="flex flex-col items-center">
               <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center mb-2">
                 <div className="h-8 w-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
               </div>
               <p className="text-sm text-slate-600 text-center">{fileName}</p>
               <div className="w-full max-w-xs mt-2 bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
+                <div className="bg-blue-600 h-2.5 rounded-full" style={{ 
+                  width: `${progress}%`,
+                  transition: 'width 0.5s ease'
+                }}></div>
               </div>
-              <p className="text-sm text-blue-600 mt-1">Uploading... {progress}%</p>
+              <p className="text-sm text-blue-600 mt-1">
+                {progress < 20 ? 'Processing...' : 
+                 progress < 90 ? `Uploading... ${progress}%` :
+                 'Finishing up...'}
+              </p>
             </div>
           ) : status === 'success' ? (
             <div className="flex flex-col items-center">
@@ -905,16 +1225,21 @@ const [businessName, setBusinessName] = useState('');
               <div className="flex items-center mb-4">
                 <User className="h-5 w-5 text-slate-500 mr-2" />
                 <h3 className="text-lg font-medium">Individual Requirements</h3>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              </div>              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FileUploadBox
-                  docType="idCard"
-                  label="ID Card (Front & Back)"
+                  docType="idCardFront"
+                  label="ID Card (Front Side)"
                   accountTypeKey="individual"
-                  fileRef={fileInputRefs.idCard}
+                  fileRef={fileInputRefs.idCardFront}
                 />
 
+                <FileUploadBox
+                  docType="idCardBack"
+                  label="ID Card (Back Side)"
+                  accountTypeKey="individual"
+                  fileRef={fileInputRefs.idCardBack}
+                />
+                
                 <FileUploadBox
                   docType="passport"
                   label="Passport"
@@ -1340,12 +1665,5 @@ const [businessName, setBusinessName] = useState('');
     </div>
   );
 };
-
-// Interface for validation result
-interface ValidationResult {
-  isValid: boolean;
-  extractedData?: any;
-  message: string;
-}
 
 export default UploadKYCDocumentsPage;

@@ -285,8 +285,7 @@ export const validateLlcDocument = async (
 }
 
 // Helper to map our document types to Dojah API document types
-function mapDocTypeForDojah(documentType: DocumentType): string {
-  const mapping: Record<DocumentType, string> = {
+function mapDocTypeForDojah(documentType: DocumentType): string {  const mapping: Record<DocumentType, string> = {
     [DocumentType.ID_CARD]: 'id_card',
     [DocumentType.PASSPORT]: 'passport',
     [DocumentType.UTILITY_BILL]: 'utility_bill',
@@ -300,7 +299,11 @@ function mapDocTypeForDojah(documentType: DocumentType): string {
     [DocumentType.DIRECTORS_ID]: 'id_card',
     [DocumentType.PASSPORT_PHOTOS]: 'passport_photo',
     [DocumentType.UTILITY_RECEIPT]: 'utility_bill',
-    // Add any other document types as needed
+    [DocumentType.BUSINESS_OWNER_ID]: 'id_card',
+    [DocumentType.BVN_SLIP]: 'bvn_doc',
+    [DocumentType.NIN_SLIP]: 'nin_doc',
+    [DocumentType.DRIVERS_LICENSE]: 'drivers_license',
+    [DocumentType.VOTERS_CARD]: 'voters_card'
   };
   
   return mapping[documentType] || 'generic_document';

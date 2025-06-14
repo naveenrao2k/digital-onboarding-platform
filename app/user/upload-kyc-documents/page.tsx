@@ -4,7 +4,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Upload, CheckCircle, User, Building, Building2, FileText } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { uploadKycDocument } from '@/lib/file-upload-service';
+import { uploadKycDocument, 
+  validateLlcDocument, 
+  validatePartnershipDocument, 
+  validateEnterpriseDocument 
+} from '@/lib/file-upload-service';
 import { DocumentType, VerificationStatusEnum } from '@/app/generated/prisma';
 import { useVerificationStore } from '@/lib/verification-store';
 import StepCompletionMessage from '@/components/StepCompletionMessage';
@@ -269,65 +273,50 @@ const UploadKYCDocumentsPage = () => {
     
     try {
       // Validate document before actually uploading it
-      let validationResult;
+      let validationResult: ValidationResult | undefined;
       
       if (accountTypeKey === 'individual') {
-        // Existing individual document validation logic
+        // Individual documents don't require validation yet
+        validationResult = { isValid: true, message: 'Individual document accepted' };
       } 
       else if (accountTypeKey === 'partnership') {
-        // Partnership validation logic
+        validationResult = await validatePartnershipDocument(documentEnum, file);
       }
       else if (accountTypeKey === 'enterprise') {
-        // Enterprise validation logic
+        validationResult = await validateEnterpriseDocument(documentEnum, file);
       }
       else if (accountTypeKey === 'llc') {
-        // Validate LLC documents
         validationResult = await validateLlcDocument(documentEnum, file);
-        setUploadProgress(prev => ({ ...prev, [docType]: 70 }));
-        
-        // If validation fails, show error and return
-        if (!validationResult.isValid) {
-          setUploadStatus(prev => ({ ...prev, [docType]: 'error' }));
-          setError(`Document validation failed: ${validationResult.message}`);
-          return;
+      }
+
+      // If validation fails, show error and return
+      if (validationResult && !validationResult.isValid) {
+        setUploadStatus(prev => ({ ...prev, [docType]: 'error' }));
+        setError(`Document validation failed: ${validationResult.message}`);
+        return;
+      }
+
+      // Process extracted data if available
+      if (validationResult?.extractedData) {
+        setExtractedDocumentData(prev => ({
+          ...prev,
+          [docType]: validationResult.extractedData
+        }));
+
+        // Handle specific document types
+        if (docType === 'certificateOfIncorporation' && validationResult.extractedData.businessName) {
+          setBusinessName(validationResult.extractedData.businessName);
         }
         
-        // Process extracted data specific to LLC documents
-        if (validationResult.extractedData) {
-          setExtractedDocumentData(prev => ({
+        if (validationResult.extractedData.taxNumber) {
+          setTaxInfo(prev => ({
             ...prev,
-            [docType]: validationResult.extractedData
+            taxNumber: validationResult.extractedData.taxNumber
           }));
-          
-          // Handle specific LLC document types
-          if (docType === 'certificateOfIncorporation') {
-            // Auto-fill company details if available
-            if (validationResult.extractedData.businessName) {
-              setBusinessName(validationResult.extractedData.businessName);
-            }
-            
-            // Auto-fill tax information if available
-            if (validationResult.extractedData.taxNumber) {
-              setTaxInfo(prev => ({
-                ...prev,
-                taxNumber: validationResult.extractedData.taxNumber
-              }));
-            }
-            
-            if (validationResult.extractedData.businessAddress) {
-              setBusinessAddress(validationResult.extractedData.businessAddress);
-            }
-          }
-          
-          if (docType === 'boardResolution') {
-            // Could store authorized signatories info if needed
-            // setAuthorizedSignatories(validationResult.extractedData.authorizedSignatories);
-          }
-          
-          if (docType === 'memorandumArticles') {
-            // Could extract company objectives, share capital, etc.
-            // setCompanyObjectives(validationResult.extractedData.companyObjectives);
-          }
+        }
+        
+        if (validationResult.extractedData.businessAddress) {
+          setBusinessAddress(validationResult.extractedData.businessAddress);
         }
       }
       
@@ -1351,5 +1340,12 @@ const [businessName, setBusinessName] = useState('');
     </div>
   );
 };
+
+// Interface for validation result
+interface ValidationResult {
+  isValid: boolean;
+  extractedData?: any;
+  message: string;
+}
 
 export default UploadKYCDocumentsPage;

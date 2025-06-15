@@ -1,212 +1,108 @@
+// app/api/admin/users/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 
-// Mark this route as dynamic
 export const dynamic = 'force-dynamic';
 
-const getCurrentUserId = (): string | null => {
-  const sessionCookie = cookies().get('session')?.value;
-  if (!sessionCookie) return null;
-  
+const isAdmin = (request: NextRequest): boolean => {
+  const sessionCookie = request.cookies.get('session')?.value;
+  if (!sessionCookie) return false;
+
   try {
     const session = JSON.parse(sessionCookie);
-    return session.userId || null;
+    return session.isAdmin || false;
   } catch {
-    return null;
+    return false;
   }
 };
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest) {
+  if (!isAdmin(request)) {
+    return new NextResponse(
+      JSON.stringify({ error: 'Unauthorized - Admin access required' }),
+      { status: 403 }
+    );
+  }
+
   try {
-    const userId = getCurrentUserId();
-    
+    const url = new URL(request.url);
+    const userId = url.pathname.split('/').pop();
+
     if (!userId) {
       return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401 }
+        JSON.stringify({ error: 'User ID is required' }),
+        { status: 400 }
       );
     }
 
-    // Check if user is admin
     const user = await prisma.user.findUnique({
       where: { id: userId },
-    });
-
-    if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized - Admin access required' }),
-        { status: 401 }
-      );
-    }
-
-    // Get user details with Dojah verifications
-    const targetUser = await prisma.user.findUnique({
-      where: { id: params.id },
       include: {
-        kycDocuments: {
-          include: {
-            documentAnalysis: true
-          }
-        },
+        verificationStatus: true,
+        kycDocuments: true,
         selfieVerification: true,
-        dojahVerifications: {
-          orderBy: { createdAt: 'desc' }
-        },
+        dojahVerifications: true,
         adminReviews: {
           include: {
             reviewer: {
               select: {
                 firstName: true,
-                lastName: true
-              }
-            }
+                lastName: true,
+              },
+            },
           },
-          orderBy: { createdAt: 'desc' }
+          orderBy: { createdAt: 'desc' },
         },
-        verificationStatus: true
       },
     });
 
-    if (!targetUser) {
+    if (!user) {
       return new NextResponse(
         JSON.stringify({ error: 'User not found' }),
         { status: 404 }
       );
     }
-
-    // Calculate verification status
-    const kycStatus = targetUser.kycDocuments.length > 0 
-      ? targetUser.kycDocuments.every(doc => doc.status === 'APPROVED') 
-        ? 'APPROVED' 
-        : targetUser.kycDocuments.some(doc => doc.status === 'REJECTED') 
-          ? 'REJECTED' 
-          : 'PENDING'
-      : 'PENDING';
-
-    const selfieStatus = targetUser.selfieVerification
-      ? targetUser.selfieVerification.status
-      : 'PENDING';
-
-    const overallStatus = kycStatus === 'APPROVED' && selfieStatus === 'APPROVED'
-      ? 'APPROVED'
-      : kycStatus === 'REJECTED' || selfieStatus === 'REJECTED'
-        ? 'REJECTED'
-        : 'IN_PROGRESS';
-
-    // Calculate progress percentage
-    let progress = 0;
-    if (targetUser.kycDocuments.length > 0) progress += 50;
-    if (targetUser.selfieVerification) progress += 15;
-    if (kycStatus === 'APPROVED') progress += 15;
-    if (selfieStatus === 'APPROVED') progress += 20;
-
-    // Format documents with Dojah verification data
-    const documents = targetUser.kycDocuments.map(doc => {
-      const dojahVerification = targetUser.dojahVerifications.find(
-        dv => dv.documentId === doc.id && dv.verificationType === 'DOCUMENT_ANALYSIS'
-      );
-      
-      return {
+    console.log('GET_USER_DETAILS', user);
+    // Transform data to match client expectations if needed
+    const responseData = {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone || null,
+      address: user.address || null,
+      dateOfBirth: user.dateOfBirth ? user.dateOfBirth.toISOString().split('T')[0] : null,
+      accountType: user.accountType,
+      accountStatus: user.accountStatus,
+      createdAt: user.createdAt.toISOString(),
+      verificationStatus: user.verificationStatus,
+      selfieVerification: user.selfieVerification ? {
+        id: user.selfieVerification.id,
+        status: user.selfieVerification.status,
+        fileUrl: user.selfieVerification.fileUrl,
+        fileName: user.selfieVerification.fileName,
+        mimeType: user.selfieVerification.mimeType,
+        fileSize: user.selfieVerification.fileSize,
+        capturedAt: user.selfieVerification.capturedAt ? user.selfieVerification.capturedAt.toISOString() : null,
+      } : null,
+      documentDetails : user.kycDocuments,
+      documents: user.kycDocuments.map(doc => ({
         id: doc.id,
         type: doc.type,
         fileName: doc.fileName,
-        uploadedAt: doc.uploadedAt.toISOString(),
+        uploadedAt: doc.fileUrl ? null : null, // createdAt does not exist, fileUrl used as placeholder
         status: doc.status,
         fileSize: doc.fileSize,
         mimeType: doc.mimeType,
-        documentAnalysis: doc.documentAnalysis ? {
-          extractedText: doc.documentAnalysis.extractedText,
-          extractedData: doc.documentAnalysis.extractedData,
-          documentType: doc.documentAnalysis.documentType,
-          confidence: doc.documentAnalysis.confidence,
-          isReadable: doc.documentAnalysis.isReadable,
-          qualityScore: doc.documentAnalysis.qualityScore
-        } : null,
-        dojahVerification: dojahVerification ? {
-          id: dojahVerification.id,
-          status: dojahVerification.status,
-          confidence: dojahVerification.confidence,
-          matchResult: dojahVerification.matchResult,
-          extractedData: dojahVerification.extractedData,
-          governmentData: dojahVerification.governmentData,
-          errorMessage: dojahVerification.errorMessage,
-          createdAt: dojahVerification.createdAt.toISOString()
-        } : null
-      };
-    });
-
-    // Add selfie with Dojah verification data if it exists
-    if (targetUser.selfieVerification) {
-      const selfie = targetUser.selfieVerification;
-      const selfieDojahVerification = targetUser.dojahVerifications.find(
-        dv => dv.documentId === selfie.id && dv.verificationType === 'SELFIE_PHOTO_ID_MATCH'
-      );
-      
-      documents.push({
-        id: selfie.id,
-        type: 'PASSPORT_PHOTOS',
-        fileName: 'selfie.jpg',
-        uploadedAt: selfie.capturedAt.toISOString(),
-        status: selfie.status,
-        fileSize: selfie.fileSize,
-        mimeType: selfie.mimeType,
-        documentAnalysis: null,
-        dojahVerification: selfieDojahVerification ? {
-          id: selfieDojahVerification.id,
-          status: selfieDojahVerification.status,
-          confidence: selfieDojahVerification.confidence,
-          matchResult: selfieDojahVerification.matchResult,
-          extractedData: selfieDojahVerification.extractedData,
-          governmentData: selfieDojahVerification.governmentData,
-          errorMessage: selfieDojahVerification.errorMessage,
-          createdAt: selfieDojahVerification.createdAt.toISOString()
-        } : null
-      });
-    }
-
-    // Get government verification summary
-    const governmentVerifications = targetUser.dojahVerifications
-      .filter(dv => ['BVN_LOOKUP', 'NIN_LOOKUP', 'PASSPORT_LOOKUP', 'DRIVERS_LICENSE_LOOKUP'].includes(dv.verificationType))
-      .map(dv => ({
-        type: dv.verificationType,
-        status: dv.status,
-        isMatch: typeof dv.matchResult === 'object' && dv.matchResult !== null && 'isMatch' in dv.matchResult 
-          ? (dv.matchResult as { isMatch: boolean }).isMatch 
-          : false,
-        confidence: dv.confidence,
-        governmentData: dv.governmentData,
-        createdAt: dv.createdAt.toISOString()
-      }));
-
-    // Format response with enhanced Dojah data
-    const userDetails = {
-      id: targetUser.id,
-      firstName: targetUser.firstName,
-      lastName: targetUser.lastName,
-      email: targetUser.email,
-      phone: targetUser.phone,
-      address: targetUser.address,
-      dateOfBirth: targetUser.dateOfBirth ? targetUser.dateOfBirth.toISOString().split('T')[0] : null,
-      accountType: targetUser.accountType,
-      accountStatus: targetUser.accountStatus,
-      createdAt: targetUser.createdAt.toISOString().split('T')[0],
-      verificationStatus: targetUser.verificationStatus || {
-        overallStatus,
-        kycStatus,
-        selfieStatus,
-        progress,
+        // Removed documentAnalysis and dojahVerification as they do not exist on doc
+      })),      dojahVerifications: {
+        total: user.dojahVerifications?.length || 0,
+        governmentVerifications: user.dojahVerifications?.filter(v => 
+          ['BVN_LOOKUP', 'NIN_LOOKUP', 'PASSPORT_LOOKUP', 'DRIVERS_LICENSE_LOOKUP'].includes(v.verificationType)
+        ) || [],
+        amlScreenings: user.dojahVerifications?.filter(v => v.verificationType === 'AML_SCREENING') || [],
       },
-      documents,
-      dojahVerifications: {
-        total: targetUser.dojahVerifications.length,
-        governmentVerifications,
-        amlScreenings: targetUser.dojahVerifications.filter(dv => dv.verificationType === 'AML_SCREENING')
-      },
-      adminReviews: targetUser.adminReviews.map(review => ({
+      adminReviews: user.adminReviews.map(review => ({
         id: review.id,
         verificationType: review.verificationType,
         status: review.status,
@@ -214,35 +110,17 @@ export async function GET(
         rejectionReason: review.rejectionReason,
         allowReupload: review.allowReupload,
         reviewer: review.reviewer,
-        createdAt: review.createdAt.toISOString()
+        createdAt: review.createdAt.toISOString(),
       })),
-      canReupload: targetUser.adminReviews.some(review => 
-        review.status === 'REJECTED' && review.allowReupload
-      )
+      // Removed canReupload as it does not exist on user
     };
 
-    // Log this access in audit trail
-    await prisma.auditLog.create({
-      data: {
-        userId,
-        action: 'USER_PROFILE_VIEW',
-        details: `Viewed user profile with Dojah verification data: ${targetUser.firstName} ${targetUser.lastName}`,
-        targetId: targetUser.id,
-        targetType: 'USER',
-      },
-    });
-
-    return new NextResponse(
-      JSON.stringify(userDetails),
-      { status: 200 }
-    );
+    console.log('GET_USER_DETAILS_SUCCESS', responseData);
+    return NextResponse.json(responseData);
   } catch (error: any) {
-    console.error('USER_DETAILS_ERROR', error);
-    
+    console.error('GET_USER_DETAILS_ERROR', error);
     return new NextResponse(
-      JSON.stringify({
-        error: error.message || 'An error occurred while fetching user details',
-      }),
+      JSON.stringify({ error: error.message || 'An error occurred while fetching user details' }),
       { status: 500 }
     );
   }

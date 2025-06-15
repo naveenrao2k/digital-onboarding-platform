@@ -17,7 +17,9 @@ import {
   Calendar
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { useHeader } from '../../layout';
 import { VerificationStatusEnum } from '@/app/generated/prisma';
+import Pagination from '@/components/common/Pagination';
 
 interface ApprovedSubmission {
   id: string;
@@ -35,116 +37,133 @@ const AdminApprovedSubmissionsPage = () => {
   const { user, loading } = useAuth();
   const [approvedSubmissions, setApprovedSubmissions] = useState<ApprovedSubmission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState('');  const [searchQuery, setSearchQuery] = useState('');
   const [documentTypeFilter, setDocumentTypeFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const { updateHeader } = useHeader();
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
-     fetchApprovedSubmissions();
-    if (loading) {
-      
-        fetchApprovedSubmissions();
-    
+    if (!loading) {
+      fetchApprovedSubmissions();
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, currentPage, documentTypeFilter]);
 
+  useEffect(() => {
+    updateHeader('Approved Submissions', 'View all documents that have been approved');
+  }, [updateHeader]);
   const fetchApprovedSubmissions = async () => {
     setIsLoading(true);
     setError('');
 
     try {
-      // In a real implementation, you would fetch this data from API
-      // For demo purposes, we'll use mock data
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Build query parameters based on filters
+      const params = new URLSearchParams();
+      if (documentTypeFilter !== 'all') {
+        params.append('documentType', documentTypeFilter);
+      }
+      if (searchQuery) {
+        params.append('search', searchQuery);
+      }
+      if (dateFilter !== 'all') {
+        params.append('dateFilter', dateFilter);
+      }
+      params.append('page', currentPage.toString());
+      params.append('limit', '10'); // Adjust limit as needed
 
-      // Mock approved submissions data
-      setApprovedSubmissions([
-        {
-          id: 'doc_6',
-          userId: 'user_6',
-          userName: 'Lisa Anderson',
-          documentType: 'Passport',
-          dateSubmitted: '2025-05-19',
-          approvedAt: '2025-05-20 14:30:22',
-          approvedBy: 'Admin User',
-          fileName: 'passport.jpg'
-        },
-        {
-          id: 'doc_8',
-          userId: 'user_8',
-          userName: 'Jennifer Taylor',
-          documentType: 'Utility Bill',
-          dateSubmitted: '2025-05-17',
-          approvedAt: '2025-05-18 11:15:45',
-          approvedBy: 'Admin User',
-          fileName: 'utility_bill.pdf'
-        },
-        {
-          id: 'doc_10',
-          userId: 'user_10',
-          userName: 'Patricia Martin',
-          documentType: 'Certificate of Incorporation',
-          dateSubmitted: '2025-05-15',
-          approvedAt: '2025-05-16 09:45:10',
-          approvedBy: 'Admin Manager',
-          fileName: 'certificate.pdf'
-        },
-        {
-          id: 'doc_16',
-          userId: 'user_16',
-          userName: 'Richard Davis',
-          documentType: 'ID Card',
-          dateSubmitted: '2025-05-14',
-          approvedAt: '2025-05-15 16:20:33',
-          approvedBy: 'Admin User',
-          fileName: 'id_card.jpg'
-        },
-        {
-          id: 'doc_17',
-          userId: 'user_17',
-          userName: 'Michelle White',
-          documentType: 'Selfie Verification',
-          dateSubmitted: '2025-05-13',
-          approvedAt: '2025-05-14 10:05:18',
-          approvedBy: 'Admin Manager',
-          fileName: 'selfie.jpg'
-        },
-      ]);
+      // Fetch data from the API
+      const response = await fetch(`/api/admin/submissions/approved?${params.toString()}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch approved submissions');
+      }
+
+      const data = await response.json();
+      
+      // Handle both pagination and non-pagination response formats
+      if (data.data && data.pagination) {
+        // New format with pagination
+        setApprovedSubmissions(data.data.map((item: any) => ({
+          id: item.id,
+          userId: item.userId,
+          userName: item.userName,
+          documentType: item.documentType,
+          dateSubmitted: item.dateSubmitted,
+          approvedAt: item.dateApproved,
+          approvedBy: item.approvedBy,
+          fileName: item.fileName
+        })));
+        setTotalPages(data.pagination.totalPages);
+      } else {
+        // Old format without pagination
+        setApprovedSubmissions(data.map((item: any) => ({
+          id: item.id,
+          userId: item.userId,
+          userName: item.userName,
+          documentType: item.documentType,
+          dateSubmitted: item.dateSubmitted,
+          approvedAt: item.dateApproved,
+          approvedBy: item.approvedBy,
+          fileName: item.fileName
+        })));
+      }
     } catch (err) {
       console.error('Error fetching approved submissions:', err);
       setError('Failed to load approved submissions. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleSearch = (e: React.FormEvent) => {
+  };  const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // Filter submissions based on search query (in production, you'd typically do this server-side)
-    console.log('Searching for:', searchQuery);
+    setCurrentPage(1); // Reset to page 1 when searching
+    fetchApprovedSubmissions();
   };
 
   const handleViewDetails = (userId: string) => {
     router.push(`/admin/users/${userId}`);
   };
+  const handleDownload = async (userId: string, documentId: string, fileName: string) => {
+    try {
+      const response = await fetch(`/api/admin/submissions/${userId}/download?documentId=${documentId}`);
+      if (!response.ok) throw new Error('Download failed');
 
-  const handleDownload = (submissionId: string, fileName: string) => {
-    // In a real implementation, you would download the file
-    console.log('Downloading file:', fileName, 'for submission:', submissionId);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName || 'document';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Error downloading document:', err);
+      // Show error notification in a real app
+    }
   };
-
-  const handleRevoke = async (submissionId: string) => {
+  const handleRevoke = async (userId: string, documentId: string) => {
     try {
       // In a real implementation, you would call an API endpoint
-      console.log('Revoking approval for document:', submissionId);
+      const response = await fetch(`/api/admin/submissions/${userId}/update`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentId: documentId,
+          documentStatus: 'PENDING',
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to revoke approval');
+      }
       
       // Update submissions - remove the revoked one
       setApprovedSubmissions(prevSubmissions => 
-        prevSubmissions.filter(submission => submission.id !== submissionId)
+        prevSubmissions.filter(submission => submission.id !== documentId)
       );
       
       // Show success notification (in a real app)
@@ -153,25 +172,9 @@ const AdminApprovedSubmissionsPage = () => {
       // Show error notification
     }
   };
-
-  // Filter submissions based on filters
-  const filteredSubmissions = approvedSubmissions.filter(submission => {
-    // Document type filter
-    if (documentTypeFilter !== 'all' && submission.documentType !== documentTypeFilter) {
-      return false;
-    }
-    
-    // Search query filter (case insensitive)
-    if (searchQuery && !(
-      submission.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      submission.documentType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      submission.approvedBy.toLowerCase().includes(searchQuery.toLowerCase())
-    )) {
-      return false;
-    }
-    
-    return true;
-  });
+  // We don't need to filter submissions again as they are already filtered by the API
+  // Using the submissions directly from the API response
+  const filteredSubmissions = approvedSubmissions;
 
   // Get unique document types for filter
   const documentTypes = Array.from(new Set(approvedSubmissions.map(s => s.documentType)));
@@ -186,11 +189,6 @@ const AdminApprovedSubmissionsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Approved Submissions</h1>
-        <p className="text-gray-600">View all verified and approved documents</p>
-      </div>
-      
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-8">
         {/* Search and Filters */}
         <div className="p-4 border-b border-gray-200">
@@ -209,10 +207,13 @@ const AdminApprovedSubmissionsPage = () => {
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center">
                 <label className="mr-2 text-sm text-gray-700">Document:</label>
-                <div className="relative">
-                  <select
-                    value={documentTypeFilter}
-                    onChange={(e) => setDocumentTypeFilter(e.target.value)}
+                <div className="relative">                  <select value={documentTypeFilter}
+                    onChange={(e) => {
+                      setDocumentTypeFilter(e.target.value);
+                      setCurrentPage(1); // Reset to page 1 when filter changes
+                      // Trigger fetch when filter changes
+                      setTimeout(() => fetchApprovedSubmissions(), 0);
+                    }}
                     className="appearance-none bg-white border border-gray-300 rounded-md pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="all">All Types</option>
@@ -318,16 +319,14 @@ const AdminApprovedSubmissionsPage = () => {
                           title="View Details"
                         >
                           <Eye className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDownload(submission.id, submission.fileName)}
+                        </button>                        <button
+                          onClick={() => handleDownload(submission.userId, submission.id, submission.fileName)}
                           className="p-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded"
                           title="Download"
                         >
                           <Download className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleRevoke(submission.id)}
+                        </button>                        <button
+                          onClick={() => handleRevoke(submission.userId, submission.id)}
                           className="p-1 bg-red-100 hover:bg-red-200 text-red-800 rounded"
                           title="Revoke Approval"
                         >
@@ -339,6 +338,20 @@ const AdminApprovedSubmissionsPage = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="p-4">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={(page) => {
+                setCurrentPage(page);
+                // fetchApprovedSubmissions will be called via useEffect when currentPage changes
+              }}
+            />
           </div>
         )}
       </div>

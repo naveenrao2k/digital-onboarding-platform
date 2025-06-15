@@ -17,7 +17,9 @@ import {
   Flag
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { useHeader } from '../../layout';
 import { VerificationStatusEnum } from '@/app/generated/prisma';
+import Pagination from '@/components/common/Pagination';
 
 interface FlaggedSubmission {
   id: string;
@@ -40,123 +42,98 @@ const AdminFlaggedSubmissionsPage = () => {
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [documentTypeFilter, setDocumentTypeFilter] = useState<string>('all');
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const { updateHeader } = useHeader();
   // Check if user is authenticated and has admin role
   useEffect(() => {
-    fetchFlaggedSubmissions();
-
-    if (loading) {
-
+    if (!loading) {
       fetchFlaggedSubmissions();
-
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, currentPage]);
 
+  useEffect(() => {
+    updateHeader('Flagged Submissions', 'Review documents that require special attention');
+  }, [updateHeader]);
   const fetchFlaggedSubmissions = async () => {
     setIsLoading(true);
     setError('');
 
     try {
-      // In a real implementation, you would fetch this data from API
-      // For demo purposes, we'll use mock data
+      // Build query parameters based on filters
+      const params = new URLSearchParams();
+      if (documentTypeFilter !== 'all') {
+        params.append('documentType', documentTypeFilter);
+      }
+      if (searchQuery) {
+        params.append('search', searchQuery);
+      }
+      params.append('page', currentPage.toString());
+      params.append('limit', '10'); // Adjust limit as needed
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Mock flagged submissions data
-      setFlaggedSubmissions([
-        {
-          id: 'doc_11',
-          userId: 'user_11',
-          userName: 'Alex Thompson',
-          documentType: 'Passport',
-          dateSubmitted: '2025-05-21',
-          status: 'IN_PROGRESS',
-          fileName: 'passport.jpg',
-          flagReason: 'Possible document tampering',
-          flaggedAt: '2025-05-22 10:15:30',
-          flaggedBy: 'System'
-        },
-        {
-          id: 'doc_12',
-          userId: 'user_12',
-          userName: 'Jessica Parker',
-          documentType: 'ID Card',
-          dateSubmitted: '2025-05-20',
-          status: 'IN_PROGRESS',
-          fileName: 'id_card.jpg',
-          flagReason: 'Information mismatch with existing records',
-          flaggedAt: '2025-05-21 14:22:45',
-          flaggedBy: 'Admin User'
-        },
-        {
-          id: 'doc_13',
-          userId: 'user_13',
-          userName: 'Daniel Wilson',
-          documentType: 'Utility Bill',
-          dateSubmitted: '2025-05-19',
-          status: 'IN_PROGRESS',
-          fileName: 'utility_bill.pdf',
-          flagReason: 'Document expired',
-          flaggedAt: '2025-05-20 09:30:15',
-          flaggedBy: 'System'
-        },
-        {
-          id: 'doc_14',
-          userId: 'user_14',
-          userName: 'Olivia Martinez',
-          documentType: 'Selfie Verification',
-          dateSubmitted: '2025-05-18',
-          status: 'IN_PROGRESS',
-          fileName: 'selfie.jpg',
-          flagReason: 'Face not matching ID document',
-          flaggedAt: '2025-05-19 11:45:22',
-          flaggedBy: 'Admin Manager'
-        },
-        {
-          id: 'doc_15',
-          userId: 'user_15',
-          userName: 'William Johnson',
-          documentType: 'Certificate of Incorporation',
-          dateSubmitted: '2025-05-17',
-          status: 'IN_PROGRESS',
-          fileName: 'certificate.pdf',
-          flagReason: 'Suspicious business activity',
-          flaggedAt: '2025-05-18 15:10:05',
-          flaggedBy: 'Admin User'
-        },
-      ]);
+      // Fetch data from the API
+      const response = await fetch(`/api/admin/submissions/flagged?${params.toString()}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch flagged submissions');
+      }      const data = await response.json();
+      setFlaggedSubmissions(data.data);
+      setTotalPages(data.pagination.totalPages);
     } catch (err) {
       console.error('Error fetching flagged submissions:', err);
       setError('Failed to load flagged submissions. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleSearch = (e: React.FormEvent) => {
+  };  const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // Filter submissions based on search query (in production, you'd typically do this server-side)
-    console.log('Searching for:', searchQuery);
+    setCurrentPage(1); // Reset to page 1 when searching
+    fetchFlaggedSubmissions();
   };
 
   const handleViewDetails = (userId: string) => {
     router.push(`/admin/users/${userId}`);
   };
+  const handleDownload = async (userId: string, documentId: string, fileName: string) => {
+    try {
+      const response = await fetch(`/api/admin/submissions/${userId}/download?documentId=${documentId}`);
+      if (!response.ok) throw new Error('Download failed');
 
-  const handleDownload = (submissionId: string, fileName: string) => {
-    // In a real implementation, you would download the file
-    console.log('Downloading file:', fileName, 'for submission:', submissionId);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName || 'document';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Error downloading document:', err);
+      // Show error notification in a real app
+    }
   };
-
-  const handleApprove = async (submissionId: string) => {
+  const handleApprove = async (userId: string, documentId: string) => {
     try {
       // In a real implementation, you would call an API endpoint
-      console.log('Approving flagged document:', submissionId);
+      const response = await fetch(`/api/admin/submissions/${userId}/update`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentId: documentId,
+          documentStatus: 'APPROVED',
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to approve submission');
+      }
 
       // Update submissions - remove the approved one
       setFlaggedSubmissions(prevSubmissions =>
-        prevSubmissions.filter(submission => submission.id !== submissionId)
+        prevSubmissions.filter(submission => submission.id !== documentId)
       );
 
       // Show success notification (in a real app)
@@ -165,15 +142,26 @@ const AdminFlaggedSubmissionsPage = () => {
       // Show error notification
     }
   };
-
-  const handleReject = async (submissionId: string) => {
+  const handleReject = async (userId: string, documentId: string) => {
     try {
       // In a real implementation, you would call an API endpoint
-      console.log('Rejecting flagged document:', submissionId);
+      const response = await fetch(`/api/admin/submissions/${userId}/update`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentId: documentId,
+          documentStatus: 'REJECTED',
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to reject submission');
+      }
 
       // Update submissions - remove the rejected one
       setFlaggedSubmissions(prevSubmissions =>
-        prevSubmissions.filter(submission => submission.id !== submissionId)
+        prevSubmissions.filter(submission => submission.id !== documentId)
       );
 
       // Show success notification (in a real app)
@@ -182,15 +170,25 @@ const AdminFlaggedSubmissionsPage = () => {
       // Show error notification
     }
   };
-
-  const handleRemoveFlag = async (submissionId: string) => {
+  const handleRemoveFlag = async (userId: string, documentId: string) => {
     try {
       // In a real implementation, you would call an API endpoint
-      console.log('Removing flag from document:', submissionId);
+      const response = await fetch(`/api/admin/submissions/${userId}/remove-flag`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentId: documentId
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to remove flag');
+      }
 
       // Update submissions - remove the unflagged one
       setFlaggedSubmissions(prevSubmissions =>
-        prevSubmissions.filter(submission => submission.id !== submissionId)
+        prevSubmissions.filter(submission => submission.id !== documentId)
       );
 
       // Show success notification (in a real app)
@@ -199,25 +197,9 @@ const AdminFlaggedSubmissionsPage = () => {
       // Show error notification
     }
   };
-
-  // Filter submissions based on filters
-  const filteredSubmissions = flaggedSubmissions.filter(submission => {
-    // Document type filter
-    if (documentTypeFilter !== 'all' && submission.documentType !== documentTypeFilter) {
-      return false;
-    }
-
-    // Search query filter (case insensitive)
-    if (searchQuery && !(
-      submission.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      submission.documentType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      submission.flagReason.toLowerCase().includes(searchQuery.toLowerCase())
-    )) {
-      return false;
-    }
-
-    return true;
-  });
+  // We don't need to filter submissions again as they are already filtered by the API
+  // Using the submissions directly from the API response
+  const filteredSubmissions = flaggedSubmissions;
 
   // Get unique document types for filter
   const documentTypes = Array.from(new Set(flaggedSubmissions.map(s => s.documentType)));
@@ -232,10 +214,7 @@ const AdminFlaggedSubmissionsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Flagged Submissions</h1>
-        <p className="text-gray-600">Review submissions that require special attention</p>
-      </div>
+      
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-8">
         {/* Search and Filters */}
@@ -254,11 +233,14 @@ const AdminFlaggedSubmissionsPage = () => {
 
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center">
-                <label className="mr-2 text-sm text-gray-700">Document:</label>
-                <div className="relative">
+                <label className="mr-2 text-sm text-gray-700">Document:</label>                <div className="relative">
                   <select
                     value={documentTypeFilter}
-                    onChange={(e) => setDocumentTypeFilter(e.target.value)}
+                    onChange={(e) => {
+                      setDocumentTypeFilter(e.target.value);
+                      // Trigger fetch when filter changes
+                      setTimeout(() => fetchFlaggedSubmissions(), 0);
+                    }}
                     className="appearance-none bg-white border border-gray-300 rounded-md pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="all">All Types</option>
@@ -363,21 +345,21 @@ const AdminFlaggedSubmissionsPage = () => {
                           <Eye className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDownload(submission.id, submission.fileName)}
+                          onClick={() => handleDownload(submission.userId, submission.id, submission.fileName)}
                           className="p-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded"
                           title="Download"
                         >
                           <Download className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleApprove(submission.id)}
+                          onClick={() => handleApprove(submission.userId, submission.id)}
                           className="p-1 bg-green-100 hover:bg-green-200 text-green-800 rounded"
                           title="Approve"
                         >
                           <CheckCircle className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleReject(submission.id)}
+                          onClick={() => handleReject(submission.userId, submission.id)}
                           className="p-1 bg-red-100 hover:bg-red-200 text-red-800 rounded"
                           title="Reject"
                         >
@@ -389,6 +371,19 @@ const AdminFlaggedSubmissionsPage = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="p-4">            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={(page) => {
+                setCurrentPage(page);
+                // No need to call fetchFlaggedSubmissions() here as it will be triggered by the useEffect
+              }}
+            />
           </div>
         )}
       </div>

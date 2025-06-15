@@ -53,14 +53,17 @@ export async function GET(req: NextRequest) {
     if (!user) {
       isNewUser = true;
       
+      // Generate a unique placeholder email using the ID
+      const placeholderEmail = `user_${id}@placeholder.com`;
+      
       // Create user with basic information
       user = await prisma.user.create({
         data: {
           id,
-          firstName: name ? name.split(' ')[0] : 'Guest',
-          lastName: name ? name.split(' ').slice(1).join(' ') : String(Date.now()),
+          firstName: name ? name.split(' ')[0] : '',
+          lastName: name ? name.split(' ').slice(1).join(' ') : '',
           phone: phone_number || '',
-          email: `${id}@example.com`, // Create placeholder email
+          email: placeholderEmail, // Use placeholder email that's unique based on the ID
           role: 'USER' as UserRole,
           accountType: 'INDIVIDUAL' as AccountType,
           accountStatus: 'PENDING',
@@ -158,8 +161,8 @@ export async function GET(req: NextRequest) {
     // Determine the redirect URL based on user status
     const redirectUrl = isNewUser ? '/user/upload-kyc-documents' : '/user/dashboard';
     
-    // Check if client wants auto-redirect (using the searchParams from earlier)
-    const autoRedirect = searchParams.get('autoRedirect') === 'true';
+    // Always set autoRedirect to true to enforce redirect behavior
+    const autoRedirect = true;
     
     if (autoRedirect) {
       // Send a redirect response with the user data
@@ -204,4 +207,3 @@ export async function GET(req: NextRequest) {
     );
   }
 }
-

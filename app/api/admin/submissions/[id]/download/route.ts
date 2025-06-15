@@ -42,42 +42,32 @@ export async function GET(
         { status: 401 }
       );
     }
+    
+    // Get documentId from query parameters
+    const url = new URL(request.url);
+    const documentId = url.searchParams.get('documentId');
+    
+    if (!documentId) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Document ID is required' }),
+        { status: 400 }
+      );
+    }
 
     // Get document
-    const document = await prisma.kYCDocument.findUnique({
-      where: { id: params.id },
-      include: {
-        FileChunk: {
-          orderBy: { chunkIndex: 'asc' }
-        }
+    const document = await prisma.kYCDocument.findFirst({
+      where: { 
+        id: documentId,
+        userId: params.id // Use the URL param as userId
       }
     });
 
     if (!document) {
       return new NextResponse(
-        JSON.stringify({ error: 'Document not found' }),
+        JSON.stringify({ error: 'Document not found or does not belong to the specified user' }),
         { status: 404 }
       );
     }
-
-    // If document is stored in chunks, combine them
-    let fileContent = document.fileContent || '';
-    if (document.isChunked && document.FileChunk.length > 0) {
-      fileContent = document.FileChunk.map(chunk => chunk.content).join('');
-    }
-
-    // Convert base64 to buffer
-    const buffer = Buffer.from(fileContent, 'base64');
-
-    // Create response with proper headers
-    const response = new NextResponse(buffer, {
-      status: 200,
-      headers: {
-        'Content-Type': document.mimeType,
-        'Content-Disposition': `attachment; filename="${document.fileName}"`,
-        'Content-Length': buffer.length.toString(),
-      },
-    });
 
     // Log the download in audit trail
     await prisma.auditLog.create({
@@ -90,7 +80,8 @@ export async function GET(
       },
     });
 
-    return response;
+    // Redirect to S3 URL
+    return NextResponse.redirect(document.fileUrl);
   } catch (error: any) {
     console.error('DOCUMENT_DOWNLOAD_ERROR', error);
     

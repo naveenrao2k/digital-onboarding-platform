@@ -17,7 +17,9 @@ import {
   Calendar
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { useHeader } from '../../layout';
 import { VerificationStatusEnum } from '@/app/generated/prisma';
+import Pagination from '@/components/common/Pagination';
 
 interface RejectedSubmission {
   id: string;
@@ -36,121 +38,128 @@ const AdminRejectedSubmissionsPage = () => {
   const { user, loading } = useAuth();
   const [rejectedSubmissions, setRejectedSubmissions] = useState<RejectedSubmission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState('');  const [searchQuery, setSearchQuery] = useState('');
   const [documentTypeFilter, setDocumentTypeFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const { updateHeader } = useHeader();
 
   // Check if user is authenticated and has admin role
   useEffect(() => {
     if (!loading) {
-      if (!user) {
-        // router.push('/access');
-      } else if (user.role !== 'ADMIN') {
-        // Redirect non-admin users
-        // router.push('/user/dashboard');
-      } else {
-        // Fetch rejected submissions data
-        fetchRejectedSubmissions();
-      }
+      fetchRejectedSubmissions();
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, currentPage, documentTypeFilter]);
 
+  useEffect(() => {
+    updateHeader('Rejected Submissions', 'View and manage all rejected document submissions');
+  }, [updateHeader]);
   const fetchRejectedSubmissions = async () => {
     setIsLoading(true);
     setError('');
 
     try {
-      // In a real implementation, you would fetch this data from API
-      // For demo purposes, we'll use mock data
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Build query parameters based on filters
+      const params = new URLSearchParams();
+      if (documentTypeFilter !== 'all') {
+        params.append('documentType', documentTypeFilter);
+      }
+      if (searchQuery) {
+        params.append('search', searchQuery);
+      }
+      params.append('page', currentPage.toString());
+      params.append('limit', '10'); // Adjust limit as needed
 
-      // Mock rejected submissions data
-      setRejectedSubmissions([
-        {
-          id: 'doc_7',
-          userId: 'user_7',
-          userName: 'Robert Wilson',
-          documentType: 'ID Card',
-          dateSubmitted: '2025-05-18',
-          rejectedAt: '2025-05-19 13:45:22',
-          rejectedBy: 'Admin User',
-          fileName: 'id_card.jpg',
-          rejectionReason: 'Document is expired'
-        },
-        {
-          id: 'doc_9',
-          userId: 'user_9',
-          userName: 'Thomas Moore',
-          documentType: 'Selfie Verification',
-          dateSubmitted: '2025-05-16',
-          rejectedAt: '2025-05-17 10:30:15',
-          rejectedBy: 'Admin Manager',
-          fileName: 'selfie.jpg',
-          rejectionReason: 'Face not clearly visible'
-        },
-        {
-          id: 'doc_18',
-          userId: 'user_18',
-          userName: 'Christopher Lee',
-          documentType: 'Passport',
-          dateSubmitted: '2025-05-15',
-          rejectedAt: '2025-05-16 14:20:33',
-          rejectedBy: 'Admin User',
-          fileName: 'passport.jpg',
-          rejectionReason: 'Information does not match user profile'
-        },
-        {
-          id: 'doc_19',
-          userId: 'user_19',
-          userName: 'Amanda Clark',
-          documentType: 'Utility Bill',
-          dateSubmitted: '2025-05-14',
-          rejectedAt: '2025-05-15 09:15:40',
-          rejectedBy: 'Admin Manager',
-          fileName: 'utility_bill.pdf',
-          rejectionReason: 'Document is more than 3 months old'
-        },
-        {
-          id: 'doc_20',
-          userId: 'user_20',
-          userName: 'Brian Walker',
-          documentType: 'Certificate of Incorporation',
-          dateSubmitted: '2025-05-13',
-          rejectedAt: '2025-05-14 16:50:12',
-          rejectedBy: 'Admin User',
-          fileName: 'certificate.pdf',
-          rejectionReason: 'Document appears to be tampered with'
-        },
-      ]);
+      // Fetch data from the API
+      const response = await fetch(`/api/admin/submissions/rejected?${params.toString()}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch rejected submissions');
+      }
+
+      const data = await response.json();
+      
+      // Handle both pagination and non-pagination response formats
+      if (data.data && data.pagination) {
+        // New format with pagination
+        setRejectedSubmissions(data.data.map((item: any) => ({
+          id: item.id,
+          userId: item.userId,
+          userName: item.userName,
+          documentType: item.documentType,
+          dateSubmitted: item.dateSubmitted,
+          rejectedAt: item.dateRejected,
+          rejectedBy: item.rejectedBy,
+          fileName: item.fileName,
+          rejectionReason: item.rejectionReason || 'Document rejected'
+        })));
+        setTotalPages(data.pagination.totalPages);
+      } else {
+        // Old format without pagination
+        setRejectedSubmissions(data.map((item: any) => ({
+          id: item.id,
+          userId: item.userId,
+          userName: item.userName,
+          documentType: item.documentType,
+          dateSubmitted: item.dateSubmitted,
+          rejectedAt: item.dateRejected,
+          rejectedBy: item.rejectedBy,
+          fileName: item.fileName,
+          rejectionReason: item.rejectionReason || 'Document rejected'
+        })));
+      }
     } catch (err) {
       console.error('Error fetching rejected submissions:', err);
       setError('Failed to load rejected submissions. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleSearch = (e: React.FormEvent) => {
+  };  const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // Filter submissions based on search query (in production, you'd typically do this server-side)
-    console.log('Searching for:', searchQuery);
+    setCurrentPage(1); // Reset to page 1 when searching
+    fetchRejectedSubmissions();
   };
 
   const handleViewDetails = (userId: string) => {
     router.push(`/admin/users/${userId}`);
   };
+  const handleDownload = async (userId: string, documentId: string, fileName: string) => {
+    try {
+      const response = await fetch(`/api/admin/submissions/${userId}/download?documentId=${documentId}`);
+      if (!response.ok) throw new Error('Download failed');
 
-  const handleDownload = (submissionId: string, fileName: string) => {
-    // In a real implementation, you would download the file
-    console.log('Downloading file:', fileName, 'for submission:', submissionId);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName || 'document';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Error downloading document:', err);
+      // Show error notification in a real app
+    }
   };
-
-  const handleRequestResubmission = async (submissionId: string) => {
+  const handleRequestResubmission = async (userId: string, documentId: string) => {
     try {
       // In a real implementation, you would call an API endpoint
-      console.log('Requesting resubmission for document:', submissionId);
+      const response = await fetch(`/api/admin/submissions/${userId}/request-resubmission`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentId: documentId,
+          message: 'Please resubmit this document with the correct information.',
+          allowReupload: true
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to request resubmission');
+      }
       
       // Show success notification (in a real app)
       alert('Resubmission request sent to user');
@@ -159,25 +168,9 @@ const AdminRejectedSubmissionsPage = () => {
       // Show error notification
     }
   };
-
-  // Filter submissions based on filters
-  const filteredSubmissions = rejectedSubmissions.filter(submission => {
-    // Document type filter
-    if (documentTypeFilter !== 'all' && submission.documentType !== documentTypeFilter) {
-      return false;
-    }
-    
-    // Search query filter (case insensitive)
-    if (searchQuery && !(
-      submission.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      submission.documentType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      submission.rejectionReason.toLowerCase().includes(searchQuery.toLowerCase())
-    )) {
-      return false;
-    }
-    
-    return true;
-  });
+  // We don't need to filter submissions again as they are already filtered by the API
+  // Using the submissions directly from the API response
+  const filteredSubmissions = rejectedSubmissions;
 
   // Get unique document types for filter
   const documentTypes = Array.from(new Set(rejectedSubmissions.map(s => s.documentType)));
@@ -192,10 +185,7 @@ const AdminRejectedSubmissionsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Rejected Submissions</h1>
-        <p className="text-gray-600">View all rejected documents and request resubmissions</p>
-      </div>
+    
       
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-8">
         {/* Search and Filters */}
@@ -215,10 +205,14 @@ const AdminRejectedSubmissionsPage = () => {
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center">
                 <label className="mr-2 text-sm text-gray-700">Document:</label>
-                <div className="relative">
-                  <select
+                <div className="relative">                  <select
                     value={documentTypeFilter}
-                    onChange={(e) => setDocumentTypeFilter(e.target.value)}
+                    onChange={(e) => {
+                      setDocumentTypeFilter(e.target.value);
+                      setCurrentPage(1); // Reset to page 1 when filter changes
+                      // Trigger fetch when filter changes
+                      setTimeout(() => fetchRejectedSubmissions(), 0);
+                    }}
                     className="appearance-none bg-white border border-gray-300 rounded-md pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="all">All Types</option>
@@ -324,16 +318,14 @@ const AdminRejectedSubmissionsPage = () => {
                           title="View Details"
                         >
                           <Eye className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDownload(submission.id, submission.fileName)}
+                        </button>                        <button
+                          onClick={() => handleDownload(submission.userId, submission.id, submission.fileName)}
                           className="p-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded"
                           title="Download"
                         >
                           <Download className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleRequestResubmission(submission.id)}
+                        </button>                        <button
+                          onClick={() => handleRequestResubmission(submission.userId, submission.id)}
                           className="p-1 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded"
                           title="Request Resubmission"
                         >
@@ -345,6 +337,20 @@ const AdminRejectedSubmissionsPage = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="p-4">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={(page) => {
+                setCurrentPage(page);
+                // fetchRejectedSubmissions will be called via useEffect when currentPage changes
+              }}
+            />
           </div>
         )}
       </div>

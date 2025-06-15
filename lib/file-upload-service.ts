@@ -167,3 +167,127 @@ export const getVerificationStatus = async (userId?: string) => {
     throw error;
   }
 };
+
+// Types for validation responses
+interface ValidationResult {
+  isValid: boolean;
+  extractedData?: any;
+  message: string;
+}
+
+// Common validation function to reduce code duplication
+const validateDocument = async (
+  documentType: DocumentType,
+  file: File,
+  businessType?: 'individual' | 'partnership' | 'enterprise' | 'llc'
+): Promise<ValidationResult> => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('document_type', mapDocTypeForDojah(documentType));
+    if (businessType) {
+      formData.append('business_type', businessType);
+    }
+
+    const response = await fetch('/api/validate-business-document', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to validate document');
+    }
+
+    return {
+      isValid: data.isValid,
+      extractedData: data.extractedData,
+      message: data.message || 'Document validated successfully',
+    };
+  } catch (error) {
+    console.error('Document validation error:', error);
+    return {
+      isValid: false,
+      message: error instanceof Error ? error.message : 'Failed to validate document',
+    };
+  }
+};
+
+export const validateIndividualDocument = async (
+  documentType: DocumentType,
+  file: File,
+  backFile?: File
+): Promise<ValidationResult> => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('document_type', mapDocTypeForDojah(documentType));
+    formData.append('business_type', 'individual');
+    
+    // If this is an ID card and we have both sides, include the back
+    if (documentType === DocumentType.ID_CARD && backFile) {
+      formData.append('back_file', backFile);
+    }
+
+    const response = await fetch('/api/validate-business-document', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to validate document');
+    }
+
+    return {
+      isValid: data.isValid,
+      extractedData: data.extractedData,
+      message: data.message || 'Document validated successfully',
+    };
+  } catch (error) {
+    console.error('Document validation error:', error);
+    return {
+      isValid: false,
+      message: error instanceof Error ? error.message : 'Failed to validate document',
+    };
+  }
+};
+
+export const validatePartnershipDocument = (documentType: DocumentType, file: File): Promise<ValidationResult> => {
+  return validateDocument(documentType, file, 'partnership');
+};
+
+export const validateEnterpriseDocument = (documentType: DocumentType, file: File): Promise<ValidationResult> => {
+  return validateDocument(documentType, file, 'enterprise');
+};
+
+export const validateLlcDocument = (documentType: DocumentType, file: File): Promise<ValidationResult> => {
+  return validateDocument(documentType, file, 'llc');
+};
+
+// Helper to map our document types to Dojah API document types
+function mapDocTypeForDojah(documentType: DocumentType): string {  const mapping: Record<DocumentType, string> = {
+    [DocumentType.ID_CARD]: 'id_card',
+    [DocumentType.PASSPORT]: 'passport',
+    [DocumentType.UTILITY_BILL]: 'utility_bill',
+    [DocumentType.CERTIFICATE_OF_REGISTRATION]: 'business_registration',
+    [DocumentType.FORM_OF_APPLICATION]: 'business_reg_form',
+    [DocumentType.VALID_ID_OF_PARTNERS]: 'id_card',
+    [DocumentType.PROOF_OF_ADDRESS]: 'proof_of_address',
+    [DocumentType.CERTIFICATE_OF_INCORPORATION]: 'certificate_of_incorporation',
+    [DocumentType.MEMORANDUM_ARTICLES]: 'memorandum_articles',
+    [DocumentType.BOARD_RESOLUTION]: 'board_resolution',
+    [DocumentType.DIRECTORS_ID]: 'id_card',
+    [DocumentType.PASSPORT_PHOTOS]: 'passport_photo',
+    [DocumentType.UTILITY_RECEIPT]: 'utility_bill',
+    [DocumentType.BUSINESS_OWNER_ID]: 'id_card',
+    [DocumentType.BVN_SLIP]: 'bvn_doc',
+    [DocumentType.NIN_SLIP]: 'nin_doc',
+    [DocumentType.DRIVERS_LICENSE]: 'drivers_license',
+    [DocumentType.VOTERS_CARD]: 'voters_card'
+  };
+  
+  return mapping[documentType] || 'generic_document';
+}

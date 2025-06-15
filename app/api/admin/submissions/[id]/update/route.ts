@@ -105,14 +105,22 @@ export async function PUT(
           status: documentStatus,
           notes: notes || undefined,
         },
-      });
-
-      // Log the action
+      });      // Log the action
       await prisma.auditLog.create({
         data: {
           userId,
-          action: documentStatus === 'APPROVED' ? 'DOCUMENT_APPROVED' : 'DOCUMENT_REJECTED',
-          details: `${documentStatus === 'APPROVED' ? 'Approved' : 'Rejected'} ${document.type} for ${submissionUser.firstName} ${submissionUser.lastName}${notes ? ` - ${notes}` : ''}`,
+          action: documentStatus === 'APPROVED' 
+            ? 'DOCUMENT_APPROVED' 
+            : documentStatus === 'REJECTED'
+            ? 'DOCUMENT_REJECTED'
+            : 'DOCUMENT_FLAGGED',
+          details: `${
+            documentStatus === 'APPROVED' 
+              ? 'Approved' 
+              : documentStatus === 'REJECTED'
+              ? 'Rejected'
+              : 'Flagged'
+          } ${document.type} for ${submissionUser.firstName} ${submissionUser.lastName}${notes ? ` - ${notes}` : ''}`,
           targetId: document.id,
           targetType: 'KYC_DOCUMENT',
         },

@@ -25,14 +25,32 @@ export async function GET() {
     
     if (!userId) {
       return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Unauthorized - No valid session found' }),
         { status: 401 }
       );
     }
     
-    const profile = await getUserProfile(userId);
-    
-    return NextResponse.json(profile);
+    try {
+      const profile = await getUserProfile(userId);
+      return NextResponse.json(profile);
+    } catch (error: any) {
+      console.error('USER_PROFILE_ERROR', error);
+      
+      // If user not found, return 401 instead of 500
+      if (error.message.includes('User not found')) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Unauthorized - Invalid user ID' }),
+          { status: 401 }
+        );
+      }
+      
+      return new NextResponse(
+        JSON.stringify({
+          error: error.message || 'An error occurred while fetching user profile',
+        }),
+        { status: 500 }
+      );
+    }
   } catch (error: any) {
     console.error('USER_PROFILE_ERROR', error);
     

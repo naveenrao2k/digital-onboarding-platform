@@ -40,14 +40,15 @@ export async function GET(request: NextRequest) {
         JSON.stringify({ error: 'Unauthorized - Admin access required' }),
         { status: 401 }
       );
-    }
-
-    // Get query parameters
+    }    // Get query parameters
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status');
     const documentType = searchParams.get('documentType');
     const searchQuery = searchParams.get('search');
     const dateFilter = searchParams.get('dateFilter');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const skip = (page - 1) * limit;
 
     // Build where clause
     const where: any = {};
@@ -95,39 +96,69 @@ export async function GET(request: NextRequest) {
           };
           break;
       }
-    }
-
-    // Fetch submissions with user info
-    const submissions = await prisma.kYCDocument.findMany({
-      where,
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+    }    // First, get all users with KYC documents based on the filters
+    const usersWithDocuments = await prisma.user.findMany({
+      where: {
+        kycDocuments: {
+          some: where,
+        },
+        role: {
+          not: {
+            in: ['ADMIN', 'SUPER_ADMIN'],
+          },
+        },
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        kycDocuments: {
+          where,
+          orderBy: {
+            uploadedAt: 'desc',
           },
         },
       },
       orderBy: {
-        uploadedAt: 'desc',
+        createdAt: 'desc',
       },
     });
+    
+    // Get the total count of users that match the criteria for pagination
+    const totalCount = usersWithDocuments.length;
+    
+    // Apply pagination to the users array
+    const paginatedUsers = usersWithDocuments.slice(skip, skip + limit);
 
-    // Format the response
-    const formattedSubmissions = submissions.map(submission => ({
-      id: submission.id,
-      userId: submission.userId,
-      userName: `${submission.user.firstName} ${submission.user.lastName}`,
-      userEmail: submission.user.email,
-      documentType: submission.type,
-      dateSubmitted: submission.uploadedAt,
-      status: submission.status,
-      fileName: submission.fileName,
-    }));
+    // Format the data for the frontend
+    const formattedSubmissions = paginatedUsers.map(user => {
+      // Get the most recent document for this user
+      const mostRecentDoc = user.kycDocuments[0];
+      
+      return {
+        id: mostRecentDoc.id, // Keep the document ID for download purposes
+        userId: user.id,
+        userName: `${user.firstName} ${user.lastName}`,
+        userEmail: user.email,
+        documentType: `${user.kycDocuments.length} Document${user.kycDocuments.length !== 1 ? 's' : ''}`,
+        dateSubmitted: mostRecentDoc.uploadedAt,
+        status: mostRecentDoc.status,
+        fileName: mostRecentDoc.fileName,
+        totalDocuments: user.kycDocuments.length,
+      };
+    });
 
-    return NextResponse.json(formattedSubmissions);
+    return NextResponse.json({
+      data: formattedSubmissions,
+      pagination: {
+        total: totalCount,
+        page,
+        pageSize: limit,
+        totalPages: Math.ceil(totalCount / limit),
+        hasMore: page * limit < totalCount
+      }
+    });
   } catch (error: any) {
     console.error('FETCH_SUBMISSIONS_ERROR', error);
     

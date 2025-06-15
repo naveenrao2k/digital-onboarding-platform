@@ -32,6 +32,7 @@ model User {
   dojahVerifications DojahVerification[]
   adminReviews       AdminReview[]
   reviewedByMe       AdminReview[]       @relation("AdminReviews")
+  fraudDetections    FraudDetection[]
 }
 
 model Account {
@@ -281,6 +282,10 @@ enum DojahVerificationType {
   SELFIE_PHOTO_ID_MATCH
   LIVENESS_CHECK
   AML_SCREENING
+  FRAUD_IP_CHECK
+  FRAUD_EMAIL_CHECK
+  FRAUD_PHONE_CHECK
+  FRAUD_CREDIT_CHECK
 }
 
 enum DojahStatus {
@@ -304,4 +309,43 @@ enum AdminReviewStatus {
   APPROVED
   REJECTED
   REQUIRES_ADDITIONAL_INFO
+}
+
+model FraudDetection {
+  id                 String            @id @default(cuid())
+  userId             String
+  verificationType   FraudCheckType
+  ipAddress          String?
+  emailAddress       String?
+  phoneNumber        String?
+  bvn                String?
+  requestData        Json?
+  responseData       Json?
+  riskScore          Float?
+  isFraudSuspected   Boolean           @default(false)
+  detectionDetails   Json?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  notes              String?
+  reviewStatus       AdminReviewStatus @default(PENDING)
+  reviewedAt         DateTime?
+  reviewedBy         String?
+  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, verificationType])
+}
+
+enum FraudCheckType {
+  IP_CHECK
+  EMAIL_CHECK
+  PHONE_CHECK
+  CREDIT_CHECK
+  COMBINED_CHECK
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
 }

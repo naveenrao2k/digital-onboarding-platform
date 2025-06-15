@@ -1,14 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Shield, User, FileText, CheckCircle, ChevronRight } from 'lucide-react';
-import Link from 'next/link';
+import React from 'react';
 
 const UserLayout = ({ children }: { children: React.ReactNode }) => {
-
     return (
-        <div className="min-h-screen bg-white">
-            {children}
+        <div className="min-h-screen bg-gray-50">
+            <main className="pb-12">
+                {children}
+            </main>
         </div>
     );
 };

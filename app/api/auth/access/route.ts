@@ -85,9 +85,7 @@ export async function GET(req: NextRequest) {
           overallStatus: 'PENDING',
           progress: 0,
         }
-      });
-
-      // Refresh user to get the related data
+      });      // Refresh user to get the related data (only include essential fields for response)
       user = await prisma.user.findUnique({
         where: { id: user.id },
         include: {
@@ -96,90 +94,132 @@ export async function GET(req: NextRequest) {
           account: true
         }
       });
-      // Save audit log for user creation
+
+      // If user exists, schedule background tasks without blocking the response
       if (user) {
-        await prisma.auditLog.create({
-          data: {
-            userId: user.id,
-            action: 'USER_CREATED',
-            details: JSON.stringify({
-              timestamp: new Date().toISOString()
-            })
-          }
-        });        // Run automated fraud check for new user
-        try {
-          console.log('Running automated fraud detection for new user');
+        // Get IP address from request for future fraud check
+        const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+          req.headers.get('x-real-ip') ||
+          '127.0.0.1';
 
-          // Get IP address from request
-          const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-            req.headers.get('x-real-ip') ||
-            '127.0.0.1';
-
-          let fraudCheckResult;
-          try {
-            // Run combined fraud check
-            fraudCheckResult = await dojahService.performComprehensiveCheck({
-              userId: user.id,
-              ipAddress: ipAddress,
-              emailAddress: user.email,
-              phoneNumber: user.phone || undefined,
-            });
-          } catch (apiError) {
-            console.error('Dojah API error:', apiError);
-            // Create a fallback/mock result when the API fails
-            fraudCheckResult = {
-              overallRisk: 30, // Default medium-low risk
-              ipCheck: { status: 'FALLBACK', details: 'API unavailable' },
-              emailCheck: { status: 'FALLBACK', details: 'API unavailable' },
-              phoneCheck: { status: 'FALLBACK', details: 'API unavailable' },
-              fallback: true
-            };
-
-            // Save fallback fraud detection record
-            await prisma.fraudDetection.create({
-              data: {
-                userId: user.id,
-                verificationType: 'COMBINED_CHECK',
-                ipAddress: ipAddress,
-                emailAddress: user.email,
-                phoneNumber: user.phone || undefined,
-                requestData: {
-                  userId: user.id,
-                  ipAddress: ipAddress,
-                  emailAddress: user.email,
-                  phoneNumber: user.phone || undefined
-                },
-                responseData: { error: 'API unavailable', fallback: true },
-                riskScore: 30, // Default medium-low risk
-                isFraudSuspected: false,
-                detectionDetails: { status: 'FALLBACK', details: 'Dojah API unavailable, using fallback risk assessment' }
-              }
-            });
-          }
-
-          console.log('Fraud detection completed:',
-            {
-              userId: user.id,
-              riskScore: fraudCheckResult.overallRisk,
-              isFraudSuspected: fraudCheckResult.overallRisk > 70
-            }
-          );
-
-          // Log the fraud check in audit logs
-          await prisma.auditLog.create({
+        // IMPORTANT: Use setTimeout to completely detach these operations from the request
+        // This ensures they'll run after the response has been sent
+        setTimeout(() => {
+          // 1. Create audit log for user creation
+          prisma.auditLog.create({
             data: {
-              userId: user.id,
-              action: 'FRAUD_CHECK_COMPLETED',
+              userId: user!.id, // Non-null assertion as we check above
+              action: 'USER_CREATED',
               details: JSON.stringify({
-                timestamp: new Date().toISOString(), riskScore: fraudCheckResult.overallRisk,
-                isFraudSuspected: fraudCheckResult.overallRisk > 70,
-                isFallback: 'fallback' in fraudCheckResult
+                timestamp: new Date().toISOString()
               })
             }
-          });
-        } catch (error) {
-          console.error('Error in fraud detection flow:', error);
-        }
+          }).catch(err => console.error('Error creating audit log:', err));
+
+          // 2. Schedule fraud check as a completely separate process
+          setTimeout(async () => {
+            try {
+              console.log('Running background fraud detection for new user:', user!.id);
+
+              // First, create an initial pending fraud check record
+              await prisma.fraudDetection.create({
+                data: {
+                  userId: user!.id,
+                  verificationType: 'COMBINED_CHECK',
+                  ipAddress: ipAddress,
+                  emailAddress: user!.email,
+                  phoneNumber: user!.phone || undefined,
+                  requestData: {
+                    userId: user!.id,
+                    ipAddress: ipAddress,
+                    emailAddress: user!.email,
+                    phoneNumber: user!.phone || undefined
+                  },
+                  responseData: { status: 'PENDING', message: 'Fraud check initiated' },
+                  riskScore: 50, // Default medium risk until check completes
+                  isFraudSuspected: false,
+                  detectionDetails: { status: 'PENDING', details: 'Fraud check in progress' }
+                }
+              });
+
+              // Set a timeout for the API call to prevent hanging
+              const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Fraud check API timeout')), 15000); // Increased timeout
+              });
+              // Define the type for fraudCheckResult to fix TypeScript errors
+              type FraudCheckResult = {
+                overallRisk: number;
+                ipCheck?: any;
+                emailCheck?: any;
+                phoneCheck?: any;
+                creditCheck?: any;
+                fallback?: boolean;
+              };
+
+              let fraudCheckResult: FraudCheckResult;
+              try {
+                // Race the API call against the timeout
+                const result = await Promise.race([
+                  dojahService.performComprehensiveCheck({
+                    userId: user!.id,
+                    ipAddress: ipAddress,
+                    emailAddress: user!.email,
+                    phoneNumber: user!.phone || undefined,
+                  }),
+                  timeoutPromise
+                ]) as FraudCheckResult;
+
+                fraudCheckResult = result;
+                console.log('Fraud detection completed for user:', user!.id);
+              } catch (apiError) {
+                console.error('Dojah API error or timeout:', apiError);
+
+                // Use fallback result
+                fraudCheckResult = {
+                  overallRisk: 30, // Default medium-low risk
+                  ipCheck: { status: 'FALLBACK', details: 'API unavailable or timed out' },
+                  emailCheck: { status: 'FALLBACK', details: 'API unavailable or timed out' },
+                  phoneCheck: { status: 'FALLBACK', details: 'API unavailable or timed out' },
+                  fallback: true
+                };
+              }
+
+              // Update the fraud detection record with results instead of creating a new one
+              await prisma.fraudDetection.updateMany({
+                where: {
+                  userId: user!.id,
+                  verificationType: 'COMBINED_CHECK',
+                  responseData: { path: ['status'], equals: 'PENDING' }
+                },
+                data: {
+                  responseData: fraudCheckResult as any,
+                  riskScore: fraudCheckResult.overallRisk,
+                  isFraudSuspected: fraudCheckResult.overallRisk > 70,
+                  detectionDetails: ('fallback' in fraudCheckResult)
+                    ? { status: 'FALLBACK', details: 'Using fallback assessment due to API timeout or error' }
+                    : fraudCheckResult as any
+                }
+              });
+
+              // Log the check completion in audit logs
+              await prisma.auditLog.create({
+                data: {
+                  userId: user!.id,
+                  action: 'FRAUD_CHECK_COMPLETED',
+                  details: JSON.stringify({
+                    timestamp: new Date().toISOString(),
+                    riskScore: fraudCheckResult.overallRisk,
+                    isFraudSuspected: fraudCheckResult.overallRisk > 70,
+                    isFallback: 'fallback' in fraudCheckResult
+                  })
+                }
+              });
+
+            } catch (error) {
+              console.error('Error in background fraud detection process:', error);
+            }
+          }, 100); // Slight delay to ensure primary response is sent first
+        }, 100); // Slight delay to ensure primary response is sent first
       }
     } else {
       // Check if user has submitted KYC documents
@@ -222,62 +262,122 @@ export async function GET(req: NextRequest) {
         orderBy: {
           createdAt: 'desc'
         }
-      });      // If no recent fraud check, run one
-      if (!lastFraudCheck) {
-        try {
-          console.log('Running periodic fraud detection check for returning user');
+      });      // If no recent fraud check, schedule one (but don't block the response)
+      if (!lastFraudCheck && user) { // Add user null check
+        // Capture user ID to ensure it's available in the closure
+        const userId = user.id;
 
-          // Get IP address from request
-          const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-            req.headers.get('x-real-ip') ||
-            '127.0.0.1';
+        // Get IP address from request
+        const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+          req.headers.get('x-real-ip') ||
+          '127.0.0.1';
 
-          let fraudCheckResult;
-          try {
-            // Run IP fraud check for returning users (lighter check)
-            fraudCheckResult = await dojahService.checkIpAddress(ipAddress);
-          } catch (apiError) {
-            console.error('Dojah API error for IP check:', apiError);
+        // Schedule the check to run after the response is sent
+        setTimeout(() => {
+          (async () => {
+            try {
+              console.log('Running periodic fraud detection check for returning user');
 
-            // Create a fallback result for IP check
-            fraudCheckResult = {
-              entity: {
-                report: {
-                  ip: ipAddress,
-                  risk_score: { result: 25 }
+              // Create an initial pending fraud detection record
+              await prisma.fraudDetection.create({
+                data: {
+                  userId: userId,
+                  verificationType: 'IP_CHECK',
+                  ipAddress: ipAddress,
+                  requestData: { ipAddress },
+                  responseData: { status: 'PENDING', message: 'IP check initiated' },
+                  riskScore: 50, // Default medium risk until check completes
+                  isFraudSuspected: false,
+                  detectionDetails: { status: 'PENDING', details: 'IP check in progress' }
+                }
+              });
+
+              // Set a timeout for the API call
+              const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('IP check API timeout')), 15000);
+              });
+
+              // Define type for IP check result
+              type IpCheckResult = {
+                entity?: {
+                  report?: {
+                    ip?: string;
+                    risk_score?: {
+                      result?: number
+                    }
+                  };
+                  status?: string;
+                };
+                fallback?: boolean;
+              };
+
+              let fraudCheckResult: IpCheckResult;
+              try {
+                // Run IP fraud check for returning users (lighter check)
+                const result = await Promise.race([
+                  dojahService.checkIpAddress(ipAddress),
+                  timeoutPromise
+                ]) as IpCheckResult;
+
+                fraudCheckResult = result;
+              } catch (apiError) {
+                console.error('Dojah API error for IP check:', apiError);
+
+                // Create a fallback result for IP check
+                fraudCheckResult = {
+                  entity: {
+                    report: {
+                      ip: ipAddress,
+                      risk_score: { result: 25 }
+                    },
+                    status: 'FALLBACK'
+                  },
+                  fallback: true
+                };
+              }
+
+              // Update the existing fraud detection record
+              await prisma.fraudDetection.updateMany({
+                where: {
+                  userId: userId,
+                  verificationType: 'IP_CHECK',
+                  responseData: { path: ['status'], equals: 'PENDING' }
                 },
-                status: 'FALLBACK'
-              },
-              fallback: true
-            };
-          }
+                data: {
+                  responseData: fraudCheckResult as any,
+                  riskScore: fraudCheckResult.entity?.report?.risk_score?.result || 25,
+                  isFraudSuspected: (fraudCheckResult.entity?.report?.risk_score?.result || 25) > 70,
+                  detectionDetails: 'fallback' in fraudCheckResult
+                    ? { status: 'FALLBACK', details: 'Dojah API unavailable, using fallback risk assessment' }
+                    : fraudCheckResult as any
+                }
+              });
 
-          // Save IP check to database
-          await prisma.fraudDetection.create({
-            data: {
-              userId: user.id,
-              verificationType: 'IP_CHECK',
-              ipAddress: ipAddress,
-              requestData: { ipAddress },
-              responseData: fraudCheckResult,
-              riskScore: fraudCheckResult.entity?.report?.risk_score?.result || 25,
-              isFraudSuspected: (fraudCheckResult.entity?.report?.risk_score?.result || 25) > 70,
-              detectionDetails: 'fallback' in fraudCheckResult
-                ? { status: 'FALLBACK', details: 'Dojah API unavailable, using fallback risk assessment' }
-                : fraudCheckResult
-            }
-          });
+              // Log the check completion without blocking
+              await prisma.auditLog.create({
+                data: {
+                  userId: userId,
+                  action: 'PERIODIC_FRAUD_CHECK_COMPLETED',
+                  details: JSON.stringify({
+                    timestamp: new Date().toISOString(),
+                    riskScore: fraudCheckResult.entity?.report?.risk_score?.result || 25,
+                    isFallback: 'fallback' in fraudCheckResult
+                  })
+                }
+              });
 
-          console.log('IP fraud check completed for returning user:',
-            {
-              userId: user.id,
-              riskScore: fraudCheckResult.entity?.report?.risk_score?.result || 25,
-              isFallback: 'fallback' in fraudCheckResult
+              console.log('IP fraud check completed for returning user:',
+                {
+                  userId: userId,
+                  riskScore: fraudCheckResult.entity?.report?.risk_score?.result || 25,
+                  isFallback: 'fallback' in fraudCheckResult
+                }
+              );
+            } catch (error) {
+              console.error('Error in fraud detection flow for returning user:', error);
             }
-          );
-        } catch (error) {
-          console.error('Error in fraud detection flow for returning user:', error);
-        }
+          })().catch(err => console.error('Background periodic fraud check failed:', err));
+        }, 100); // Slight delay to ensure primary response is sent first
       }
     }
 

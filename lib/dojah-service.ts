@@ -365,7 +365,7 @@ class DojahService {
   async verifySelfieWithPhotoId(selfieBase64: string, idPhotoBase64?: string, userId?: string): Promise<SelfieVerificationResult> {
     // Using the correct endpoint from the documentation
     const endpoint = '/api/v1/kyc/photoid/verify';
-    
+
     // If idPhotoBase64 is not provided but userId is, try to find a passport document
     if (!idPhotoBase64 && userId) {
       try {
@@ -390,7 +390,7 @@ class DojahService {
         throw error; // Re-throw the error to be handled by the caller
       }
     }
-    
+
     // Verify idPhotoBase64 is available
     if (!idPhotoBase64) {
       const error = 'No ID photo provided and none could be retrieved from database';
@@ -399,12 +399,12 @@ class DojahService {
     }
 
     // Process base64 strings to ensure they don't include data:image prefixes
-    const processedSelfieBase64 = selfieBase64.includes('base64,') 
-      ? selfieBase64.split('base64,')[1] 
+    const processedSelfieBase64 = selfieBase64.includes('base64,')
+      ? selfieBase64.split('base64,')[1]
       : selfieBase64;
-      
-    const processedIdPhotoBase64 = idPhotoBase64.includes('base64,') 
-      ? idPhotoBase64.split('base64,')[1] 
+
+    const processedIdPhotoBase64 = idPhotoBase64.includes('base64,')
+      ? idPhotoBase64.split('base64,')[1]
       : idPhotoBase64;
 
     // Using the correct parameter names from the documentation
@@ -415,7 +415,7 @@ class DojahService {
 
     // Log the full response for debugging
     console.log('Selfie verification full response:', JSON.stringify(response));
-    
+
     // Handle potential different response formats
     if (!response.entity) {
       console.error('Unexpected response format:', response);
@@ -427,7 +427,7 @@ class DojahService {
 
     // Use entity from the response structure
     const responseData = response.entity || {};
-    
+
     return {
       isMatch: responseData.face_match || false,
       confidence: responseData.confidence || 0,
@@ -452,8 +452,8 @@ class DojahService {
     const endpoint = '/api/v1/ml/liveness/';
 
     // Make sure the imageBase64 doesn't start with data:image prefix
-    const base64Data = imageBase64.includes('base64,') 
-      ? imageBase64.split('base64,')[1] 
+    const base64Data = imageBase64.includes('base64,')
+      ? imageBase64.split('base64,')[1]
       : imageBase64;
 
     const response = await this.makePostRequest(endpoint, {
@@ -475,7 +475,7 @@ class DojahService {
 
     // The API documentation indicates that liveness_probability > 50 means the face is live
     const livenessProbability = response.entity.liveness?.liveness_probability || 0;
-    
+
     return {
       isLive: livenessProbability > 50, // Consider live if probability is above 50%
       livenessProbability,
@@ -576,7 +576,7 @@ class DojahService {
       //TODO: Handle cases where documentType is not provided
 
 
-      let governmentResult: GovernmentLookupResult | null = null;      if (analysisResult.documentType?.documentName && analysisResult.textData) {
+      let governmentResult: GovernmentLookupResult | null = null; if (analysisResult.documentType?.documentName && analysisResult.textData) {
         const documentNumber = analysisResult.textData.find(field => field.fieldKey === "document_number");
         governmentResult = await this.performGovernmentLookup(
           analysisResult.documentType.documentName,
@@ -613,7 +613,7 @@ class DojahService {
   // Comprehensive Selfie Verification
   async verifySelfie(userId: string, selfieId: string, selfieBase64?: string, idDocumentBase64?: string, performLivenessCheck: boolean = true): Promise<string> {
     let verification;
-    
+
     try {
       // Get selfie from database if not provided
       if (!selfieBase64) {
@@ -646,7 +646,7 @@ class DojahService {
             // No status verification check
           }
         });
-        
+
         if (passportDocument) {
           idDocumentBase64 = await this.getBase64FromS3OrFallback(passportDocument);
           console.log(`Retrieved passport document for user ${userId} in verifySelfie`);
@@ -671,11 +671,11 @@ class DojahService {
       let livenessResult = null;
       if (performLivenessCheck) {
         livenessResult = await this.checkLiveness(selfieBase64);
-        
+
         // Fail verification if no face is detected or multiple faces are detected
         if (!livenessResult.faceDetected || livenessResult.multiFaceDetected || !livenessResult.isLive) {
           let errorMessage = 'Verification failed';
-          
+
           if (!livenessResult.faceDetected) {
             errorMessage = 'No face detected in the image';
           } else if (livenessResult.multiFaceDetected) {
@@ -683,18 +683,18 @@ class DojahService {
           } else if (!livenessResult.isLive) {
             errorMessage = `Liveness check failed. Score: ${livenessResult.livenessProbability.toFixed(2)}% (threshold: 50%)`;
           }
-          
+
           await prisma.dojahVerification.update({
             where: { id: verification.id },
             data: {
               status: DojahStatus.FAILED,
-              responseData: { 
+              responseData: {
                 livenessCheck: livenessResult,
                 error: errorMessage
               } as any
             }
           });
-          
+
           return verification.id;
         }
       }
@@ -710,12 +710,12 @@ class DojahService {
           where: { id: verification.id },
           data: {
             status: DojahStatus.FAILED,
-            responseData: { 
+            responseData: {
               error: error.message || 'Failed to verify selfie with ID photo'
             } as any
           }
         });
-        
+
         throw error; // Re-throw the error
       }
 
@@ -741,7 +741,7 @@ class DojahService {
       return verification.id;
     } catch (error: any) {
       console.error('Selfie verification failed:', error);
-      
+
       // Update verification status to FAILED if we have a verification ID
       if (verification?.id) {
         try {
@@ -756,7 +756,7 @@ class DojahService {
           console.error('Failed to update verification status:', updateError);
         }
       }
-      
+
       throw error;
     }
   }
@@ -835,7 +835,6 @@ class DojahService {
       }
     });
   }
-
   // Helper method to get base64 from S3 or fallback to existing file
   async getBase64FromS3OrFallback(document: any): Promise<string | undefined> {
     try {
@@ -850,6 +849,152 @@ class DojahService {
       console.error('Error getting base64 from S3:', error);
       return undefined;
     }
+  }
+
+  // FRAUD DETECTION APIS
+
+  // IP Screening
+  async checkIpAddress(ipAddress: string): Promise<any> {
+    const endpoint = '/api/v1/fraud/ip';
+    const response = await this.makeRequest(endpoint, { ip_address: ipAddress });
+    return response;
+  }
+
+  // Email Check
+  async checkEmail(emailAddress: string): Promise<any> {
+    const endpoint = '/api/v1/fraud/email';
+    const response = await this.makeRequest(endpoint, { email_address: emailAddress });
+    return response;
+  }
+
+  // Phone Check
+  async checkPhone(phoneNumber: string): Promise<any> {
+    const endpoint = '/api/v1/fraud/phone';
+    const response = await this.makeRequest(endpoint, { phone_number: phoneNumber });
+    return response;
+  }
+
+  // Credit Check
+  async checkCreditBureau(bvn: string): Promise<any> {
+    const endpoint = '/api/v1/credit_bureau';
+    const response = await this.makeRequest(endpoint, { bvn });
+    return response;
+  }
+
+  // Comprehensive fraud check
+  async performComprehensiveCheck(userData: {
+    userId: string,
+    ipAddress?: string,
+    emailAddress?: string,
+    phoneNumber?: string,
+    bvn?: string
+  }): Promise<{
+    overallRisk: number,
+    ipCheck?: any,
+    emailCheck?: any,
+    phoneCheck?: any,
+    creditCheck?: any
+  }> {
+    const results: any = {
+      overallRisk: 0,
+    };
+
+    let riskFactors = 0;
+    let checksPerformed = 0;
+
+    // Run checks in parallel for efficiency
+    const checks: Promise<any>[] = [];
+
+    if (userData.ipAddress) {
+      checks.push(this.checkIpAddress(userData.ipAddress)
+        .then(result => {
+          results.ipCheck = result;
+          if (result?.entity?.report?.risk_score?.result) {
+            results.overallRisk += result.entity.report.risk_score.result / 100;
+            riskFactors++;
+          }
+          checksPerformed++;
+        })
+        .catch(err => {
+          console.error('IP check failed:', err);
+          results.ipCheck = { error: err.message };
+        }));
+    }
+
+    if (userData.emailAddress) {
+      checks.push(this.checkEmail(userData.emailAddress)
+        .then(result => {
+          results.emailCheck = result;
+          if (result?.entity?.suspicious) {
+            results.overallRisk += 50;
+            riskFactors++;
+          }
+          checksPerformed++;
+        })
+        .catch(err => {
+          console.error('Email check failed:', err);
+          results.emailCheck = { error: err.message };
+        }));
+    }
+
+    if (userData.phoneNumber) {
+      checks.push(this.checkPhone(userData.phoneNumber)
+        .then(result => {
+          results.phoneCheck = result;
+          if (result?.entity?.score > 0) {
+            results.overallRisk += result.entity.score;
+            riskFactors++;
+          }
+          checksPerformed++;
+        })
+        .catch(err => {
+          console.error('Phone check failed:', err);
+          results.phoneCheck = { error: err.message };
+        }));
+    }
+
+    if (userData.bvn) {
+      checks.push(this.checkCreditBureau(userData.bvn)
+        .then(result => {
+          results.creditCheck = result;
+          // Credit risk assessment logic
+          checksPerformed++;
+        })
+        .catch(err => {
+          console.error('Credit check failed:', err);
+          results.creditCheck = { error: err.message };
+        }));
+    }
+
+    await Promise.all(checks);
+
+    // Normalize overall risk score to 0-100
+    if (riskFactors > 0) {
+      results.overallRisk = Math.min(100, results.overallRisk * (100 / riskFactors));
+    }
+
+    // Save comprehensive check result to database
+    try {
+      await prisma.fraudDetection.create({
+        data: {
+          userId: userData.userId,
+          verificationType: 'COMBINED_CHECK',
+          ipAddress: userData.ipAddress,
+          emailAddress: userData.emailAddress,
+          phoneNumber: userData.phoneNumber,
+          bvn: userData.bvn,
+          requestData: userData,
+          responseData: results,
+          riskScore: results.overallRisk,
+          isFraudSuspected: results.overallRisk > 70, // Threshold for fraud suspicion
+          detectionDetails: results
+        }
+      });
+    } catch (error) {
+      console.error('Failed to save fraud detection result:', error);
+    }
+
+    return results;
   }
 }
 

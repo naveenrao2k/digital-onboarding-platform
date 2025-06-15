@@ -5,15 +5,16 @@ import { useRouter } from 'next/navigation';
 import {
   Mail, Phone, MapPin, FileText, AlertCircle, CheckCircle,
   Clock, Headphones, FileQuestion, Shield, Bell, Moon, Sun,
-  LogOut, RefreshCw, Building, Building2, User
+  LogOut, RefreshCw, Building, Building2, User, Upload
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { useVerificationStore } from '@/lib/verification-store';
-import { VerificationStatusEnum, AccountType } from '@/app/generated/prisma';
+import { VerificationStatusEnum, AccountType, DocumentType } from '@/app/generated/prisma';
 import { fetchUserProfile, formatAccountType, getStatusBadgeColor } from '@/lib/profile-service';
 import type { UserProfile } from '@/lib/profile-service';
 import CreditScore from '@/components/dashboard/CreditScore';
+import DocumentReuploadModal from '@/components/user/DocumentReuploadModal';
 
 
 
@@ -23,9 +24,13 @@ const UserDashboard = () => {
   const { user, loading, signOut } = useAuth();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [greeting, setGreeting] = useState('Good afternoon');
+  const [error, setError] = useState<string | null>(null); const [greeting, setGreeting] = useState('Good afternoon');
   const [darkMode, setDarkMode] = useState(false);
+
+  // State for document re-upload modal
+  const [isReuploadModalOpen, setIsReuploadModalOpen] = useState(false);
+  const [selectedDocumentId, setSelectedDocumentId] = useState('');
+  const [selectedDocumentType, setSelectedDocumentType] = useState('');
 
   // Use the verification store for state management
   const {
@@ -73,6 +78,29 @@ const UserDashboard = () => {
 
     loadUserProfile();
   }, [user, fetchVerificationStatus]);
+
+  // Handle document re-upload button click
+  const handleReuploadClick = (documentId: string, documentType: string) => {
+    setSelectedDocumentId(documentId);
+    setSelectedDocumentType(documentType);
+    setIsReuploadModalOpen(true);
+  };
+
+  // Handle successful re-upload
+  const handleReuploadSuccess = () => {
+    // Refresh the user profile data to show the updated document status
+    setIsLoadingProfile(true);
+    fetchUserProfile()
+      .then(data => {
+        setUserProfile(data);
+        setIsLoadingProfile(false);
+      })
+      .catch(err => {
+        console.error('Error refreshing profile after reupload:', err);
+        setError('Failed to refresh profile data');
+        setIsLoadingProfile(false);
+      });
+  };
 
   const getAccountTypeIcon = (accountType: AccountType) => {
     switch (accountType) {
@@ -240,27 +268,38 @@ const UserDashboard = () => {
                   </div>
                 </div>
 
-                <div className="space-y-6">
-                  {userProfile?.documents.map((doc, index) => (
-                    <div key={doc.id} className={`p-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg`}>
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start space-x-3">
-                          <div className={`mt-1 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                            <FileText className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <h3 className="font-medium">{doc.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}</h3>
-                            <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                              {new Date(doc.uploadedAt).toLocaleDateString()}
-                            </p>
-                          </div>
+                <div className="space-y-6">                  {userProfile?.documents.map((doc, index) => (
+                  <div key={doc.id} className={`p-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg`}>
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start space-x-3">
+                        <div className={`mt-1 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                          <FileText className="h-5 w-5" />
                         </div>
+                        <div>
+                          <h3 className="font-medium">{doc.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}</h3>
+                          <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            {new Date(doc.uploadedAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(doc.status, darkMode)}`}>
                           {doc.status}
                         </span>
+
+                        {doc.status === 'REQUIRES_REUPLOAD' && (
+                          <button
+                            onClick={() => handleReuploadClick(doc.id, doc.type)}
+                            className="ml-3 text-blue-600 hover:text-blue-800 text-xs font-medium flex items-center"
+                          >
+                            <Upload className="h-3 w-3 mr-1" />
+                            Reupload
+                          </button>
+                        )}
                       </div>
                     </div>
-                  ))}
+                  </div>
+                ))}
 
                   {(!userProfile?.documents || userProfile.documents.length === 0) && (
                     <div className="text-center py-6">
@@ -403,11 +442,19 @@ const UserDashboard = () => {
                     Keep your profile information up to date to ensure a smooth verification process.
                   </p>
                 </div>
-              </div>
-            </div>
+              </div>            </div>
           </div>
         </div>
       </div>
+
+      {/* Document Re-upload Modal */}
+      <DocumentReuploadModal
+        isOpen={isReuploadModalOpen}
+        onClose={() => setIsReuploadModalOpen(false)}
+        documentId={selectedDocumentId}
+        documentType={selectedDocumentType}
+        onSuccess={handleReuploadSuccess}
+      />
     </div>
   );
 };

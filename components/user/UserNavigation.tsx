@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Home, Upload, Camera, FileCheck, Shield } from 'lucide-react';
 
 export default function UserNavigation() {
-    const pathname = usePathname();    const navItems = [
+    const pathname = usePathname(); const navItems = [
         { name: 'Dashboard', href: '/user/dashboard', icon: Home },
         { name: 'Upload Documents', href: '/user/upload-kyc-documents', icon: Upload },
         { name: 'Selfie Verification', href: '/user/selfie-verification', icon: Camera },
@@ -31,8 +31,8 @@ export default function UserNavigation() {
                                         key={item.name}
                                         href={item.href}
                                         className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${isActive
-                                                ? 'border-blue-500 text-gray-900'
-                                                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                                            ? 'border-blue-500 text-gray-900'
+                                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                                             }`}
                                     >
                                         <item.icon className="h-4 w-4 mr-1" /> {item.name}

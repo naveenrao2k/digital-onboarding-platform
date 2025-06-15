@@ -114,7 +114,7 @@ export async function GET(req: NextRequest) {
           const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
             req.headers.get('x-real-ip') ||
             '127.0.0.1';
-          
+
           let fraudCheckResult;
           try {
             // Run combined fraud check
@@ -126,7 +126,7 @@ export async function GET(req: NextRequest) {
             });
           } catch (apiError) {
             console.error('Dojah API error:', apiError);
-              // Create a fallback/mock result when the API fails
+            // Create a fallback/mock result when the API fails
             fraudCheckResult = {
               overallRisk: 30, // Default medium-low risk
               ipCheck: { status: 'FALLBACK', details: 'API unavailable' },
@@ -134,7 +134,7 @@ export async function GET(req: NextRequest) {
               phoneCheck: { status: 'FALLBACK', details: 'API unavailable' },
               fallback: true
             };
-            
+
             // Save fallback fraud detection record
             await prisma.fraudDetection.create({
               data: {
@@ -171,7 +171,7 @@ export async function GET(req: NextRequest) {
               userId: user.id,
               action: 'FRAUD_CHECK_COMPLETED',
               details: JSON.stringify({
-                timestamp: new Date().toISOString(),                riskScore: fraudCheckResult.overallRisk,
+                timestamp: new Date().toISOString(), riskScore: fraudCheckResult.overallRisk,
                 isFraudSuspected: fraudCheckResult.overallRisk > 70,
                 isFallback: 'fallback' in fraudCheckResult
               })
@@ -231,20 +231,20 @@ export async function GET(req: NextRequest) {
           const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
             req.headers.get('x-real-ip') ||
             '127.0.0.1';
-          
+
           let fraudCheckResult;
           try {
             // Run IP fraud check for returning users (lighter check)
             fraudCheckResult = await dojahService.checkIpAddress(ipAddress);
           } catch (apiError) {
             console.error('Dojah API error for IP check:', apiError);
-            
+
             // Create a fallback result for IP check
-            fraudCheckResult = { 
-              entity: { 
-                report: { 
+            fraudCheckResult = {
+              entity: {
+                report: {
                   ip: ipAddress,
-                  risk_score: { result: 25 } 
+                  risk_score: { result: 25 }
                 },
                 status: 'FALLBACK'
               },
@@ -262,7 +262,7 @@ export async function GET(req: NextRequest) {
               responseData: fraudCheckResult,
               riskScore: fraudCheckResult.entity?.report?.risk_score?.result || 25,
               isFraudSuspected: (fraudCheckResult.entity?.report?.risk_score?.result || 25) > 70,
-              detectionDetails: 'fallback' in fraudCheckResult 
+              detectionDetails: 'fallback' in fraudCheckResult
                 ? { status: 'FALLBACK', details: 'Dojah API unavailable, using fallback risk assessment' }
                 : fraudCheckResult
             }

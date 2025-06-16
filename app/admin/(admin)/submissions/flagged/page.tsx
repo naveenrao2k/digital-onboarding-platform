@@ -73,11 +73,11 @@ const AdminFlaggedSubmissionsPage = () => {
 
       // Fetch data from the API
       const response = await fetch(`/api/admin/submissions/flagged?${params.toString()}`);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch flagged submissions');
-      }      const data = await response.json();
+      } const data = await response.json();
       setFlaggedSubmissions(data.data);
       setTotalPages(data.pagination.totalPages);
     } catch (err) {
@@ -86,7 +86,7 @@ const AdminFlaggedSubmissionsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  };  const handleSearch = (e: React.FormEvent) => {
+  }; const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setCurrentPage(1); // Reset to page 1 when searching
     fetchFlaggedSubmissions();
@@ -95,81 +95,7 @@ const AdminFlaggedSubmissionsPage = () => {
   const handleViewDetails = (userId: string) => {
     router.push(`/admin/users/${userId}`);
   };
-  const handleDownload = async (userId: string, documentId: string, fileName: string) => {
-    try {
-      const response = await fetch(`/api/admin/submissions/${userId}/download?documentId=${documentId}`);
-      if (!response.ok) throw new Error('Download failed');
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName || 'document';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      console.error('Error downloading document:', err);
-      // Show error notification in a real app
-    }
-  };
-  const handleApprove = async (userId: string, documentId: string) => {
-    try {
-      // In a real implementation, you would call an API endpoint
-      const response = await fetch(`/api/admin/submissions/${userId}/update`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          documentId: documentId,
-          documentStatus: 'APPROVED',
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to approve submission');
-      }
-
-      // Update submissions - remove the approved one
-      setFlaggedSubmissions(prevSubmissions =>
-        prevSubmissions.filter(submission => submission.id !== documentId)
-      );
-
-      // Show success notification (in a real app)
-    } catch (err) {
-      console.error('Error approving document:', err);
-      // Show error notification
-    }
-  };
-  const handleReject = async (userId: string, documentId: string) => {
-    try {
-      // In a real implementation, you would call an API endpoint
-      const response = await fetch(`/api/admin/submissions/${userId}/update`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          documentId: documentId,
-          documentStatus: 'REJECTED',
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to reject submission');
-      }
-
-      // Update submissions - remove the rejected one
-      setFlaggedSubmissions(prevSubmissions =>
-        prevSubmissions.filter(submission => submission.id !== documentId)
-      );
-
-      // Show success notification (in a real app)
-    } catch (err) {
-      console.error('Error rejecting document:', err);
-      // Show error notification
-    }
-  };
+  
   const handleRemoveFlag = async (userId: string, documentId: string) => {
     try {
       // In a real implementation, you would call an API endpoint
@@ -213,8 +139,8 @@ const AdminFlaggedSubmissionsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      
+    <div className="min-h-screen max-w-7xl bg-gray-50 ">
+
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-8">
         {/* Search and Filters */}
@@ -311,7 +237,7 @@ const AdminFlaggedSubmissionsPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
+                      <div className="flex items-center md:max-w-[200px] overflow-hidden">
                         {submission.documentType.includes('Selfie') ? (
                           <Camera className="h-4 w-4 text-gray-500 mr-2" />
                         ) : (
@@ -332,39 +258,22 @@ const AdminFlaggedSubmissionsPage = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {submission.flaggedBy}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {submission.dateSubmitted}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{new Date(submission.flaggedAt).toLocaleDateString()}</span>
+                        <span className="text-xs text-gray-500">{new Date(submission.flaggedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleViewDetails(submission.userId)}
-                          className="p-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded"
+                          className="px-2 py-1 bg-gray-100 text-xs font-semibold hover:bg-gray-200 text-gray-800 rounded"
                           title="View Details"
                         >
-                          <Eye className="h-4 w-4" />
+                          View
                         </button>
-                        <button
-                          onClick={() => handleDownload(submission.userId, submission.id, submission.fileName)}
-                          className="p-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded"
-                          title="Download"
-                        >
-                          <Download className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleApprove(submission.userId, submission.id)}
-                          className="p-1 bg-green-100 hover:bg-green-200 text-green-800 rounded"
-                          title="Approve"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleReject(submission.userId, submission.id)}
-                          className="p-1 bg-red-100 hover:bg-red-200 text-red-800 rounded"
-                          title="Reject"
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </button>
+                        
                       </div>
                     </td>
                   </tr>
@@ -376,7 +285,8 @@ const AdminFlaggedSubmissionsPage = () => {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="p-4">            <Pagination
+          <div className="p-4">
+            <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
               onPageChange={(page) => {

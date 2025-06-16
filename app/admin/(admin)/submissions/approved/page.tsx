@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  Search, 
-  Filter, 
-  ChevronDown, 
-  FileText, 
-  Camera, 
+import {
+  Search,
+  Filter,
+  ChevronDown,
+  FileText,
+  Camera,
   AlertCircle,
   CheckCircle,
   XCircle,
@@ -37,7 +37,7 @@ const AdminApprovedSubmissionsPage = () => {
   const { user, loading } = useAuth();
   const [approvedSubmissions, setApprovedSubmissions] = useState<ApprovedSubmission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');  const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState(''); const [searchQuery, setSearchQuery] = useState('');
   const [documentTypeFilter, setDocumentTypeFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -75,14 +75,14 @@ const AdminApprovedSubmissionsPage = () => {
 
       // Fetch data from the API
       const response = await fetch(`/api/admin/submissions/approved?${params.toString()}`);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch approved submissions');
       }
 
       const data = await response.json();
-      
+
       // Handle both pagination and non-pagination response formats
       if (data.data && data.pagination) {
         // New format with pagination
@@ -116,7 +116,7 @@ const AdminApprovedSubmissionsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  };  const handleSearch = (e: React.FormEvent) => {
+  }; const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setCurrentPage(1); // Reset to page 1 when searching
     fetchApprovedSubmissions();
@@ -125,53 +125,7 @@ const AdminApprovedSubmissionsPage = () => {
   const handleViewDetails = (userId: string) => {
     router.push(`/admin/users/${userId}`);
   };
-  const handleDownload = async (userId: string, documentId: string, fileName: string) => {
-    try {
-      const response = await fetch(`/api/admin/submissions/${userId}/download?documentId=${documentId}`);
-      if (!response.ok) throw new Error('Download failed');
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName || 'document';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      console.error('Error downloading document:', err);
-      // Show error notification in a real app
-    }
-  };
-  const handleRevoke = async (userId: string, documentId: string) => {
-    try {
-      // In a real implementation, you would call an API endpoint
-      const response = await fetch(`/api/admin/submissions/${userId}/update`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          documentId: documentId,
-          documentStatus: 'PENDING',
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to revoke approval');
-      }
-      
-      // Update submissions - remove the revoked one
-      setApprovedSubmissions(prevSubmissions => 
-        prevSubmissions.filter(submission => submission.id !== documentId)
-      );
-      
-      // Show success notification (in a real app)
-    } catch (err) {
-      console.error('Error revoking approval:', err);
-      // Show error notification
-    }
-  };
   // We don't need to filter submissions again as they are already filtered by the API
   // Using the submissions directly from the API response
   const filteredSubmissions = approvedSubmissions;
@@ -188,7 +142,7 @@ const AdminApprovedSubmissionsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen max-w-7xl bg-gray-50">
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-8">
         {/* Search and Filters */}
         <div className="p-4 border-b border-gray-200">
@@ -203,29 +157,29 @@ const AdminApprovedSubmissionsPage = () => {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </form>
-            
+
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center">
                 <label className="mr-2 text-sm text-gray-700">Document:</label>
                 <div className="relative">                  <select value={documentTypeFilter}
-                    onChange={(e) => {
-                      setDocumentTypeFilter(e.target.value);
-                      setCurrentPage(1); // Reset to page 1 when filter changes
-                      // Trigger fetch when filter changes
-                      setTimeout(() => fetchApprovedSubmissions(), 0);
-                    }}
-                    className="appearance-none bg-white border border-gray-300 rounded-md pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Types</option>
-                    {documentTypes.map((type, index) => (
-                      <option key={index} value={type}>{type}</option>
-                    ))}
-                  </select>
+                  onChange={(e) => {
+                    setDocumentTypeFilter(e.target.value);
+                    setCurrentPage(1); // Reset to page 1 when filter changes
+                    // Trigger fetch when filter changes
+                    setTimeout(() => fetchApprovedSubmissions(), 0);
+                  }}
+                  className="appearance-none bg-white border border-gray-300 rounded-md pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Types</option>
+                  {documentTypes.map((type, index) => (
+                    <option key={index} value={type}>{type}</option>
+                  ))}
+                </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 </div>
               </div>
-              
-              <button 
+
+              <button
                 onClick={() => fetchApprovedSubmissions()}
                 className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
               >
@@ -234,7 +188,7 @@ const AdminApprovedSubmissionsPage = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Approved Submissions Table */}
         {isLoading ? (
           <div className="p-8 text-center">
@@ -260,7 +214,7 @@ const AdminApprovedSubmissionsPage = () => {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="bg-gray-50 text-left">
+                <tr className="bg-gray-50 text-left border-b">
                   <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                   <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Document</th>
                   <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
@@ -284,7 +238,7 @@ const AdminApprovedSubmissionsPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
+                      <div className="flex items-center md:max-w-[200px] overflow-hidden">
                         {submission.documentType.includes('Selfie') ? (
                           <Camera className="h-4 w-4 text-gray-500 mr-2" />
                         ) : (
@@ -298,14 +252,20 @@ const AdminApprovedSubmissionsPage = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex items-center">
-                        <Calendar className="h-4 w-4 text-gray-500 mr-2" />
-                        {submission.dateSubmitted}
+                      <Calendar className="h-4 w-4 text-gray-500 mr-2" />
+                      <div>
+                        <div>{new Date(submission.dateSubmitted).toLocaleDateString()}</div>
+                        <div className="text-xs text-gray-500">{new Date(submission.dateSubmitted).toLocaleTimeString()}</div>
+                      </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex items-center">
-                        <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                        {submission.approvedAt}
+                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                      <div>
+                        <div>{new Date(submission.approvedAt).toLocaleDateString()}</div>
+                        <div className="text-xs text-gray-500">{new Date(submission.approvedAt).toLocaleTimeString()}</div>
+                      </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -315,22 +275,10 @@ const AdminApprovedSubmissionsPage = () => {
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleViewDetails(submission.userId)}
-                          className="p-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded" 
+                          className="py-1 px-2 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 rounded"
                           title="View Details"
                         >
-                          <Eye className="h-4 w-4" />
-                        </button>                        <button
-                          onClick={() => handleDownload(submission.userId, submission.id, submission.fileName)}
-                          className="p-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded"
-                          title="Download"
-                        >
-                          <Download className="h-4 w-4" />
-                        </button>                        <button
-                          onClick={() => handleRevoke(submission.userId, submission.id)}
-                          className="p-1 bg-red-100 hover:bg-red-200 text-red-800 rounded"
-                          title="Revoke Approval"
-                        >
-                          <XCircle className="h-4 w-4" />
+                          View
                         </button>
                       </div>
                     </td>

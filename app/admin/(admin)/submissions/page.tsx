@@ -105,81 +105,8 @@ const AdminSubmissionsPage = () => {
   const handleViewSubmission = (userId: string) => {
     router.push(`/admin/submissions/${userId}`);
   };
-  const handleDownloadSubmission = async (userId: string, documentId: string) => {
-    try {
-      const response = await fetch(`/api/admin/submissions/${userId}/download?documentId=${documentId}`);
-      if (!response.ok) throw new Error('Download failed');
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'document'; // You would get the actual filename from the response headers
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      console.error('Error downloading document:', err);
-      // Show error notification in a real app
-    }
-  };
-  const handleApprove = async (userId: string, documentId: string) => {
-    try {
-      const submission = submissions.find(s => s.id === documentId);
-      if (!submission) return;
-
-      const response = await fetch(`/api/admin/submissions/${userId}/update`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          documentId: documentId,
-          documentStatus: 'APPROVED',
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to approve submission');
-      }
-
-      setSubmissions(prevSubmissions =>
-        prevSubmissions.map(sub =>
-          sub.id === documentId ? { ...sub, status: 'APPROVED' as VerificationStatusEnum } : sub
-        )
-      );
-    } catch (err) {
-      console.error('Error approving submission:', err);
-    }
-  };
-  const handleReject = async (userId: string, documentId: string) => {
-    try {
-      const submission = submissions.find(s => s.id === documentId);
-      if (!submission) return;
-
-      const response = await fetch(`/api/admin/submissions/${userId}/update`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          documentId: documentId,
-          documentStatus: 'REJECTED',
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to reject submission');
-      }
-
-      setSubmissions(prevSubmissions =>
-        prevSubmissions.map(sub =>
-          sub.id === documentId ? { ...sub, status: 'REJECTED' as VerificationStatusEnum } : sub
-        )
-      );
-    } catch (err) {
-      console.error('Error rejecting submission:', err);
-    }
-  };
+ 
 
   // Filter submissions based on filters
   const filteredSubmissions = submissions.filter(submission => {
@@ -350,7 +277,24 @@ const AdminSubmissionsPage = () => {
                         </div>
                       </td>
                       <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap text-sm hidden sm:table-cell">
-                        {submission.dateSubmitted}
+                        <div className="flex items-center">
+
+                      
+                          <Calendar className="h-4 w-4 text-gray-500 mr-2 flex-shrink-0" />
+                          <div>
+                            {new Date(submission.dateSubmitted).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                            <div className="text-xs text-gray-500">
+                              {new Date(submission.dateSubmitted).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${submission.status === 'PENDING' ? 'bg-amber-100 text-amber-800' :
@@ -366,37 +310,17 @@ const AdminSubmissionsPage = () => {
                                   ''}
                         </span>
                       </td>
-                      <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
-                        <div className="flex flex-wrap gap-1 md:space-x-2">                        
+                      <td className="px-3 py-3 md:px-6 md:py-4 ">
+                                              
                           <button
                             onClick={() => handleViewSubmission(submission.userId)}
-                            className="p-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded"
+                            className="p-1 flex text-xs font-semibold gap-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded"
                             title="View Details"
                           >
-                            <Eye className="h-4 w-4" />
+                            View
+                            {/* <Eye className="h-4 w-4" /> */}
                           </button>
-                          <button
-                            onClick={() => handleDownloadSubmission(submission.userId, submission.id)}
-                            className="p-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded"
-                            title="Download"
-                          >
-                            <Download className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleApprove(submission.userId, submission.id)}
-                            className="p-1 bg-green-100 hover:bg-green-200 text-green-800 rounded"
-                            title="Approve"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleReject(submission.userId, submission.id)}
-                            className="p-1 bg-red-100 hover:bg-red-200 text-red-800 rounded"
-                            title="Reject"
-                          >
-                            <XCircle className="h-4 w-4" />
-                          </button>
-                        </div>
+                         
                       </td>
                     </tr>
                   ))}

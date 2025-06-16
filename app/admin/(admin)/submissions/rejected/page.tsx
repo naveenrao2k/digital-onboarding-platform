@@ -184,7 +184,7 @@ const AdminRejectedSubmissionsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen max-w-7xl bg-gray-50">
     
       
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-8">

@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 const getCurrentUserId = (): string | null => {
   const sessionCookie = cookies().get('session')?.value;
   if (!sessionCookie) return null;
-  
+
   try {
     const session = JSON.parse(sessionCookie);
     return session.userId || null;
@@ -22,7 +22,7 @@ const getCurrentUserId = (): string | null => {
 export async function GET(request: NextRequest) {
   try {
     const userId = getCurrentUserId();
-    
+
     if (!userId) {
       return new NextResponse(
         JSON.stringify({ error: 'Unauthorized' }),
@@ -48,15 +48,15 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;    // For debugging - log the enum values used in comparison
-    console.log('Looking for documents with status:', { 
+    console.log('Looking for documents with status:', {
       REJECTED: VerificationStatusEnum.REJECTED,
       REQUIRES_REUPLOAD: VerificationStatusEnum.REQUIRES_REUPLOAD
     });
-    
+
     // Build where clause specifically for rejected documents
     const where: any = {
-      status: { 
-        in: [VerificationStatusEnum.REJECTED, VerificationStatusEnum.REQUIRES_REUPLOAD] 
+      status: {
+        in: [VerificationStatusEnum.REJECTED, VerificationStatusEnum.REQUIRES_REUPLOAD]
       },
     };
 
@@ -139,9 +139,9 @@ export async function GET(request: NextRequest) {
     const formattedRejectedSubmissions = rejectedDocuments.map(doc => {
       // Find the most recent audit log entry for this document's rejection
       const rejectionLog = auditLogs.find(log => log.targetId === doc.id);
-        // Check if document status is REQUIRES_REUPLOAD and mark it accordingly
+      // Check if document status is REQUIRES_REUPLOAD and mark it accordingly
       const isReuploadStatus = doc.status === VerificationStatusEnum.REQUIRES_REUPLOAD;
-      
+
       return {
         id: doc.id,
         userId: doc.userId,
@@ -171,7 +171,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('FETCH_REJECTED_SUBMISSIONS_ERROR', error);
-    
+
     return new NextResponse(
       JSON.stringify({
         error: error.message || 'An error occurred while fetching rejected submissions',

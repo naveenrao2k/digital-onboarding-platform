@@ -2,11 +2,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
-import { 
+import {
   $Enums,
   AdminReviewStatus,
   AdminReviewType,
-  VerificationStatusEnum 
+  VerificationStatusEnum
 } from '@/app/generated/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 const getCurrentUserId = (): string | null => {
   const sessionCookie = cookies().get('session')?.value;
   if (!sessionCookie) return null;
-  
+
   try {
     const session = JSON.parse(sessionCookie);
     return session.userId || null;
@@ -26,7 +26,7 @@ const getCurrentUserId = (): string | null => {
 const isAdmin = (): boolean => {
   const sessionCookie = cookies().get('session')?.value;
   if (!sessionCookie) return false;
-  
+
   try {
     const session = JSON.parse(sessionCookie);
     return session.isAdmin || false;
@@ -81,21 +81,21 @@ export async function POST(request: NextRequest) {
 
     // Update document status based on review
     if (verificationType === 'DOCUMENT_VERIFICATION' && documentId) {
-      const newStatus = status === 'APPROVED' ? 
-        VerificationStatusEnum.APPROVED : 
-        status === 'REJECTED' ? 
+      const newStatus = status === 'APPROVED' ?
+        VerificationStatusEnum.APPROVED :
+        status === 'REJECTED' ?
           (allowReupload ? VerificationStatusEnum.REQUIRES_REUPLOAD : VerificationStatusEnum.REJECTED) :
-          VerificationStatusEnum.IN_PROGRESS;      await prisma.kYCDocument.update({
-        where: { id: documentId },
-        data: {
-          status: newStatus,
-          verified: status === 'APPROVED',
-          verifiedAt: new Date(), // Set verification date for all admin actions
-          verifiedBy: reviewerId,
-          notes: reviewNotes
-        }
-      });
-      
+          VerificationStatusEnum.IN_PROGRESS; await prisma.kYCDocument.update({
+            where: { id: documentId },
+            data: {
+              status: newStatus,
+              verified: status === 'APPROVED',
+              verifiedAt: new Date(), // Set verification date for all admin actions
+              verifiedBy: reviewerId,
+              notes: reviewNotes
+            }
+          });
+
       // Log the action for debugging
       console.log('Document status updated:', {
         documentId,
@@ -107,9 +107,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (verificationType === 'SELFIE_VERIFICATION' && documentId) {
-      const newStatus = status === 'APPROVED' ? 
-        VerificationStatusEnum.APPROVED : 
-        status === 'REJECTED' ? 
+      const newStatus = status === 'APPROVED' ?
+        VerificationStatusEnum.APPROVED :
+        status === 'REJECTED' ?
           (allowReupload ? VerificationStatusEnum.REQUIRES_REUPLOAD : VerificationStatusEnum.REJECTED) :
           VerificationStatusEnum.IN_PROGRESS;
 
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
       data: {
         userId,
         title: `Document Review ${status}`,
-        message: status === 'APPROVED' ? 
+        message: status === 'APPROVED' ?
           'Your document has been approved!' :
           status === 'REJECTED' ?
             `Your document was rejected: ${rejectionReason}${allowReupload ? ' Please reupload.' : ''}` :
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('ADMIN_REVIEW_ERROR', error);
-    
+
     return new NextResponse(
       JSON.stringify({
         error: error.message || 'An error occurred during review',
@@ -202,7 +202,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(reviews);
   } catch (error: any) {
     console.error('GET_REVIEWS_ERROR', error);
-    
+
     return new NextResponse(
       JSON.stringify({
         error: error.message || 'An error occurred while fetching reviews',
@@ -229,7 +229,7 @@ async function updateOverallVerificationStatus(userId: string) {
   const selfie = user.selfieVerification;
 
   // Calculate KYC status
-  const kycStatus = allDocuments.length === 0 ? 
+  const kycStatus = allDocuments.length === 0 ?
     VerificationStatusEnum.PENDING :
     allDocuments.every(doc => doc.status === VerificationStatusEnum.APPROVED) ?
       VerificationStatusEnum.APPROVED :
@@ -240,12 +240,12 @@ async function updateOverallVerificationStatus(userId: string) {
           VerificationStatusEnum.IN_PROGRESS;
 
   // Calculate selfie status
-  const selfieStatus = !selfie ? 
-    VerificationStatusEnum.PENDING : 
+  const selfieStatus = !selfie ?
+    VerificationStatusEnum.PENDING :
     selfie.status;
 
   // Calculate overall status
-  const overallStatus = 
+  const overallStatus =
     kycStatus === VerificationStatusEnum.APPROVED && selfieStatus === VerificationStatusEnum.APPROVED ?
       VerificationStatusEnum.APPROVED :
       kycStatus === VerificationStatusEnum.REJECTED || selfieStatus === VerificationStatusEnum.REJECTED ?

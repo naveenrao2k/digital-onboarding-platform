@@ -56,8 +56,7 @@ const AdminDashboardPage = () => {
   });
   const [pendingReviews, setPendingReviews] = useState<AdminPendingReview[]>([]); const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState(''); const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Check if user is authenticated and has admin role
@@ -109,7 +108,7 @@ const AdminDashboardPage = () => {
         const data = await response.json();
         throw new Error(data.error || 'Failed to load dashboard data');
       }
-      const data = await response.json();      setStats({
+      const data = await response.json(); setStats({
         totalUsers: data.totalUsers,
         pendingVerifications: data.pendingVerifications,
         completedVerifications: data.completedVerifications,
@@ -127,78 +126,11 @@ const AdminDashboardPage = () => {
       if (isManualRefresh) setIsRefreshing(false);
     }
   };
-
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     // Filter reviews based on search query (in production, you'd typically do this server-side)
     // This is just a simple client-side implementation for demo
     console.log('Searching for:', searchQuery);
-  };
-
-  const handleApprove = async (reviewId: string) => {
-    try {
-      const review = pendingReviews.find(r => r.id === reviewId);
-      if (!review) return;
-
-      const response = await fetch(`/api/admin/submissions/${review.userId}/update`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          documentId: review.id,
-          documentStatus: 'APPROVED',
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to approve document');
-      }
-
-      setPendingReviews(prevReviews =>
-        prevReviews.filter(review => review.id !== reviewId)
-      );
-
-      setStats(prev => ({
-        ...prev,
-        pendingVerifications: prev.pendingVerifications - 1,
-        completedVerifications: prev.completedVerifications + 1
-      }));
-    } catch (err) {
-      console.error('Error approving document:', err);
-    }
-  };
-
-  const handleReject = async (reviewId: string) => {
-    try {
-      const review = pendingReviews.find(r => r.id === reviewId);
-      if (!review) return;
-
-      const response = await fetch(`/api/admin/submissions/${review.userId}/update`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          documentId: review.id,
-          documentStatus: 'REJECTED',
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to reject document');
-      }
-
-      setPendingReviews(prevReviews =>
-        prevReviews.filter(review => review.id !== reviewId)
-      );
-
-      setStats(prev => ({
-        ...prev,
-        pendingVerifications: prev.pendingVerifications - 1,
-        rejectedVerifications: prev.rejectedVerifications + 1
-      }));
-    } catch (err) {
-      console.error('Error rejecting document:', err);
-    }
   };
 
   const handleViewDetails = (userId: string) => {
@@ -396,27 +328,14 @@ const AdminDashboardPage = () => {
                                 ''}
                           </span>
                         </td>
-                        <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
-                          <div className="flex flex-wrap justify-center gap-1 md:space-x-2">
-                            <button
-                              onClick={() => handleViewDetails(review.userId)}
-                              className="px-2 py-1 md:px-3 md:py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-medium rounded"
-                            >
-                              View
-                            </button>
-                            {/* <button
-                              onClick={() => handleApprove(review.id)}
-                              className="px-2 py-1 md:px-3 md:py-1 bg-green-100 hover:bg-green-200 text-green-800 text-xs font-medium rounded"
-                            >
-                              Approve
-                            </button> */}
-                            {/* <button
-                              onClick={() => handleReject(review.id)}
-                              className="px-2 py-1 md:px-3 md:py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-medium rounded"
-                            >
-                              Reject
-                            </button> */}
-                          </div>
+                        <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">                          <div className="flex flex-wrap justify-center gap-1 md:space-x-2">
+                          <button
+                            onClick={() => handleViewDetails(review.userId)}
+                            className="px-2 py-1 md:px-3 md:py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-medium rounded"
+                          >
+                            View
+                          </button>
+                        </div>
                         </td>
                       </tr>
                     ))}
@@ -424,8 +343,7 @@ const AdminDashboardPage = () => {
                 </table>
               </div>
             )}
-          </div>
-        </div>
+          </div>        </div>
       </main>
     </div>
   );

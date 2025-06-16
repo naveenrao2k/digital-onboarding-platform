@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  Search, 
-  Filter, 
-  ChevronDown, 
-  FileText, 
-  Camera, 
+import {
+  Search,
+  Filter,
+  ChevronDown,
+  FileText,
+  Camera,
   AlertCircle,
   CheckCircle,
   XCircle,
@@ -31,9 +31,9 @@ interface RejectedSubmission {
   rejectedBy: string;
   fileName: string;
   rejectionReason: string;
-  allowReupload?: boolean;
-  status?: string;
-  statusFormatted?: string;
+  allowReupload: boolean;
+  status: string;
+  statusFormatted: string;
 }
 
 const AdminRejectedSubmissionsPage = () => {
@@ -41,7 +41,7 @@ const AdminRejectedSubmissionsPage = () => {
   const { user, loading } = useAuth();
   const [rejectedSubmissions, setRejectedSubmissions] = useState<RejectedSubmission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');  const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState(''); const [searchQuery, setSearchQuery] = useState('');
   const [documentTypeFilter, setDocumentTypeFilter] = useState<string>('all');
   const [rejectionStatusFilter, setRejectionStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -79,14 +79,13 @@ const AdminRejectedSubmissionsPage = () => {
 
       // Fetch data from the API
       const response = await fetch(`/api/admin/submissions/rejected?${params.toString()}`);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch rejected submissions');
-      }
+      } const data = await response.json();
+      console.log("Rejected submissions data:", data);
 
-      const data = await response.json();
-      
       // Handle both pagination and non-pagination response formats
       if (data.data && data.pagination) {
         // New format with pagination
@@ -99,7 +98,10 @@ const AdminRejectedSubmissionsPage = () => {
           rejectedAt: item.dateRejected,
           rejectedBy: item.rejectedBy,
           fileName: item.fileName,
-          rejectionReason: item.rejectionReason || 'Document rejected'
+          rejectionReason: item.rejectionReason || 'Document rejected',
+          status: item.status,
+          statusFormatted: item.statusFormatted,
+          allowReupload: item.allowReupload
         })));
         setTotalPages(data.pagination.totalPages);
       } else {
@@ -113,7 +115,10 @@ const AdminRejectedSubmissionsPage = () => {
           rejectedAt: item.dateRejected,
           rejectedBy: item.rejectedBy,
           fileName: item.fileName,
-          rejectionReason: item.rejectionReason || 'Document rejected'
+          rejectionReason: item.rejectionReason || 'Document rejected',
+          status: item.status,
+          statusFormatted: item.statusFormatted,
+          allowReupload: item.allowReupload
         })));
       }
     } catch (err) {
@@ -122,7 +127,7 @@ const AdminRejectedSubmissionsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  };  const handleSearch = (e: React.FormEvent) => {
+  }; const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setCurrentPage(1); // Reset to page 1 when searching
     fetchRejectedSubmissions();
@@ -131,54 +136,11 @@ const AdminRejectedSubmissionsPage = () => {
   const handleViewDetails = (userId: string) => {
     router.push(`/admin/users/${userId}`);
   };
-  const handleDownload = async (userId: string, documentId: string, fileName: string) => {
-    try {
-      const response = await fetch(`/api/admin/submissions/${userId}/download?documentId=${documentId}`);
-      if (!response.ok) throw new Error('Download failed');
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName || 'document';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      console.error('Error downloading document:', err);
-      // Show error notification in a real app
-    }
-  };
-  const handleRequestResubmission = async (userId: string, documentId: string) => {
-    try {
-      // In a real implementation, you would call an API endpoint
-      const response = await fetch(`/api/admin/submissions/${userId}/request-resubmission`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          documentId: documentId,
-          message: 'Please resubmit this document with the correct information.',
-          allowReupload: true
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to request resubmission');
-      }
-      
-      // Show success notification (in a real app)
-      alert('Resubmission request sent to user');
-    } catch (err) {
-      console.error('Error requesting resubmission:', err);
-      // Show error notification
-    }
-  };  // Apply client-side filtering for rejection status if needed
+  // Apply client-side filtering for rejection status if needed
   const filteredSubmissions = rejectedSubmissions.filter(submission => {
     if (rejectionStatusFilter === 'all') return true;
-    if (rejectionStatusFilter === 'rejected' && !submission.allowReupload) return true;
-    if (rejectionStatusFilter === 'reupload' && submission.allowReupload) return true;
+    if (rejectionStatusFilter === 'REJECTED' && submission.status === 'REJECTED') return true;
+    if (rejectionStatusFilter === 'REQUIRES_REUPLOAD' && submission.status === 'REQUIRES_REUPLOAD') return true;
     return false;
   });
 
@@ -197,9 +159,9 @@ const AdminRejectedSubmissionsPage = () => {
   }
 
   return (
-    <div className="min-h-screen max-w-7xl bg-gray-50">
-    
-      
+    <div className="min-h-screen max-w-7xl bg-gray-50 overflow-auto">
+
+
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-8">
         {/* Search and Filters */}
         <div className="p-4 border-b border-gray-200">
@@ -214,29 +176,29 @@ const AdminRejectedSubmissionsPage = () => {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </form>
-            
+
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center">
                 <label className="mr-2 text-sm text-gray-700">Document:</label>
                 <div className="relative">                  <select
-                    value={documentTypeFilter}
-                    onChange={(e) => {
-                      setDocumentTypeFilter(e.target.value);
-                      setCurrentPage(1); // Reset to page 1 when filter changes
-                      // Trigger fetch when filter changes
-                      setTimeout(() => fetchRejectedSubmissions(), 0);
-                    }}
-                    className="appearance-none bg-white border border-gray-300 rounded-md pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Types</option>
-                    {documentTypes.map((type, index) => (
-                      <option key={index} value={type}>{type}</option>
-                    ))}
-                  </select>
+                  value={documentTypeFilter}
+                  onChange={(e) => {
+                    setDocumentTypeFilter(e.target.value);
+                    setCurrentPage(1); // Reset to page 1 when filter changes
+                    // Trigger fetch when filter changes
+                    setTimeout(() => fetchRejectedSubmissions(), 0);
+                  }}
+                  className="appearance-none bg-white border border-gray-300 rounded-md pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Types</option>
+                  {documentTypes.map((type, index) => (
+                    <option key={index} value={type}>{type}</option>
+                  ))}
+                </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 </div>
               </div>
-              
+
               <div className="flex items-center">
                 <label className="mr-2 text-sm text-gray-700">Status:</label>
                 <div className="relative">
@@ -249,35 +211,16 @@ const AdminRejectedSubmissionsPage = () => {
                       setTimeout(() => fetchRejectedSubmissions(), 0);
                     }}
                     className="appearance-none bg-white border border-gray-300 rounded-md pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Statuses</option>
-                    {rejectionStatuses.map((status, index) => (
-                      <option key={index} value={status}>{status}</option>
-                    ))}
+                  >                    <option value="all">All Statuses</option>
+                    <option value="REJECTED">Rejected</option>
+                    <option value="REQUIRES_REUPLOAD">Requires Reupload</option>
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 </div>
               </div>
-                <div className="flex items-center">
-                <label className="mr-2 text-sm text-gray-700 whitespace-nowrap">Status:</label>
-                <div className="relative">
-                  <select
-                    value={rejectionStatusFilter}
-                    onChange={(e) => {
-                      setRejectionStatusFilter(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="appearance-none bg-white border border-gray-300 rounded-md pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="rejected">Rejected</option>
-                    <option value="reupload">Requires Reupload</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                </div>
-              </div>
-              
-              <button 
+
+
+              <button
                 onClick={() => fetchRejectedSubmissions()}
                 className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
               >
@@ -286,7 +229,7 @@ const AdminRejectedSubmissionsPage = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Rejected Submissions Table */}
         {isLoading ? (
           <div className="p-8 text-center">
@@ -336,7 +279,7 @@ const AdminRejectedSubmissionsPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
+                      <div className="flex items-center md:max-w-[200px] overflow-hidden">
                         {submission.documentType.includes('Selfie') ? (
                           <Camera className="h-4 w-4 text-gray-500 mr-2" />
                         ) : (
@@ -347,20 +290,21 @@ const AdminRejectedSubmissionsPage = () => {
                           <div className="text-sm text-gray-500">{submission.fileName}</div>
                         </div>
                       </div>
-                    </td>                    <td className="px-6 py-4">
-                      <div className="flex flex-col space-y-2">
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col space-y-2 md:max-w-[250px]">
                         <div className="flex items-start">
                           <XCircle className="h-4 w-4 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
                           <span className="text-sm">{submission.rejectionReason}</span>
                         </div>
-                        <div>
-                          {submission.allowReupload ? (
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-800">
-                              Requires Reupload
+                        <div className=''>
+                          {submission.status === 'REQUIRES_REUPLOAD' ? (
+                            <span className="px-3 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-800 w-fit flex items-center">
+                              <Clock className="h-3 w-3 mr-1" /> Requires Reupload
                             </span>
                           ) : (
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
-                              Rejected
+                            <span className="px-3 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 w-fit flex items-center">
+                              <XCircle className="h-3 w-3 mr-1" /> Rejected
                             </span>
                           )}
                         </div>
@@ -372,30 +316,31 @@ const AdminRejectedSubmissionsPage = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex items-center">
                         <Calendar className="h-4 w-4 text-gray-500 mr-2" />
-                        {submission.rejectedAt}
+                        <div>
+                          {new Date(submission.rejectedAt).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                          <div className="text-xs text-gray-500">
+                            {new Date(submission.rejectedAt).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleViewDetails(submission.userId)}
-                          className="p-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded" 
+                          className="py-1 px-2 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 rounded"
                           title="View Details"
                         >
-                          <Eye className="h-4 w-4" />
-                        </button>                        <button
-                          onClick={() => handleDownload(submission.userId, submission.id, submission.fileName)}
-                          className="p-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded"
-                          title="Download"
-                        >
-                          <Download className="h-4 w-4" />
-                        </button>                        <button
-                          onClick={() => handleRequestResubmission(submission.userId, submission.id)}
-                          className="p-1 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded"
-                          title="Request Resubmission"
-                        >
-                          <Clock className="h-4 w-4" />
+                          View
                         </button>
+
                       </div>
                     </td>
                   </tr>

@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 const getCurrentUserId = (): string | null => {
   const sessionCookie = cookies().get('session')?.value;
   if (!sessionCookie) return null;
-  
+
   try {
     const session = JSON.parse(sessionCookie);
     return session.userId || null;
@@ -23,7 +23,7 @@ export async function PUT(
 ) {
   try {
     const userId = getCurrentUserId();
-    
+
     if (!userId) {
       return new NextResponse(
         JSON.stringify({ error: 'Unauthorized' }),
@@ -41,11 +41,9 @@ export async function PUT(
         JSON.stringify({ error: 'Unauthorized - Admin access required' }),
         { status: 401 }
       );
-    }
-
-    // Get request body
+    }    // Get request body
     const body = await request.json();
-    const { status, documentId, documentStatus, selfieId, selfieStatus, notes } = body;
+    const { status, documentId, documentStatus, selfieId, selfieStatus, notes, allowReupload } = body;
 
     // Get submission user
     const submissionUser = await prisma.user.findUnique({
@@ -96,31 +94,59 @@ export async function PUT(
           JSON.stringify({ error: 'Document not found or does not belong to the submission' }),
           { status: 404 }
         );
-      }
-
-      // Update document status
+      }      // Update document status
       await prisma.kYCDocument.update({
         where: { id: documentId },
         data: {
           status: documentStatus,
           notes: notes || undefined,
+          // Set verification date for all admin actions
+          verifiedAt: new Date(),
+          verifiedBy: userId,
         },
-      });      // Log the action
+      });
+      // Log additional information for debugging
+      console.log('Document status updated in submissions API:', {
+        documentId,
+        documentStatus,
+        allowReupload: allowReupload || false,
+        notes
+      });
+      // Create notification for the user based on document status
+      await prisma.notification.create({
+        data: {
+          userId: submissionUser.id,
+          title: documentStatus === 'APPROVED'
+            ? `Document Approved`
+            : documentStatus === 'REQUIRES_REUPLOAD'
+              ? `Document Requires Reupload`
+              : `Document Rejected`,
+          message: documentStatus === 'APPROVED'
+            ? `Your ${document.type} has been approved.`
+            : documentStatus === 'REQUIRES_REUPLOAD'
+              ? `Your ${document.type} needs to be reuploaded. Reason: ${notes || 'Document did not meet requirements'}`
+              : `Your ${document.type} has been rejected. Reason: ${notes || 'Document did not meet requirements'}`,
+          type: documentStatus === 'APPROVED' ? 'SUCCESS' : 'ERROR'
+        }
+      });// Log the action
       await prisma.auditLog.create({
         data: {
           userId,
-          action: documentStatus === 'APPROVED' 
-            ? 'DOCUMENT_APPROVED' 
+          action: documentStatus === 'APPROVED'
+            ? 'DOCUMENT_APPROVED'
             : documentStatus === 'REJECTED'
-            ? 'DOCUMENT_REJECTED'
-            : 'DOCUMENT_FLAGGED',
-          details: `${
-            documentStatus === 'APPROVED' 
-              ? 'Approved' 
+              ? 'DOCUMENT_REJECTED'
+              : documentStatus === 'REQUIRES_REUPLOAD'
+                ? 'DOCUMENT_REUPLOAD_REQUESTED'
+                : 'DOCUMENT_FLAGGED',
+          details: `${documentStatus === 'APPROVED'
+              ? 'Approved'
               : documentStatus === 'REJECTED'
-              ? 'Rejected'
-              : 'Flagged'
-          } ${document.type} for ${submissionUser.firstName} ${submissionUser.lastName}${notes ? ` - ${notes}` : ''}`,
+                ? 'Rejected (No reupload)'
+                : documentStatus === 'REQUIRES_REUPLOAD'
+                  ? 'Rejected (Reupload requested)'
+                  : 'Flagged'
+            } ${document.type} for ${submissionUser.firstName} ${submissionUser.lastName}${notes ? ` - ${notes}` : ''}`,
           targetId: document.id,
           targetType: 'KYC_DOCUMENT',
         },
@@ -172,7 +198,7 @@ export async function PUT(
     );
   } catch (error: any) {
     console.error('SUBMISSION_UPDATE_ERROR', error);
-    
+
     return new NextResponse(
       JSON.stringify({
         error: error.message || 'An error occurred while updating submission',

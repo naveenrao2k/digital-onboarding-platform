@@ -19,6 +19,7 @@ import {
   Eye
 } from 'lucide-react';
 import DojahVerificationDisplay from '@/components/admin/DojahVerificationDisplay';
+import RejectDocumentModal from '@/components/admin/RejectDocumentModal';
 import { useHeader } from '../../layout';
 
 interface UserDetails {
@@ -86,8 +87,10 @@ export default function UserDetailsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isReviewing, setIsReviewing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const [documentReviewNotes, setDocumentReviewNotes] = useState<{ [key: string]: string }>({});
-  const [expandedDocuments, setExpandedDocuments] = useState<{ [key: string]: boolean }>({});
+  const [documentReviewNotes, setDocumentReviewNotes] = useState<{ [key: string]: string }>({}); const [expandedDocuments, setExpandedDocuments] = useState<{ [key: string]: boolean }>({});
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [currentRejectDocId, setCurrentRejectDocId] = useState<string | null>(null);
+  const [currentDocType, setCurrentDocType] = useState<string>('');
   const { updateHeader } = useHeader();
 
   useEffect(() => {
@@ -188,6 +191,20 @@ export default function UserDetailsPage() {
     }
   };
 
+  const handleOpenRejectModal = (docId: string, docType: string) => {
+    setCurrentRejectDocId(docId);
+    setCurrentDocType(docType);
+    setRejectModalOpen(true);
+  };
+
+  const handleRejectWithModal = (documentId: string, reason: string, allowReupload: boolean) => {
+    // Close the modal
+    setRejectModalOpen(false);
+    setCurrentRejectDocId(null);
+
+    // Call the handleReview function with the rejection parameters
+    handleReview(documentId, "REJECTED", reason, reason, allowReupload);
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status.toUpperCase()) {
@@ -658,7 +675,7 @@ export default function UserDetailsPage() {
                           </div>
                         )}
 
-                      
+
                       </div>
                     </div>
 
@@ -717,7 +734,7 @@ export default function UserDetailsPage() {
                         </div> */}
                       </div>
 
-                      {/* Verification status */}                      
+                      {/* Verification status */}
                       <div>
                         <h4 className="text-sm font-medium text-blue-700 flex items-center mb-3">
                           <Shield className="h-4 w-4 mr-1.5" />
@@ -826,7 +843,7 @@ export default function UserDetailsPage() {
                                 <p className="text-sm text-gray-600 mb-2">Doc Preview</p>
                                 <div className="bg-white border border-gray-200 rounded-md p-3">
                                   <div className="flex flex-col md:flex-row gap-4">
-                                    <div className="w-full md:w-2/3  rounded-md overflow-hidden bg-gray-50 border border-gray-200">                                      
+                                    <div className="w-full md:w-2/3  rounded-md overflow-hidden bg-gray-50 border border-gray-200">
                                       <img
                                         src={`/api/admin/submissions/${userId}/download?documentId=${doc.id}`}
                                         alt={doc.fileName}
@@ -904,17 +921,16 @@ export default function UserDetailsPage() {
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Review Decision
                           </label>
-                          <div className="grid grid-cols-3 gap-2 mb-4">
+                          <div className="grid grid-cols-3 gap-2 mb-4">                            <button
+                            onClick={() => handleReview(doc.id, "APPROVED", documentReviewNotes[doc.id] || "Document approved after verification")}
+                            disabled={isReviewing}
+                            className="flex flex-col items-center justify-center px-3 py-2 bg-white border-2 border-green-500 hover:bg-green-50 text-green-700 rounded-lg transition-colors"
+                          >
+                            <CheckCircle className="h-5 w-5 mb-1" />
+                            <span className="text-sm font-medium">Approve</span>
+                          </button>
                             <button
-                              onClick={() => handleReview(doc.id, "APPROVED", documentReviewNotes[doc.id] || "Document approved after verification")}
-                              disabled={isReviewing}
-                              className="flex flex-col items-center justify-center px-3 py-2 bg-white border-2 border-green-500 hover:bg-green-50 text-green-700 rounded-lg transition-colors"
-                            >
-                              <CheckCircle className="h-5 w-5 mb-1" />
-                              <span className="text-sm font-medium">Approve</span>
-                            </button>
-                            <button
-                              onClick={() => handleReview(doc.id, "REJECTED", documentReviewNotes[doc.id] || "Document rejected after verification", "Document did not meet verification requirements", true)}
+                              onClick={() => handleOpenRejectModal(doc.id, doc.type)}
                               disabled={isReviewing}
                               className="flex flex-col items-center justify-center px-3 py-2 bg-white border-2 border-red-500 hover:bg-red-50 text-red-700 rounded-lg transition-colors"
                             >
@@ -948,6 +964,15 @@ export default function UserDetailsPage() {
             )}
           </div>
         </div>
+      )}      {/* Reject Document Modal */}
+      {rejectModalOpen && currentRejectDocId && (
+        <RejectDocumentModal
+          open={rejectModalOpen}
+          onClose={() => setRejectModalOpen(false)}
+          onReject={handleRejectWithModal}
+          reviewId={currentRejectDocId}
+          documentType={currentDocType.replace(/_/g, ' ')}
+        />
       )}
 
       {activeTab === 'history' && (

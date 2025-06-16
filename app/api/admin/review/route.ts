@@ -85,17 +85,24 @@ export async function POST(request: NextRequest) {
         VerificationStatusEnum.APPROVED : 
         status === 'REJECTED' ? 
           (allowReupload ? VerificationStatusEnum.REQUIRES_REUPLOAD : VerificationStatusEnum.REJECTED) :
-          VerificationStatusEnum.IN_PROGRESS;
-
-      await prisma.kYCDocument.update({
+          VerificationStatusEnum.IN_PROGRESS;      await prisma.kYCDocument.update({
         where: { id: documentId },
         data: {
           status: newStatus,
           verified: status === 'APPROVED',
-          verifiedAt: status === 'APPROVED' ? new Date() : null,
+          verifiedAt: new Date(), // Set verification date for all admin actions
           verifiedBy: reviewerId,
           notes: reviewNotes
         }
+      });
+      
+      // Log the action for debugging
+      console.log('Document status updated:', {
+        documentId,
+        newStatus,
+        allowReupload,
+        reviewerId,
+        action: status === 'APPROVED' ? 'APPROVAL' : 'REJECTION'
       });
     }
 

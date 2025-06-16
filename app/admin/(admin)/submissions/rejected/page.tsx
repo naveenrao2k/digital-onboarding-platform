@@ -31,6 +31,9 @@ interface RejectedSubmission {
   rejectedBy: string;
   fileName: string;
   rejectionReason: string;
+  allowReupload?: boolean;
+  status?: string;
+  statusFormatted?: string;
 }
 
 const AdminRejectedSubmissionsPage = () => {
@@ -40,6 +43,7 @@ const AdminRejectedSubmissionsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');  const [searchQuery, setSearchQuery] = useState('');
   const [documentTypeFilter, setDocumentTypeFilter] = useState<string>('all');
+  const [rejectionStatusFilter, setRejectionStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const { updateHeader } = useHeader();
@@ -49,7 +53,7 @@ const AdminRejectedSubmissionsPage = () => {
     if (!loading) {
       fetchRejectedSubmissions();
     }
-  }, [user, loading, router, currentPage, documentTypeFilter]);
+  }, [user, loading, router, currentPage, documentTypeFilter, rejectionStatusFilter]);
 
   useEffect(() => {
     updateHeader('Rejected Submissions', 'View and manage all rejected document submissions');
@@ -66,6 +70,9 @@ const AdminRejectedSubmissionsPage = () => {
       }
       if (searchQuery) {
         params.append('search', searchQuery);
+      }
+      if (rejectionStatusFilter !== 'all') {
+        params.append('status', rejectionStatusFilter);
       }
       params.append('page', currentPage.toString());
       params.append('limit', '10'); // Adjust limit as needed
@@ -167,13 +174,19 @@ const AdminRejectedSubmissionsPage = () => {
       console.error('Error requesting resubmission:', err);
       // Show error notification
     }
-  };
-  // We don't need to filter submissions again as they are already filtered by the API
-  // Using the submissions directly from the API response
-  const filteredSubmissions = rejectedSubmissions;
+  };  // Apply client-side filtering for rejection status if needed
+  const filteredSubmissions = rejectedSubmissions.filter(submission => {
+    if (rejectionStatusFilter === 'all') return true;
+    if (rejectionStatusFilter === 'rejected' && !submission.allowReupload) return true;
+    if (rejectionStatusFilter === 'reupload' && submission.allowReupload) return true;
+    return false;
+  });
 
   // Get unique document types for filter
   const documentTypes = Array.from(new Set(rejectedSubmissions.map(s => s.documentType)));
+
+  // Get unique rejection statuses for filter
+  const rejectionStatuses = Array.from(new Set(rejectedSubmissions.map(s => s.statusFormatted)));
 
   if (loading) {
     return (
@@ -219,6 +232,46 @@ const AdminRejectedSubmissionsPage = () => {
                     {documentTypes.map((type, index) => (
                       <option key={index} value={type}>{type}</option>
                     ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                </div>
+              </div>
+              
+              <div className="flex items-center">
+                <label className="mr-2 text-sm text-gray-700">Status:</label>
+                <div className="relative">
+                  <select
+                    value={rejectionStatusFilter}
+                    onChange={(e) => {
+                      setRejectionStatusFilter(e.target.value);
+                      setCurrentPage(1); // Reset to page 1 when filter changes
+                      // Trigger fetch when filter changes
+                      setTimeout(() => fetchRejectedSubmissions(), 0);
+                    }}
+                    className="appearance-none bg-white border border-gray-300 rounded-md pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Statuses</option>
+                    {rejectionStatuses.map((status, index) => (
+                      <option key={index} value={status}>{status}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                </div>
+              </div>
+                <div className="flex items-center">
+                <label className="mr-2 text-sm text-gray-700 whitespace-nowrap">Status:</label>
+                <div className="relative">
+                  <select
+                    value={rejectionStatusFilter}
+                    onChange={(e) => {
+                      setRejectionStatusFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="appearance-none bg-white border border-gray-300 rounded-md pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="reupload">Requires Reupload</option>
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 </div>
@@ -294,11 +347,23 @@ const AdminRejectedSubmissionsPage = () => {
                           <div className="text-sm text-gray-500">{submission.fileName}</div>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-start">
-                        <XCircle className="h-4 w-4 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <span className="text-sm">{submission.rejectionReason}</span>
+                    </td>                    <td className="px-6 py-4">
+                      <div className="flex flex-col space-y-2">
+                        <div className="flex items-start">
+                          <XCircle className="h-4 w-4 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">{submission.rejectionReason}</span>
+                        </div>
+                        <div>
+                          {submission.allowReupload ? (
+                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-800">
+                              Requires Reupload
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                              Rejected
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">

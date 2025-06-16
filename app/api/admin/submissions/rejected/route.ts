@@ -47,11 +47,17 @@ export async function GET(request: NextRequest) {
     const dateFilter = searchParams.get('dateFilter');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
-    const skip = (page - 1) * limit;
-
+    const skip = (page - 1) * limit;    // For debugging - log the enum values used in comparison
+    console.log('Looking for documents with status:', { 
+      REJECTED: VerificationStatusEnum.REJECTED,
+      REQUIRES_REUPLOAD: VerificationStatusEnum.REQUIRES_REUPLOAD
+    });
+    
     // Build where clause specifically for rejected documents
     const where: any = {
-      status: VerificationStatusEnum.REJECTED,
+      status: { 
+        in: [VerificationStatusEnum.REJECTED, VerificationStatusEnum.REQUIRES_REUPLOAD] 
+      },
     };
 
     if (documentType && documentType !== 'all') {
@@ -133,6 +139,8 @@ export async function GET(request: NextRequest) {
     const formattedRejectedSubmissions = rejectedDocuments.map(doc => {
       // Find the most recent audit log entry for this document's rejection
       const rejectionLog = auditLogs.find(log => log.targetId === doc.id);
+        // Check if document status is REQUIRES_REUPLOAD and mark it accordingly
+      const isReuploadStatus = doc.status === VerificationStatusEnum.REQUIRES_REUPLOAD;
       
       return {
         id: doc.id,
@@ -143,10 +151,11 @@ export async function GET(request: NextRequest) {
         dateSubmitted: doc.uploadedAt.toISOString(),
         dateRejected: doc.verifiedAt?.toISOString() || null,
         status: doc.status,
+        statusFormatted: isReuploadStatus ? 'REQUIRES REUPLOAD' : 'REJECTED',
         fileName: doc.fileName,
         rejectedBy: doc.verifiedBy || rejectionLog?.userId || 'Admin User',
         rejectionReason: doc.notes || 'Document rejected',
-        allowReupload: true, // This would typically come from a field in your database
+        allowReupload: isReuploadStatus
       };
     });
 

@@ -1,10 +1,19 @@
+'use client';
+
 import FraudDetectionDashboard from '@/components/admin/FraudDetectionDashboard';
+import { useHeader } from '../layout';
+import { useEffect } from 'react';
 
 export default function FraudDetectionPage() {
+    const { updateHeader } = useHeader();
+
+    useEffect(() => {
+        updateHeader('Fraud Detection Dashboard', 'Monitor and manage fraud detection results');
+    }, [updateHeader]);
+
     return (
-        <div className="py-6">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <h1 className="text-2xl font-semibold text-gray-900 mb-6">Fraud Detection Dashboard</h1>
+        <div className="">
+            <div className="max-w-7xl mx-auto ">
 
                 {/* Show the actual dashboard */}
                 <FraudDetectionDashboard />

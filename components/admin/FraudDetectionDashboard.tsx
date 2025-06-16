@@ -152,7 +152,6 @@ export default function FraudDetectionDashboard() {
 
     return (
         <div className="bg-white shadow rounded-lg">
-            <h2 className="text-xl font-semibold p-6 border-b">Fraud Detection Results</h2>
 
             {fraudDetections.length === 0 ? (
                 <div className="p-6 text-center text-gray-500">
@@ -160,7 +159,7 @@ export default function FraudDetectionDashboard() {
                 </div>
             ) : (
                 <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
+                    <table className="min-w-full divide-y ">
                         <thead className="bg-gray-50">
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>

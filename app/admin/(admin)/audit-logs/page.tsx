@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  Search, 
-  Filter, 
-  ChevronDown, 
+import {
+  Search,
+  Filter,
+  ChevronDown,
   AlertCircle,
   Clock,
   User,
@@ -66,21 +66,21 @@ const AdminAuditLogsPage = () => {
       if (searchQuery) {
         params.append('search', searchQuery);
       }
-      
+
       // Fetch audit logs from API
       const response = await fetch(`/api/admin/audit-logs?${params.toString()}`);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch audit logs');
       }
-      
+
       const data = await response.json();
       setAuditLogs(data.logs || []);
     } catch (err) {
       console.error('Error fetching audit logs:', err);
       setError('Failed to load audit logs. Please try again.');
-      
+
       // Remove mock data. Error fetching audit logs.
       setAuditLogs([]);
     } finally {
@@ -105,7 +105,7 @@ const AdminAuditLogsPage = () => {
     if (actionFilter !== 'all' && !log.action.includes(actionFilter)) {
       return false;
     }
-    
+
     // Search query filter (case insensitive)
     if (searchQuery && !(
       log.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -114,7 +114,7 @@ const AdminAuditLogsPage = () => {
     )) {
       return false;
     }
-    
+
     return true;
   });
 
@@ -134,8 +134,8 @@ const AdminAuditLogsPage = () => {
   }
 
   return (
-    <div className="w-full">
-      
+    <div className="max-w-7xl mx-auto">
+
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-6">
         {/* Search and Filters */}
         <div className="p-3 sm:p-4 border-b border-gray-200">
@@ -211,80 +211,73 @@ const AdminAuditLogsPage = () => {
             <p className="text-gray-600">No audit logs match your filter criteria.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  <th className="px-3 py-3 md:px-6">User</th>
-                  <th className="px-3 py-3 md:px-6">Action</th>
-                  <th className="px-3 py-3 md:px-6 hidden md:table-cell">Resource</th>
-                  <th className="px-3 py-3 md:px-6 hidden sm:table-cell">Date & Time</th>
-                  <th className="px-3 py-3 md:px-6 hidden lg:table-cell">IP Address</th>
-                  <th className="px-3 py-3 md:px-6">Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className={`h-8 w-8 rounded-full flex-shrink-0 flex items-center justify-center text-white font-medium mr-2 md:mr-3 ${
-                          log.userId === 'system' ? 'bg-gray-500' : 'bg-blue-600'
+          <div className="overflow-x-auto">            <table className="min-w-full table-fixed">
+            <thead>
+              <tr className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-3 md:px-6 w-1/6">User</th>
+                <th className="px-3 py-3 md:px-6 w-1/6">Action</th>
+                <th className="px-3 py-3 md:px-6 hidden sm:table-cell w-1/6">Date & Time</th>
+                <th className="px-3 py-3 md:px-6 hidden lg:table-cell w-1/6">IP Address</th>
+                <th className="px-3 py-3 md:px-6 w-1/6">Details</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {filteredLogs.map((log) => (
+                <tr key={log.id} className="hover:bg-gray-50">
+                  <td className="px-3 py-3 md:px-6 md:py-4">
+                    <div className="flex items-center">
+                      <div className={`h-8 w-8 rounded-full flex-shrink-0 flex items-center justify-center text-white font-medium mr-2 md:mr-3 ${log.userId === 'system' ? 'bg-gray-500' : 'bg-blue-600'
                         }`}>
-                          {log.userName.charAt(0)}
-                        </div>
-                        <div>
-                          <div className="font-medium text-sm truncate">{log.userName}</div>
-                          {log.userId !== 'system' && (
-                            <button
-                              onClick={() => handleViewUserDetails(log.userId)}
-                              className="text-xs text-blue-600 hover:underline"
-                            >
-                              View Profile
-                            </button>
-                          )}
-                        </div>
+                        {log.userName.charAt(0).toUpperCase()}
                       </div>
-                    </td>
-                    <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        log.action.includes('APPROVED') ? 'bg-green-100 text-green-800' :
-                        log.action.includes('REJECTED') ? 'bg-red-100 text-red-800' :
-                        log.action.includes('UPLOAD') ? 'bg-blue-100 text-blue-800' :
-                        log.action.includes('LOGIN') ? 'bg-purple-100 text-purple-800' :
-                        log.action.includes('SYSTEM') ? 'bg-gray-100 text-gray-800' :
-                        'bg-amber-100 text-amber-800'
-                      }`}>
-                        {log.action}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap text-sm hidden md:table-cell">
-                      <div className="flex items-center">
-                        {log.resourceType === 'KYCDocument' ? (
-                          <FileText className="h-4 w-4 text-gray-500 mr-2" />
-                        ) : log.resourceType === 'User' ? (
-                          <User className="h-4 w-4 text-gray-500 mr-2" />
-                        ) : (
-                          <div className="h-4 w-4 mr-2" />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-sm truncate max-w-[200px]">{log.userName}</div>
+                        {log.userId !== 'system' && (
+                          <button
+                            onClick={() => handleViewUserDetails(log.userId)}
+                            className="text-xs text-blue-600 hover:underline"
+                          >
+                            View Profile
+                          </button>
                         )}
-                        <span>{log.resourceType}</span>
                       </div>
-                    </td>
-                    <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-sm hidden sm:table-cell">
-                      {log.timestamp}
-                    </td>
-                    <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-sm text-gray-500 hidden lg:table-cell">
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 md:px-6 md:py-4">
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${log.action.includes('APPROVED') ? 'bg-green-100 text-green-800' :
+                        log.action.includes('REJECTED') ? 'bg-red-100 text-red-800' :
+                          log.action.includes('UPLOAD') ? 'bg-blue-100 text-blue-800' :
+                            log.action.includes('LOGIN') ? 'bg-purple-100 text-purple-800' :
+                              log.action.includes('SYSTEM') ? 'bg-gray-100 text-gray-800' :
+                                'bg-amber-100 text-amber-800'
+                      }`}>
+                      {log.action}
+                    </span>
+                  </td>                    
+                  <td className="px-3 py-3 md:px-6 md:py-4 text-sm hidden sm:table-cell">
+                    <div className="whitespace-normal">
+                      {new Date(log.timestamp).toLocaleString()}
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 md:px-6 md:py-4 text-sm text-gray-500 hidden lg:table-cell">
+                    <div className="font-mono hover:text-clip hover:overflow-visible" title={log.ipAddress}>
                       {log.ipAddress}
-                    </td>
-                    <td className="px-3 py-3 md:px-6 md:py-4">
-                      <p className="text-xs md:text-sm truncate max-w-[150px] md:max-w-[250px] lg:max-w-md" title={log.details}>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 md:px-6 md:py-4">
+                    <div className="relative group">
+                      <p className="text-sm truncate max-w-[150px] md:max-w-[200px] lg:max-w-[250px]" title={log.details}>
                         {log.details}
                       </p>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <div className="hidden group-hover:block absolute z-10 left-0 top-full mt-2 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg max-w-md">
+                        {log.details}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
           </div>
         )}
       </div>

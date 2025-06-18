@@ -2,19 +2,34 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getUserProfile } from '@/lib/auth-service';
+import { 
+  handleApiError, 
+  AuthenticationError,
+  validateRequired,
+  databaseCircuitBreaker
+} from '@/lib/error-handler';
+import { checkDatabaseConnection, withRetry } from '@/lib/prisma';
 
 // Mark this route as dynamic to handle cookies usage
 export const dynamic = 'force-dynamic';
 
-// Helper to get the current user ID from cookies
+// Helper to get the current user ID from cookies with enhanced validation
 const getCurrentUserId = (): string | null => {
-  const sessionCookie = cookies().get('session')?.value;
-  if (!sessionCookie) return null;
-  
   try {
+    const sessionCookie = cookies().get('session')?.value;
+    if (!sessionCookie) return null;
+    
     const session = JSON.parse(sessionCookie);
-    return session.userId || null;
-  } catch {
+    const userId = session.userId;
+    
+    // Validate userId format
+    if (!userId || typeof userId !== 'string') {
+      return null;
+    }
+    
+    return userId;
+  } catch (error) {
+    console.error('Error parsing session cookie:', error);
     return null;
   }
 };
@@ -24,41 +39,38 @@ export async function GET() {
     const userId = getCurrentUserId();
     
     if (!userId) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized - No valid session found' }),
-        { status: 401 }
-      );
+      throw new AuthenticationError('Valid session required to access profile');
     }
     
-    try {
-      const profile = await getUserProfile(userId);
-      return NextResponse.json(profile);
-    } catch (error: any) {
-      console.error('USER_PROFILE_ERROR', error);
-      
-      // If user not found, return 401 instead of 500
-      if (error.message.includes('User not found')) {
-        return new NextResponse(
-          JSON.stringify({ error: 'Unauthorized - Invalid user ID' }),
-          { status: 401 }
-        );
-      }
-      
-      return new NextResponse(
-        JSON.stringify({
-          error: error.message || 'An error occurred while fetching user profile',
-        }),
-        { status: 500 }
-      );
+    // Check database health before proceeding
+    if (!(await checkDatabaseConnection())) {
+      throw new Error('Database is currently unavailable');
     }
+    
+    // Use circuit breaker and retry logic for database operations
+    const profile = await databaseCircuitBreaker.call(async () => {
+      return await withRetry(async () => {
+        return await getUserProfile(userId);
+      });
+    });
+    
+    // Log successful profile access
+    console.log('USER_PROFILE_ACCESS_SUCCESS', {
+      userId,
+      timestamp: new Date().toISOString()
+    });
+    
+    return NextResponse.json(profile);
+    
   } catch (error: any) {
-    console.error('USER_PROFILE_ERROR', error);
+    // Enhanced error logging
+    console.error('USER_PROFILE_ERROR', {
+      userId: getCurrentUserId(),
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
     
-    return new NextResponse(
-      JSON.stringify({
-        error: error.message || 'An error occurred while fetching user profile',
-      }),
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

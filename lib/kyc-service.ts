@@ -80,6 +80,7 @@ export const uploadKycDocument = async ({ userId, documentType, file }: KycDocum
     }
 
     let kycDocument;
+    
 
     if (existingDocument) {
       // If a record already exists, update it instead of creating a new one

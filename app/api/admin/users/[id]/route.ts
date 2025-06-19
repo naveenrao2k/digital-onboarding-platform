@@ -85,17 +85,16 @@ export async function GET(request: NextRequest) {
         fileSize: user.selfieVerification.fileSize,
         capturedAt: user.selfieVerification.capturedAt ? user.selfieVerification.capturedAt.toISOString() : null,
       } : null,
-      documentDetails : user.kycDocuments,
-      documents: user.kycDocuments.map(doc => ({
+      documentDetails : user.kycDocuments,      documents: user.kycDocuments.map(doc => ({
         id: doc.id,
         type: doc.type,
         fileName: doc.fileName,
-        uploadedAt: doc.fileUrl ? null : null, // createdAt does not exist, fileUrl used as placeholder
+        uploadedAt: doc.uploadedAt ? doc.uploadedAt.toISOString() : null,
         status: doc.status,
         fileSize: doc.fileSize,
         mimeType: doc.mimeType,
         // Removed documentAnalysis and dojahVerification as they do not exist on doc
-      })),      dojahVerifications: {
+      })),dojahVerifications: {
         total: user.dojahVerifications?.length || 0,
         governmentVerifications: user.dojahVerifications?.filter(v => 
           ['BVN_LOOKUP', 'NIN_LOOKUP', 'PASSPORT_LOOKUP', 'DRIVERS_LICENSE_LOOKUP'].includes(v.verificationType)

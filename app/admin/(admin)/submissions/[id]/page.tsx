@@ -800,7 +800,7 @@ export default function UserDetailsPage() {
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
                                   <p className="text-sm text-gray-600 mb-1">Upload Date</p>
-                                  <p className="font-medium text-sm">{new Date(doc.uploadedAt || "").toLocaleString()}</p>
+                                  <p className="font-medium text-sm">{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString() : "N/A"}</p>
                                 </div>
 
                                 <div>

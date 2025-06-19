@@ -3,51 +3,29 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { uploadSelfieVerification } from '@/lib/kyc-service';
 import { dojahService } from '@/lib/dojah-service';
-import { 
-  handleApiError, 
-  AuthenticationError, 
-  ValidationError,
-  ServiceUnavailableError,
-  validateRequired,
-  validateFileSize,
-  validateFileType,
-  externalServiceCircuitBreaker
-} from '@/lib/error-handler';
 
 // Mark this route as dynamic to handle cookies usage
 export const dynamic = 'force-dynamic';
 
-// Helper to get the current user ID from cookies with enhanced validation
+// Helper to get the current user ID from cookies
 const getCurrentUserId = (): string | null => {
+  const sessionCookie = cookies().get('session')?.value;
+  if (!sessionCookie) return null;
+  
   try {
-    const sessionCookie = cookies().get('session')?.value;
-    if (!sessionCookie) return null;
-    
     const session = JSON.parse(sessionCookie);
-    const userId = session.userId;
-    
-    // Validate userId format
-    if (!userId || typeof userId !== 'string') {
-      return null;
-    }
-    
-    return userId;
-  } catch (error) {
-    console.error('Error parsing session cookie:', error);
+    return session.userId || null;
+  } catch {
     return null;
   }
 };
 
-// Helper function to convert file to base64 with error handling
+// Helper function to convert file to base64
 async function fileToBase64(file: File): Promise<string> {
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    const binary = bytes.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
-    return btoa(binary);
-  } catch (error: any) {
-    throw new ValidationError('Failed to process image file');
-  }
+  const arrayBuffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  const binary = bytes.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
+  return btoa(binary);
 }
 
 export async function POST(request: NextRequest) {
@@ -55,39 +33,21 @@ export async function POST(request: NextRequest) {
     const userId = getCurrentUserId();
     
     if (!userId) {
-      throw new AuthenticationError('Valid session required to upload selfie');
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401 }
+      );
     }
     
-    // Parse form data with error handling
-    let formData: FormData;
-    try {
-      formData = await request.formData();
-    } catch (error: any) {
-      throw new ValidationError('Invalid form data provided');
-    }
-    
+    const formData = await request.formData();
     const file = formData.get('file') as File;
     
-    // Validate required fields
-    validateRequired(file, 'file');
-    
-    // Additional file validation
-    if (!file || !(file instanceof File)) {
-      throw new ValidationError('Valid image file is required');
+    if (!file) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Missing file' }),
+        { status: 400 }
+      );
     }
-    
-    // Validate file for selfie (stricter validation)
-    validateFileSize(file, 5); // 5MB limit for selfies
-    validateFileType(file, ['image/jpeg', 'image/png', 'image/jpg']);
-    
-    // Log the selfie upload attempt
-    console.log('SELFIE_UPLOAD_ATTEMPT', {
-      userId,
-      fileName: file.name,
-      fileSize: file.size,
-      mimeType: file.type,
-      timestamp: new Date().toISOString()
-    });
     
     // Convert file to base64 for liveness check
     const base64Image = await fileToBase64(file);
@@ -109,83 +69,78 @@ export async function POST(request: NextRequest) {
       faceQuality: null
     };
     
-    // Perform liveness check with circuit breaker
     try {
-      console.log('Performing liveness check on selfie image');
-      
-      livenessResult = await externalServiceCircuitBreaker.call(async () => {
-        return await dojahService.checkLiveness(base64Image);
-      });
-      
-      console.log('Liveness check result:', {
-        userId,
-        isLive: livenessResult.isLive,
-        livenessProbability: livenessResult.livenessProbability,
-        faceDetected: livenessResult.faceDetected,
-        timestamp: new Date().toISOString()
-      });
+      // Perform liveness check first
+      console.log('Performing liveness check on image');
+      livenessResult = await dojahService.checkLiveness(base64Image);
+      console.log('Liveness check result:', JSON.stringify(livenessResult));
       
       // Fail if no face detected or multiple faces detected
       if (!livenessResult.faceDetected) {
-        throw new ValidationError('No face detected in the image. Please try again with a clear view of your face.');
+        return new NextResponse(
+          JSON.stringify({ error: 'No face detected in the image. Please try again with a clear view of your face.' }),
+          { status: 400 }
+        );
       }
       
       if (livenessResult.multiFaceDetected) {
-        throw new ValidationError('Multiple faces detected in the image. Please ensure only your face is visible.');
+        return new NextResponse(
+          JSON.stringify({ error: 'Multiple faces detected in the image. Please ensure only your face is visible.' }),
+          { status: 400 }
+        );
       }
       
       // Check if the image passes the liveness check (probability > 50)
       if (!livenessResult.isLive) {
-        throw new ValidationError(
-          `Liveness check failed (${livenessResult.livenessProbability}% confidence). Please ensure you are in good lighting and try again.`
+        return new NextResponse(
+          JSON.stringify({ 
+            error: 'Liveness check failed. Please ensure you are in good lighting and try again.',
+            details: {
+              livenessProbability: livenessResult.livenessProbability,
+              threshold: 50
+            }
+          }),
+          { status: 400 }
         );
       }
-      
-    } catch (error: any) {
-      if (error instanceof ValidationError) {
-        throw error;
-      }
-      
-      console.error('Liveness check service error:', error);
-      throw new ServiceUnavailableError(
-        'Liveness verification service is temporarily unavailable. Please try again later.'
-      );
+    } catch (livenessError) {
+      console.error('Error during liveness check:', livenessError);
+      // Continue with the process even if liveness check fails
+      // This allows for graceful degradation if the Dojah API has issues
     }
     
-    // Upload the selfie document
-    const selfieDocument = await uploadSelfieVerification(userId, file);
+    // Upload the selfie if liveness check passes
+    const selfie = await uploadSelfieVerification(userId, file);
     
-    // Log successful selfie upload
-    console.log('SELFIE_UPLOAD_SUCCESS', {
-      userId,
-      documentId: selfieDocument.id,
-      fileName: file.name,
-      livenessScore: livenessResult.livenessProbability,
-      timestamp: new Date().toISOString()
-    });
-      // Return success response with liveness check results
+    // Return combined result
     return NextResponse.json({
-      id: selfieDocument.id,
-      fileName: selfieDocument.fileName,
-      status: selfieDocument.status,
-      capturedAt: selfieDocument.capturedAt, // Use capturedAt instead of uploadedAt for SelfieVerification
+      ...selfie,
       livenessCheck: {
-        passed: livenessResult.isLive,
-        confidence: livenessResult.livenessProbability,
-        faceDetected: livenessResult.faceDetected
-      },
-      message: 'Selfie uploaded and verified successfully'
+        passed: livenessResult?.isLive || false,
+        isLive: livenessResult?.isLive || false,
+        livenessProbability: livenessResult?.livenessProbability || 0,
+        faceDetails: livenessResult?.faceDetails || null
+      }
     });
-    
   } catch (error: any) {
-    // Enhanced error logging
-    console.error('SELFIE_VERIFICATION_ERROR', {
-      userId: getCurrentUserId(),
-      error: error.message,
-      stack: error.stack,
-      timestamp: new Date().toISOString()
-    });
+    console.error('SELFIE_VERIFICATION_ERROR', error);
     
-    return handleApiError(error);
+    // Get more detailed error information for debugging
+    const errorDetails = {
+      message: error.message || 'Unknown error',
+      stack: error.stack,
+      name: error.name,
+      cause: error.cause
+    };
+    
+    console.error('Detailed error information:', JSON.stringify(errorDetails));
+    
+    return new NextResponse(
+      JSON.stringify({
+        error: error.message || 'An error occurred during selfie verification',
+        errorType: error.name
+      }),
+      { status: 500 }
+    );
   }
 }

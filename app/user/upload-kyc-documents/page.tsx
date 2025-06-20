@@ -1357,28 +1357,7 @@ const UploadKYCDocumentsPage = () => {
           <h2 className="text-3xl font-bold mb-3">Upload KYC Documents</h2>
           <p className="text-blue-100 max-w-2xl">Please upload the required documents for identity verification. Your information is securely encrypted and verified.</p>
 
-          <div className="mt-6 flex items-center">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-400 bg-opacity-30">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <span className="ml-2 text-sm font-medium text-blue-100">Secure Upload</span>
-
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-400 bg-opacity-30 ml-6">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-              </svg>
-            </div>
-            <span className="ml-2 text-sm font-medium text-blue-100">End-to-end Encryption</span>
-
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-400 bg-opacity-30 ml-6">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-              </svg>
-            </div>
-            <span className="ml-2 text-sm font-medium text-blue-100">Instant Verification</span>
-          </div>
+        
         </div>
 
         <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-xl p-5 mb-10 shadow-sm">
@@ -1388,7 +1367,7 @@ const UploadKYCDocumentsPage = () => {
             </div>
             <div className="ml-4">
               <p className="font-semibold text-amber-800">Important Document Guidelines</p>
-              <ul className="mt-2 text-amber-700 text-sm space-y-1">
+              <ul className="mt-2 text-amber-700 text-sm space-y-1 grid grid-cols-2">
                 <li className="flex items-center">
                   <span className="mr-2">•</span>
                   All documents must be clear, unaltered, and unexpired

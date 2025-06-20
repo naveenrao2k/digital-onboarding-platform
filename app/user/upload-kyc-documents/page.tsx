@@ -1104,20 +1104,25 @@ const UploadKYCDocumentsPage = () => {
                     'Finalizing submission...'}
             </p>
           </div>) : status === 'success' ? (
-            <div className="flex items-center p-2 absolute top-0 left-0 right-0 bottom-0 justify-center">
+            <div className="flex items-center p-2 absolute top-0 left-6 right-0 bottom-0 justify-center">
               <div className="h-14 w-14 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 border border-green-200">
                 <CheckCircle className="h-7 w-7 text-green-600" />
               </div>
-              <div className="ml-4 flex-grow">
-                <div className="flex items-center">
+              <div className="ml-4 flex-grow flex gap-10">
+                <div className='flex flex-col justify-center w-1/2'>
+                  <div className="flex items-center">
                   <span className="text-sm font-medium text-slate-800">{fileIcon} {fileName}</span>
                   {formattedFileSize && <span className="text-xs text-slate-500 ml-2">({formattedFileSize})</span>}
-                </div>                <p className="text-xs text-green-600 font-medium mt-0.5">Verification successful</p>
-                {previewUrl && (<div className="mt-2 max-w-[150px]">
+                </div>               
+                 <p className="text-xs text-green-600 font-medium mt-0.5">Verification successful</p>
+               
+                </div>
+               
+                {previewUrl && (<div className="mt-2 max-w-[900px]">
                   <img
                     src={previewUrl}
                     alt="Document preview"
-                    className="h-16 w-auto object-cover rounded border border-green-200 shadow-sm"
+                    className="h-32 w-32 object-cover rounded border border-green-200 shadow-sm"
                   />
                 </div>
                 )}

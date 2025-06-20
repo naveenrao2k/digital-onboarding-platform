@@ -308,18 +308,16 @@ const UploadKYCDocumentsPage = () => {
         existingServerDoc = documents?.some(doc => doc.type === 'ID_CARD_BACK' || doc.type === 'Id Card Back');
       } else {
         existingServerDoc = documents?.some(doc => doc.type === docTypeFormatted);
+      }      // Check if this document is already uploaded (locally or on server)
+      const isAlreadyUploaded = isReplacing || existingServerDoc;
+
+      if (isAlreadyUploaded) {
+        console.log(`Document already exists for ${docType}. Preventing upload.`);
+        setError(`This document type has already been uploaded. Each document can only be uploaded once.`);
+        return;
       }
 
-      // We're either replacing a local file or a server document
-      const isReplacingAny = isReplacing || existingServerDoc;
-
-      if (isReplacingAny) {
-        console.log(`Replacing existing file for ${docType}`);
-
-        // Clear existing preview and reset status when replacing
-        setUploadStatus(prev => ({ ...prev, [docType]: 'idle' }));
-        setUploadProgress(prev => ({ ...prev, [docType]: 0 }));
-      }// Update file status to uploading
+      // Update file status to uploading
       setUploadStatus(prev => ({ ...prev, [docType]: 'uploading' }));
       setUploadProgress(prev => ({ ...prev, [docType]: 5 }));
       // Set up a progress simulation for the validation phase
@@ -893,7 +891,7 @@ const UploadKYCDocumentsPage = () => {
 
       // Set the error in a more user-friendly format
       if (errorMessage.includes('You have already uploaded')) {
-        setError('You can only upload one document of each type. Please use the Change File option to replace an existing document.');
+        setError('You can only upload one document of each type. You have already uploaded this document type.');
       } else if (errorMessage.includes('network') || errorMessage.includes('connection')) {
         setError('Network error. Please check your internet connection and try again.');
       } else if (errorMessage.includes('size')) {
@@ -915,22 +913,11 @@ const UploadKYCDocumentsPage = () => {
     label: string,
     accountTypeKey: 'individual' | 'partnership' | 'enterprise' | 'llc',
     fileRef: React.RefObject<HTMLInputElement>
-  }) => {
-    // Determine if file is uploaded based on account type and document type
+  }) => {    // Determine if file is uploaded based on account type and document type
     let isFileUploaded = false;
     let fileName = '';
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
-    // Function to handle file replacement
-    const handleReplaceFile = () => {
-      // First ensure the file input's value is cleared to allow selecting the same file again
-      if (fileRef.current) {
-        fileRef.current.value = '';
-      }
-      // Then trigger the file dialog and clear any errors
-      setError('');
-      fileRef.current?.click();
-    };
 
     switch (accountTypeKey) {
       case 'individual':
@@ -1126,37 +1113,22 @@ const UploadKYCDocumentsPage = () => {
                   <span className="text-sm font-medium text-slate-800">{fileIcon} {fileName}</span>
                   {formattedFileSize && <span className="text-xs text-slate-500 ml-2">({formattedFileSize})</span>}
                 </div>                <p className="text-xs text-green-600 font-medium mt-0.5">Verification successful</p>
-                {previewUrl && (
-                  <div className="mt-2 max-w-[150px]">
-                    <img
-                      src={previewUrl}
-                      alt="Document preview"
-                      className="h-16 w-auto object-cover rounded border border-green-200 shadow-sm"
-                    />
-                  </div>
+                {previewUrl && (<div className="mt-2 max-w-[150px]">
+                  <img
+                    src={previewUrl}
+                    alt="Document preview"
+                    className="h-16 w-auto object-cover rounded border border-green-200 shadow-sm"
+                  />
+                </div>
                 )}
-                <button
-                  type="button"
-                  className="mt-2 px-3 py-1 bg-white border border-slate-300 rounded text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
-                  onClick={handleReplaceFile}
-                >
-                  Replace
-                </button>
               </div>
             </div>) : status === 'error' ? (
               <div className="flex items-center p-2 absolute top-0 left-0 right-0 bottom-0 justify-center">
                 <div className="h-14 w-14 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0 border border-red-200">
                   <AlertCircle className="h-7 w-7 text-red-600" />
                 </div>
-                <div className="ml-4 flex-grow">
-                  <p className="text-sm font-medium text-slate-800">{fileName || 'Upload failed'}</p>
-                  <p className="text-xs text-red-600 font-medium mt-0.5">Verification failed</p>                  <button
-                    type="button"
-                    className="mt-2 px-3 py-1 bg-white border border-red-300 rounded text-xs font-medium text-red-700 hover:bg-red-50 transition-colors shadow-sm"
-                    onClick={handleReplaceFile}
-                  >
-                    Try Again
-                  </button>
+                <div className="ml-4 flex-grow">                  <p className="text-sm font-medium text-slate-800">{fileName || 'Upload failed'}</p>
+                  <p className="text-xs text-red-600 font-medium mt-0.5">Verification failed</p>
                 </div>
               </div>) : isFileUploaded ? (
                 <div className="flex items-center p-2 absolute top-0 left-0 right-0 bottom-0 justify-center">
@@ -1176,50 +1148,46 @@ const UploadKYCDocumentsPage = () => {
                           alt="Document preview"
                           className="h-16 w-auto object-cover rounded border border-blue-200 shadow-sm"
                         />
-                      </div>
-                    )}                    <button
-                      type="button"
-                      className="mt-2 px-3 py-1 bg-white border border-slate-300 rounded text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
-                      onClick={handleReplaceFile}
-                    >
-                      Replace
-                    </button>
+                      </div>)}
                   </div>
-                </div>) : (
-            <div
-              className={`flex flex-col items-center py-6 cursor-pointer absolute top-0 left-0 right-0 bottom-0 justify-center ${isDragging ? 'opacity-70' : ''}`}
-              onClick={handleReplaceFile}
-            >
-              <div className={`h-16 w-16 rounded-full flex items-center justify-center mb-3 transition-all ${isDragging ? 'bg-blue-100' : 'bg-slate-50 border border-slate-200'}`}>
-                <Upload className={`h-8 w-6 transition-colors ${isDragging ? 'text-blue-600' : 'text-slate-400'}`} />
-              </div>
-              <p className={`text-sm font-medium transition-colors ${isDragging ? 'text-blue-700' : 'text-slate-800'}`}>
-                {isDragging ? 'Drop file here' : 'Click to upload or drag and drop'}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">Support: JPG, PNG, PDF (max 5MB)</p>
-              <button
-                type="button"
-                className="mt-3 px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm" onClick={(e) => {
-                  e.stopPropagation();
-                  handleReplaceFile();
-                }}
-              >
-                Select File
-              </button>              <input
-                type="file"
-                ref={fileRef}
-                className="hidden"
-                accept=".jpg,.jpeg,.png,.pdf"
-                onChange={e => {
-                  // Reset any error state before attempting upload
-                  setError('');
-                  // Process the file change
-                  handleFileChange(e, docType, accountTypeKey);
-                  // Clear the input value after processing to allow selecting the same file again
-                  if (fileRef.current) fileRef.current.value = '';
-                }}
-              />
-            </div>
+                </div>) : (<div
+                  className={`flex flex-col items-center py-6 cursor-pointer absolute top-0 left-0 right-0 bottom-0 justify-center ${isDragging ? 'opacity-70' : ''}`}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <div className={`h-16 w-16 rounded-full flex items-center justify-center mb-3 transition-all ${isDragging ? 'bg-blue-100' : 'bg-slate-50 border border-slate-200'}`}>
+                    <Upload className={`h-8 w-6 transition-colors ${isDragging ? 'text-blue-600' : 'text-slate-400'}`} />
+                  </div>
+                  <p className={`text-sm font-medium transition-colors ${isDragging ? 'text-blue-700' : 'text-slate-800'}`}>
+                    {isDragging ? 'Drop file here' : 'Click to upload or drag and drop'}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">Support: JPG, PNG, PDF (max 5MB)</p>
+                  <button
+                    type="button"
+                    className="mt-3 px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm" onClick={(e) => {
+                      e.stopPropagation();
+                      if (fileRef.current) {
+                        fileRef.current.value = '';
+                        setError('');
+                        fileRef.current.click();
+                      }
+                    }}
+                  >
+                    Select File
+                  </button><input
+                    type="file"
+                    ref={fileRef}
+                    className="hidden"
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    onChange={e => {
+                      // Reset any error state before attempting upload
+                      setError('');
+                      // Process the file change
+                      handleFileChange(e, docType, accountTypeKey);
+                      // Clear the input value after processing to allow selecting the same file again
+                      if (fileRef.current) fileRef.current.value = '';
+                    }}
+                  />
+                </div>
           )}
         </div>
       </div>

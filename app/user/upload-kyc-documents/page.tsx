@@ -1990,7 +1990,7 @@ const UploadKYCDocumentsPage = () => {
               {isSubmitting ? (
                 <>
                   <div className="h-5 w-5 border-2 border-white/80 border-t-transparent rounded-full animate-spin mr-3"></div>
-                  <span className="animate-pulse">Processing Submission...</span>
+                  <span className="">Processing Submission...</span>
                 </>
               ) : 'Submit Documents'}
             </button>

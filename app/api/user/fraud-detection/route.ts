@@ -24,10 +24,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const user = { id: userId };
-
-        const body = await request.json();
-        const { ipAddress, emailAddress, phoneNumber, bvn, checkType } = body;
+        const user = { id: userId }; const body = await request.json();
+        const { ipAddress, phoneNumber, checkType } = body;
 
         let result;
 
@@ -48,28 +46,12 @@ export async function POST(request: NextRequest) {
                         responseData: result,
                         riskScore: result?.entity?.report?.risk_score?.result || 0,
                         isFraudSuspected: (result?.entity?.report?.risk_score?.result || 0) > 70,
-                        detectionDetails: result
-                    }
-                });
-                break;
-
-            case 'EMAIL_CHECK':
-                if (!emailAddress) {
-                    return NextResponse.json({ error: 'Email address is required' }, { status: 400 });
-                }
-                result = await dojahService.checkEmail(emailAddress);
-
-                // Save the result
-                await prisma.fraudDetection.create({
-                    data: {
-                        userId: user.id,
-                        verificationType: FraudCheckType.EMAIL_CHECK,
-                        emailAddress,
-                        requestData: { emailAddress },
-                        responseData: result,
-                        riskScore: result?.entity?.suspicious ? 80 : 0,
-                        isFraudSuspected: result?.entity?.suspicious,
-                        detectionDetails: result
+                        detectionDetails: {
+                            ...result,
+                            summary: {
+                                ipCheck: 'COMPLETED'
+                            }
+                        }
                     }
                 });
                 break;
@@ -90,54 +72,19 @@ export async function POST(request: NextRequest) {
                         responseData: result,
                         riskScore: result?.entity?.score || 0,
                         isFraudSuspected: result?.entity?.disposable || false,
-                        detectionDetails: result
+                        detectionDetails: {
+                            ...result,
+                            summary: {
+                                phoneCheck: 'COMPLETED'
+                            }
+                        }
                     }
                 });
-                break;
-
-            case 'CREDIT_CHECK':
-                if (!bvn) {
-                    return NextResponse.json({ error: 'BVN is required' }, { status: 400 });
-                }
-                result = await dojahService.checkCreditBureau(bvn);
-
-                // Credit risk calculation logic
-                let creditRiskScore = 0;
-                let isFraudSuspected = false;
-
-                // Example logic - analyze unpaid loans or credit issues
-                if (result?.entity?.score) {
-                    const totalLoans = result.entity.score.totalNoOfLoans?.[0]?.value || 0;
-                    const overdueLoans = result.entity.score.totalNoOfOverdueAccounts?.[0]?.value || 0;
-
-                    if (overdueLoans > 0) {
-                        creditRiskScore = (overdueLoans / totalLoans) * 100;
-                        isFraudSuspected = creditRiskScore > 40;
-                    }
-                }
-
-                // Save the result
-                await prisma.fraudDetection.create({
-                    data: {
-                        userId: user.id,
-                        verificationType: FraudCheckType.CREDIT_CHECK,
-                        bvn,
-                        requestData: { bvn },
-                        responseData: result,
-                        riskScore: creditRiskScore,
-                        isFraudSuspected,
-                        detectionDetails: result
-                    }
-                });
-                break;
-
-            case 'COMBINED_CHECK':
+                break; case 'COMBINED_CHECK':
                 result = await dojahService.performComprehensiveCheck({
                     userId: user.id,
                     ipAddress,
-                    emailAddress,
-                    phoneNumber,
-                    bvn
+                    phoneNumber
                 });
                 break;
 

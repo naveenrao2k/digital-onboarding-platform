@@ -1104,7 +1104,7 @@ const UploadKYCDocumentsPage = () => {
                     'Finalizing submission...'}
             </p>
           </div>) : status === 'success' ? (
-            <div className="flex items-center p-2 absolute top-0 left-6 right-0 bottom-0 justify-center">
+            <div className="flex items-center p-2 absolute top-0 left-0 right-0 bottom-0 justify-center">
               <div className="h-14 w-14 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 border border-green-200">
                 <CheckCircle className="h-7 w-7 text-green-600" />
               </div>

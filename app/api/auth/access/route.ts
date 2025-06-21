@@ -140,9 +140,7 @@ export async function GET(req: NextRequest) {
                   isFraudSuspected: false,
                   detectionDetails: { status: 'PENDING', details: 'Fraud check in progress' }
                 }
-              });
-
-              // Set a timeout for the API call to prevent hanging
+              });              // Set a timeout for the API call to prevent hanging
               const timeoutPromise = new Promise((_, reject) => {
                 setTimeout(() => reject(new Error('Fraud check API timeout')), 15000); // Increased timeout
               });
@@ -150,9 +148,8 @@ export async function GET(req: NextRequest) {
               type FraudCheckResult = {
                 overallRisk: number;
                 ipCheck?: any;
-                emailCheck?: any;
                 phoneCheck?: any;
-                creditCheck?: any;
+                phoneStatus?: string;
                 fallback?: boolean;
               };
 
@@ -163,14 +160,13 @@ export async function GET(req: NextRequest) {
                   dojahService.performComprehensiveCheck({
                     userId: user!.id,
                     ipAddress: ipAddress,
-                    emailAddress: user!.email,
                     phoneNumber: user!.phone || undefined,
                   }),
                   timeoutPromise
                 ]) as FraudCheckResult;
 
                 fraudCheckResult = result;
-                console.log('Fraud detection completed for user:', user!.id);
+                console.log('Fraud detection (IP and Phone) completed for user:', user!.id);
               } catch (apiError) {
                 console.error('Dojah API error or timeout:', apiError);
 
@@ -178,8 +174,8 @@ export async function GET(req: NextRequest) {
                 fraudCheckResult = {
                   overallRisk: 30, // Default medium-low risk
                   ipCheck: { status: 'FALLBACK', details: 'API unavailable or timed out' },
-                  emailCheck: { status: 'FALLBACK', details: 'API unavailable or timed out' },
                   phoneCheck: { status: 'FALLBACK', details: 'API unavailable or timed out' },
+                  phoneStatus: user!.phone ? 'ERROR' : 'NOT_PROVIDED',
                   fallback: true
                 };
               }

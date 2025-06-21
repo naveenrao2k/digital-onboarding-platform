@@ -880,8 +880,7 @@ class DojahService {
     const response = await this.makeRequest(endpoint, { bvn });
     return response;
   }
-
-  // Comprehensive fraud check
+  // Comprehensive fraud check - only IP check and phone check
   async performComprehensiveCheck(userData: {
     userId: string,
     ipAddress?: string,
@@ -891,9 +890,8 @@ class DojahService {
   }): Promise<{
     overallRisk: number,
     ipCheck?: any,
-    emailCheck?: any,
     phoneCheck?: any,
-    creditCheck?: any
+    phoneStatus?: string
   }> {
     const results: any = {
       overallRisk: 0,
@@ -910,7 +908,7 @@ class DojahService {
         .then(result => {
           results.ipCheck = result;
           if (result?.entity?.report?.risk_score?.result) {
-            results.overallRisk += result.entity.report.risk_score.result / 100;
+            results.overallRisk += result.entity.report.risk_score.result;
             riskFactors++;
           }
           checksPerformed++;
@@ -921,26 +919,11 @@ class DojahService {
         }));
     }
 
-    if (userData.emailAddress) {
-      checks.push(this.checkEmail(userData.emailAddress)
-        .then(result => {
-          results.emailCheck = result;
-          if (result?.entity?.suspicious) {
-            results.overallRisk += 50;
-            riskFactors++;
-          }
-          checksPerformed++;
-        })
-        .catch(err => {
-          console.error('Email check failed:', err);
-          results.emailCheck = { error: err.message };
-        }));
-    }
-
     if (userData.phoneNumber) {
       checks.push(this.checkPhone(userData.phoneNumber)
         .then(result => {
           results.phoneCheck = result;
+          results.phoneStatus = 'COMPLETED';
           if (result?.entity?.score > 0) {
             results.overallRisk += result.entity.score;
             riskFactors++;
@@ -950,27 +933,26 @@ class DojahService {
         .catch(err => {
           console.error('Phone check failed:', err);
           results.phoneCheck = { error: err.message };
+          results.phoneStatus = 'ERROR';
         }));
-    }
-
-    if (userData.bvn) {
-      checks.push(this.checkCreditBureau(userData.bvn)
-        .then(result => {
-          results.creditCheck = result;
-          // Credit risk assessment logic
-          checksPerformed++;
-        })
-        .catch(err => {
-          console.error('Credit check failed:', err);
-          results.creditCheck = { error: err.message };
-        }));
+    } else {
+      // Phone number not provided
+      results.phoneStatus = 'NOT_PROVIDED';
+      results.phoneCheck = {
+        status: 'SKIPPED',
+        details: 'Phone number not provided during user creation',
+        required: false
+      };
     }
 
     await Promise.all(checks);
 
     // Normalize overall risk score to 0-100
     if (riskFactors > 0) {
-      results.overallRisk = Math.min(100, results.overallRisk * (100 / riskFactors));
+      results.overallRisk = Math.min(100, results.overallRisk);
+    } else {
+      // Set a default risk score if no checks were successful
+      results.overallRisk = 30; // Default medium-low risk
     }
 
     // Save comprehensive check result to database
@@ -980,14 +962,24 @@ class DojahService {
           userId: userData.userId,
           verificationType: 'COMBINED_CHECK',
           ipAddress: userData.ipAddress,
-          emailAddress: userData.emailAddress,
           phoneNumber: userData.phoneNumber,
-          bvn: userData.bvn,
-          requestData: userData,
+          requestData: {
+            userId: userData.userId,
+            ipAddress: userData.ipAddress,
+            phoneNumber: userData.phoneNumber
+          },
           responseData: results,
           riskScore: results.overallRisk,
           isFraudSuspected: results.overallRisk > 70, // Threshold for fraud suspicion
-          detectionDetails: results
+          detectionDetails: {
+            ...results,
+            summary: {
+              ipCheck: results.ipCheck ? 'COMPLETED' : 'FAILED',
+              phoneCheck: results.phoneStatus,
+              checksPerformed,
+              riskFactors
+            }
+          }
         }
       });
     } catch (error) {

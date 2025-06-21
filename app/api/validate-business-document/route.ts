@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DocumentType } from '@/app/generated/prisma';
 
+// Use Edge runtime for longer execution (30-second timeout instead of 10 seconds)
+export const runtime = 'edge';
+
 // Mock function to represent Dojah API call for business document validation
 async function validateDocumentWithDojah(file: File, documentType: string) {
   // In a real implementation, this would call the Dojah API
   // Here we're mocking the response for demonstration purposes
-  
+
   // Add a slight delay to simulate API call
   await new Promise(resolve => setTimeout(resolve, 1500));
-  
+
   // Different validation logic based on document type
-  switch(documentType) {
+  switch (documentType) {
     case 'business_registration':
     case 'certificate_of_incorporation':
       return {
@@ -24,7 +27,7 @@ async function validateDocumentWithDojah(file: File, documentType: string) {
         },
         message: "Business registration document validated successfully"
       };
-      
+
     case 'board_resolution':
       return {
         isValid: true,
@@ -35,7 +38,7 @@ async function validateDocumentWithDojah(file: File, documentType: string) {
         },
         message: "Board resolution document validated successfully"
       };
-      
+
     case 'business_reg_form':
       return {
         isValid: true,
@@ -46,7 +49,7 @@ async function validateDocumentWithDojah(file: File, documentType: string) {
         },
         message: "Business registration form validated successfully"
       };
-      
+
     case 'memorandum_articles':
       return {
         isValid: true,
@@ -57,7 +60,7 @@ async function validateDocumentWithDojah(file: File, documentType: string) {
         },
         message: "Memorandum and articles validated successfully"
       };
-      
+
     default:
       return {
         isValid: true,
@@ -75,26 +78,26 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const documentType = formData.get('document_type') as string;
-    
+
     if (!file) {
       return NextResponse.json(
         { message: "No file provided" },
         { status: 400 }
       );
     }
-    
+
     if (!documentType) {
       return NextResponse.json(
         { message: "Document type not specified" },
         { status: 400 }
       );
     }
-    
+
     // Call the mock Dojah API for document validation
     const validationResult = await validateDocumentWithDojah(file, documentType);
-    
+
     return NextResponse.json(validationResult);
-    
+
   } catch (error) {
     console.error("Error validating document:", error);
     return NextResponse.json(

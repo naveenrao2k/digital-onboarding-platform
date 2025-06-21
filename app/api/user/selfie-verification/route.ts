@@ -4,6 +4,9 @@ import { cookies } from 'next/headers';
 import { uploadSelfieVerification } from '@/lib/kyc-service';
 import { dojahService } from '@/lib/dojah-service';
 
+// Use Edge runtime for longer execution (30-second timeout instead of 10 seconds)
+export const runtime = 'edge';
+
 // Mark this route as dynamic to handle cookies usage
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +14,7 @@ export const dynamic = 'force-dynamic';
 const getCurrentUserId = (): string | null => {
   const sessionCookie = cookies().get('session')?.value;
   if (!sessionCookie) return null;
-  
+
   try {
     const session = JSON.parse(sessionCookie);
     return session.userId || null;
@@ -31,27 +34,27 @@ async function fileToBase64(file: File): Promise<string> {
 export async function POST(request: NextRequest) {
   try {
     const userId = getCurrentUserId();
-    
+
     if (!userId) {
       return new NextResponse(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401 }
       );
     }
-    
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    
+
     if (!file) {
       return new NextResponse(
         JSON.stringify({ error: 'Missing file' }),
         { status: 400 }
       );
     }
-    
+
     // Convert file to base64 for liveness check
     const base64Image = await fileToBase64(file);
-    
+
     // Initialize liveness check result
     let livenessResult: {
       isLive: boolean;
@@ -68,13 +71,13 @@ export async function POST(request: NextRequest) {
       faceDetails: null,
       faceQuality: null
     };
-    
+
     try {
       // Perform liveness check first
       console.log('Performing liveness check on image');
       livenessResult = await dojahService.checkLiveness(base64Image);
       console.log('Liveness check result:', JSON.stringify(livenessResult));
-      
+
       // Fail if no face detected or multiple faces detected
       if (!livenessResult.faceDetected) {
         return new NextResponse(
@@ -82,18 +85,18 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      
+
       if (livenessResult.multiFaceDetected) {
         return new NextResponse(
           JSON.stringify({ error: 'Multiple faces detected in the image. Please ensure only your face is visible.' }),
           { status: 400 }
         );
       }
-      
+
       // Check if the image passes the liveness check (probability > 50)
       if (!livenessResult.isLive) {
         return new NextResponse(
-          JSON.stringify({ 
+          JSON.stringify({
             error: 'Liveness check failed. Please ensure you are in good lighting and try again.',
             details: {
               livenessProbability: livenessResult.livenessProbability,
@@ -108,10 +111,10 @@ export async function POST(request: NextRequest) {
       // Continue with the process even if liveness check fails
       // This allows for graceful degradation if the Dojah API has issues
     }
-    
+
     // Upload the selfie if liveness check passes
     const selfie = await uploadSelfieVerification(userId, file);
-    
+
     // Return combined result
     return NextResponse.json({
       ...selfie,
@@ -124,7 +127,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('SELFIE_VERIFICATION_ERROR', error);
-    
+
     // Get more detailed error information for debugging
     const errorDetails = {
       message: error.message || 'Unknown error',
@@ -132,9 +135,9 @@ export async function POST(request: NextRequest) {
       name: error.name,
       cause: error.cause
     };
-    
+
     console.error('Detailed error information:', JSON.stringify(errorDetails));
-    
+
     return new NextResponse(
       JSON.stringify({
         error: error.message || 'An error occurred during selfie verification',

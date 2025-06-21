@@ -4,8 +4,6 @@ import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { VerificationStatusEnum } from '@/app/generated/prisma';
 
-// Use Edge runtime for longer execution (30-second timeout instead of 10 seconds)
-export const runtime = 'edge';
 
 export const dynamic = 'force-dynamic'; // Ensure the route is dynamic
 

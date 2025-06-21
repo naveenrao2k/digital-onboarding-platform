@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DocumentType } from '@/app/generated/prisma';
 
-// Use Edge runtime for longer execution (30-second timeout instead of 10 seconds)
-export const runtime = 'edge';
 
 // Mock function to represent Dojah API call for business document validation
 async function validateDocumentWithDojah(file: File, documentType: string) {

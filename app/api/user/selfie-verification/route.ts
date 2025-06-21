@@ -4,8 +4,6 @@ import { cookies } from 'next/headers';
 import { uploadSelfieVerification } from '@/lib/kyc-service';
 import { dojahService } from '@/lib/dojah-service';
 
-// Use Edge runtime for longer execution (30-second timeout instead of 10 seconds)
-export const runtime = 'edge';
 
 // Mark this route as dynamic to handle cookies usage
 export const dynamic = 'force-dynamic';

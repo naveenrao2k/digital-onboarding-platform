@@ -20,6 +20,7 @@ type FraudDetection = {
         lastName: string;
     };
     detectionDetails: any;
+    responseData?: any;
 };
 
 export default function FraudDetectionDashboard() {
@@ -176,21 +177,7 @@ export default function FraudDetectionDashboard() {
         );
     } return (
         <div>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <div className="flex items-start">
-                    <AlertCircle className="h-5 w-5 text-blue-500 mt-0.5 mr-2" />
-                    <div>
-                        <h3 className="font-medium text-blue-700">Fraud Detection System</h3>
-                        <p className="text-blue-600 mt-1 text-sm">
-                            The system now checks for two key risk factors during user creation:
-                        </p>
-                        <ul className="mt-2 text-sm text-blue-600 list-disc pl-5 space-y-1">
-                            <li>IP address verification - Identifies suspicious IPs and potential location-based risks</li>
-                            <li>Phone number verification - When provided, validates legitimacy and checks for disposable numbers</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
+            
 
             <div className="bg-white shadow rounded-lg">
 
@@ -265,44 +252,44 @@ export default function FraudDetectionDashboard() {
                                             </td>
                                         </tr>
                                         {expandedId === detection.id && (
-                                            <tr>
+                                            <tr className='max-w-[4xl]'>
                                                 <td colSpan={6} className="px-6 py-4 bg-gray-50">
                                                     <div className="text-sm">
                                                         <h3 className="font-semibold mb-2">Detection Details</h3>                                                {detection.verificationType === 'COMBINED_CHECK' && detection.detectionDetails?.summary ? (<div className="space-y-4">
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">                                                                <div className="border rounded-md p-3">
-                                                                    <h4 className="font-medium mb-2">IP Check</h4>
-                                                                    <div className="flex items-center">
-                                                                        <span className={`inline-block w-3 h-3 rounded-full ${detection.detectionDetails?.summary?.ipCheck === 'COMPLETED' ? 'bg-green-500' :
-                                                                                detection.detectionDetails?.summary?.ipCheck === 'FAILED' || detection.detectionDetails?.ipCheck?.error ? 'bg-red-500' :
-                                                                                    'bg-gray-500'
-                                                                            } mr-2`}></span>
-                                                                        <span>
-                                                                            {detection.detectionDetails?.ipCheck?.error 
-                                                                                ? 'Error' 
-                                                                                : detection.detectionDetails?.summary?.ipCheck || 'Unknown'}
+                                                                <h4 className="font-medium mb-2">IP Check</h4>
+                                                                <div className="flex items-center">
+                                                                    <span className={`inline-block w-3 h-3 rounded-full ${detection.detectionDetails?.summary?.ipCheck === 'COMPLETED' ? 'bg-green-500' :
+                                                                        detection.detectionDetails?.summary?.ipCheck === 'FAILED' || detection.detectionDetails?.ipCheck?.error ? 'bg-red-500' :
+                                                                            'bg-gray-500'
+                                                                        } mr-2`}></span>
+                                                                    <span>
+                                                                        {detection.detectionDetails?.ipCheck?.error
+                                                                            ? 'Error'
+                                                                            : detection.detectionDetails?.summary?.ipCheck || 'Unknown'}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="mt-2 text-xs text-gray-500">
+                                                                    <strong>IP Address:</strong> {detection.ipAddress || 'Not recorded'}
+                                                                </div>
+                                                                {detection.detectionDetails?.ipCheck?.error ? (
+                                                                    <div className="mt-1 text-xs text-red-600">
+                                                                        <strong>Error:</strong> {detection.detectionDetails.ipCheck.error}
+                                                                    </div>
+                                                                ) : detection.detectionDetails?.ipCheck?.entity?.report?.risk_score?.result !== undefined && (
+                                                                    <div className="mt-1 text-xs">
+                                                                        <strong>Risk Score:</strong> <span className={`font-medium ${detection.detectionDetails.ipCheck.entity.report.risk_score.result > 70 ? 'text-red-600' : detection.detectionDetails.ipCheck.entity.report.risk_score.result > 30 ? 'text-yellow-600' : 'text-green-600'}`}>
+                                                                            {detection.detectionDetails.ipCheck.entity.report.risk_score.result}
                                                                         </span>
                                                                     </div>
-                                                                    <div className="mt-2 text-xs text-gray-500">
-                                                                        <strong>IP Address:</strong> {detection.ipAddress || 'Not recorded'}
-                                                                    </div>
-                                                                    {detection.detectionDetails?.ipCheck?.error ? (
-                                                                        <div className="mt-1 text-xs text-red-600">
-                                                                            <strong>Error:</strong> {detection.detectionDetails.ipCheck.error}
-                                                                        </div>
-                                                                    ) : detection.detectionDetails?.ipCheck?.entity?.report?.risk_score?.result !== undefined && (
-                                                                        <div className="mt-1 text-xs">
-                                                                            <strong>Risk Score:</strong> <span className={`font-medium ${detection.detectionDetails.ipCheck.entity.report.risk_score.result > 70 ? 'text-red-600' : detection.detectionDetails.ipCheck.entity.report.risk_score.result > 30 ? 'text-yellow-600' : 'text-green-600'}`}>
-                                                                                {detection.detectionDetails.ipCheck.entity.report.risk_score.result}
-                                                                            </span>
-                                                                        </div>
-                                                                    )}
-                                                                </div>                                                                <div className="border rounded-md p-3">
+                                                                )}
+                                                            </div>                                                                <div className="border rounded-md p-3">
                                                                     <h4 className="font-medium mb-2">Phone Check</h4>
                                                                     <div className="flex items-center">
                                                                         <span className={`inline-block w-3 h-3 rounded-full ${detection.detectionDetails?.summary?.phoneCheck === 'COMPLETED' ? 'bg-green-500' :
-                                                                                detection.detectionDetails?.summary?.phoneCheck === 'NOT_PROVIDED' ? 'bg-yellow-500' :
-                                                                                    detection.detectionDetails?.summary?.phoneCheck === 'ERROR' || detection.detectionDetails?.phoneCheck?.error ? 'bg-red-500' :
-                                                                                        'bg-gray-500'
+                                                                            detection.detectionDetails?.summary?.phoneCheck === 'NOT_PROVIDED' ? 'bg-yellow-500' :
+                                                                                detection.detectionDetails?.summary?.phoneCheck === 'ERROR' || detection.detectionDetails?.phoneCheck?.error ? 'bg-red-500' :
+                                                                                    'bg-gray-500'
                                                                             } mr-2`}></span>
                                                                         <span>
                                                                             {detection.detectionDetails?.summary?.phoneCheck === 'NOT_PROVIDED'
@@ -336,15 +323,102 @@ export default function FraudDetectionDashboard() {
                                                                         </div>
                                                                     )}
                                                                 </div>
+                                                            </div>                                                            
+                                                            {/* Final Fraud Analysis Section */}
+                                                            <div className="border rounded-md p-3 mt-4 bg-gray-50">
+                                                                <h4 className="font-medium mb-2">Fraud Analysis Summary</h4>
+                                                                <div className="flex justify-between">
+                                                                    <div className="flex items-center">
+                                                                        {detection.isFraudSuspected ? (
+                                                                            <>
+                                                                                <AlertCircle className="h-4 w-4 text-red-500 mr-2" />
+                                                                                <span className="font-medium text-red-600">Potentially Fraudulent Activity</span>
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                                                                                <span className="font-medium text-green-600">No Fraud Detected</span>
+                                                                            </>
+                                                                        )}
+                                                                    </div>                                                                    <div className={`px-2 py-1 text-xs rounded-full font-medium ${(detection.riskScore || 0) > 70 ? 'bg-red-100 text-red-800' :
+                                                                            (detection.riskScore || 0) > 30 ? 'bg-yellow-100 text-yellow-800' :
+                                                                                'bg-green-100 text-green-800'}`}>
+                                                                        Final Risk Score: {detection.riskScore || 0}
+                                                                    </div>
+                                                                </div>
+                                                                {/* Fraud Reasons if any */}
+                                                                {detection.detectionDetails?.fraudReasons &&
+                                                                    Array.isArray(detection.detectionDetails.fraudReasons) &&
+                                                                    detection.detectionDetails.fraudReasons.length > 0 && (
+                                                                        <div className="mt-2 pt-2 border-t border-gray-200">
+                                                                            <h5 className="text-xs font-medium mb-1">Detected Issues:</h5>
+                                                                            <ul className="list-disc pl-4 text-xs">
+                                                                                {detection.detectionDetails.fraudReasons.map((reason: string, idx: number) => (
+                                                                                    <li key={idx} className="text-red-600 mb-1">{reason}</li>
+                                                                                ))}
+                                                                            </ul>
+                                                                        </div>
+                                                                    )}
                                                             </div>
 
-                                                            <h4 className="font-medium">Raw Detection Details</h4>
-                                                            <pre className="bg-gray-100 p-3 rounded overflow-auto max-h-96 text-xs">
+                                                            <h4 className="font-medium mt-4">Raw Detection Details</h4>
+                                                            <pre className="bg-gray-100 p-3 rounded overflow-auto max-h-96  text-xs">
                                                                 {JSON.stringify(detection.detectionDetails, null, 2)}
                                                             </pre>
                                                         </div>
+                                                        ) : detection.verificationType === 'CREDIT_CHECK' ? (
+                                                            <div>
+                                                                <div className="border rounded-md p-4 mb-4 bg-white">
+                                                                    <h4 className="font-medium mb-2">Credit Bureau Check</h4>
+
+                                                                    <div className="flex justify-between items-center mb-4">
+                                                                        <div className="flex items-center">
+                                                                            {detection.isFraudSuspected ? (
+                                                                                <>
+                                                                                    <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                                                                                    <span className="font-medium text-red-600">Potential Fraud Detected</span>
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                                                                                    <span className="font-medium text-green-600">No Fraud Detected</span>
+                                                                                </>
+                                                                            )}
+                                                                        </div>
+                                                                        <div>                                                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${(detection.riskScore || 0) > 70 ? 'bg-red-100 text-red-800' :
+                                                                                (detection.riskScore || 0) > 30 ? 'bg-yellow-100 text-yellow-800' :
+                                                                                    'bg-green-100 text-green-800'}`}>
+                                                                            Risk Score: {detection.riskScore || 0}
+                                                                        </span>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* BVN Info */}
+                                                                    <div className="mb-3">
+                                                                        <p className="text-sm"><strong>BVN:</strong> {detection.bvn || 'Not recorded'}</p>
+                                                                        <p className="text-sm"><strong>Check Date:</strong> {new Date(detection.createdAt).toLocaleString()}</p>
+                                                                    </div>
+                                                                    {/* Fraud Reasons */}
+                                                                    {detection.detectionDetails?.fraudReasons &&
+                                                                        Array.isArray(detection.detectionDetails.fraudReasons) &&
+                                                                        detection.detectionDetails.fraudReasons.length > 0 && (
+                                                                            <div className="bg-red-50 border border-red-200 rounded p-3 mt-3">
+                                                                                <h5 className="font-medium text-sm mb-2 text-red-700">Fraud Indicators:</h5>
+                                                                                <ul className="list-disc pl-5 text-sm space-y-1">
+                                                                                    {detection.detectionDetails.fraudReasons.map((reason: string, idx: number) => (
+                                                                                        <li key={idx} className="text-red-600">{reason}</li>
+                                                                                    ))}
+                                                                                </ul>
+                                                                            </div>
+                                                                        )}
+                                                                </div>
+
+                                                                <pre className="bg-gray-100 p-3 rounded overflow-auto max-h-96 text-xs max-w-4xl  2xl:max-w-6xl">
+                                                                    {JSON.stringify(detection.responseData || detection.detectionDetails || {}, null, 2)}
+                                                                </pre>
+                                                            </div>
                                                         ) : (
-                                                            <pre className="bg-gray-100 p-3 rounded overflow-auto max-h-96 text-xs">
+                                                            <pre className="bg-gray-100 p-3 rounded overflow-auto max-h-96 text-xs ">
                                                                 {JSON.stringify(detection.detectionDetails, null, 2)}
                                                             </pre>
                                                         )}

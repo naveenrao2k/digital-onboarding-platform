@@ -1,11 +1,14 @@
 'use client';
 
 import FraudDetectionDashboard from '@/components/admin/FraudDetectionDashboard';
+import CreditBureauCheck from '@/components/admin/CreditBureauCheck';
 import { useHeader } from '../layout';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { Shield } from 'lucide-react';
 
 export default function FraudDetectionPage() {
     const { updateHeader } = useHeader();
+    const [activeTab, setActiveTab] = useState('general');
 
     useEffect(() => {
         updateHeader('Fraud Detection Dashboard', 'Monitor and manage fraud detection results');
@@ -13,10 +16,40 @@ export default function FraudDetectionPage() {
 
     return (
         <div className="">
-            <div className="max-w-7xl mx-auto ">
-
-                {/* Show the actual dashboard */}
-                <FraudDetectionDashboard />
+            <div className="max-w-7xl mx-auto">
+                {/* Tabs for different fraud detection systems */}
+                <div className="mb-8">
+                    <div className="border-b border-gray-200">
+                        <nav className="-mb-px flex space-x-8">
+                            <button
+                                onClick={() => setActiveTab('general')}
+                                className={`${
+                                    activeTab === 'general' 
+                                    ? 'border-indigo-500 text-indigo-600' 
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                            >
+                                General Fraud Checks
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('credit')}
+                                className={`${
+                                    activeTab === 'credit' 
+                                    ? 'border-indigo-500 text-indigo-600' 
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                            >
+                                Credit Bureau Checks
+                            </button>
+                        </nav>
+                    </div>
+                </div>                {/* Show the actual dashboard based on the active tab */}
+                {activeTab === 'general' && (
+                    <div className="bg-white shadow rounded-lg">
+                        <FraudDetectionDashboard />
+                    </div>
+                )}
+                {activeTab === 'credit' && <CreditBureauCheck />}
 
                 {/* Uncomment this section and comment out the line above if you want to see example data */}
                 {/*

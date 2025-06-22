@@ -2,8 +2,15 @@
 import { prisma } from './prisma';
 import { DojahVerificationType, DojahStatus, VerificationStatusEnum } from '@/app/generated/prisma';
 
+// Define authentication modes for different API endpoints
+enum DojahAuthMode {
+  PUBLIC_KEY = 'PUBLIC_KEY',  // For Fraud Detection APIs
+  SECRET_KEY = 'SECRET_KEY'   // For KYC, Document Analysis, etc.
+}
+
 interface DojahConfig {
   appId: string;
+  publicKey: string;
   secretKey: string;
   baseUrl: string;
   environment: 'sandbox' | 'production';
@@ -15,6 +22,10 @@ interface DojahResponse {
   status_code?: number;
   message?: string;
 }
+
+// Constants for API request handling
+const MAX_RETRY_ATTEMPTS = 2;
+const API_TIMEOUT = 15000; // 15 seconds timeout
 
 interface DocumentAnalysisResult {
   extractedText?: string;
@@ -79,7 +90,6 @@ interface SelfieVerificationResult {
 
 class DojahService {
   private config: DojahConfig;
-
   constructor() {
     const environment = (process.env.DOJAH_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox';
 
@@ -92,18 +102,89 @@ class DojahService {
 
     this.config = {
       appId: process.env.DOJAH_APP_ID || '',
+      publicKey: process.env.DOJAH_PUBLIC_KEY || '',
       secretKey: process.env.DOJAH_SECRET_KEY || '',
       baseUrl,
       environment
     };
 
-    if (!this.config.appId || !this.config.secretKey) {
+    if (!this.config.appId || !this.config.publicKey || !this.config.secretKey) {
       throw new Error('Dojah API credentials not configured');
     }
   }
 
-  private async makeRequest(endpoint: string, params: Record<string, any> = {}): Promise<DojahResponse> {
+  /**
+   * Helper function to make API calls with retries and timeout
+   */
+  private async fetchWithRetry(url: string, options: RequestInit, retries = MAX_RETRY_ATTEMPTS): Promise<Response> {
+    let lastError;
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+        return response;
+      } catch (error) {
+        lastError = error;
+        console.log(`Dojah API call attempt ${attempt + 1}/${retries + 1} failed:`, error instanceof Error ? error.message : 'Unknown error');
+
+        // If we've used all retries, or if it's not a timeout error, throw
+        if (attempt >= retries || !(error instanceof Error && error.name === 'AbortError')) {
+          break;
+        }
+
+        // Wait before retrying (exponential backoff: 1s, 2s, 4s, etc.)
+        const backoffDelay = Math.min(1000 * Math.pow(2, attempt), 5000);
+        console.log(`Waiting ${backoffDelay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      }
+    }
+
+    throw lastError;
+  }
+  /**
+   * Get the authentication key based on the specified mode
+   */
+  private getAuthKey(authMode: DojahAuthMode): string {
+    return authMode === DojahAuthMode.PUBLIC_KEY
+      ? this.config.publicKey
+      : this.config.secretKey;
+  }
+
+  /**
+   * Determine the auth mode based on the API endpoint
+   */  private getAuthModeForEndpoint(endpoint: string): DojahAuthMode {
+    // IP fraud endpoint is an exception and requires SECRET_KEY
+    if (endpoint.includes('/fraud/ip')) {
+      console.log(`Using SECRET_KEY auth for IP fraud endpoint: ${endpoint}`);
+      return DojahAuthMode.SECRET_KEY;
+    }
+    // Other fraud detection and credit bureau APIs use PUBLIC_KEY
+    else if (endpoint.includes('/fraud/') || endpoint.includes('/credit_bureau')) {
+      console.log(`Using PUBLIC_KEY auth for endpoint: ${endpoint}`);
+      return DojahAuthMode.PUBLIC_KEY;
+    }
+    // All other APIs use SECRET_KEY (KYC, document analysis, etc.)
+    console.log(`Using SECRET_KEY auth for endpoint: ${endpoint}`);
+    return DojahAuthMode.SECRET_KEY;
+  }
+  private async makeRequest(
+    endpoint: string,
+    params: Record<string, any> = {},
+    authModeOverride?: DojahAuthMode
+  ): Promise<DojahResponse> {
     const url = new URL(endpoint, this.config.baseUrl);
+
+    // Determine the authentication mode
+    const authMode = authModeOverride || this.getAuthModeForEndpoint(endpoint);
+    const authKey = this.getAuthKey(authMode);
 
     // Add query parameters
     Object.keys(params).forEach(key => {
@@ -113,11 +194,14 @@ class DojahService {
     });
 
     try {
-      const response = await fetch(url.toString(), {
+      console.log(`Making GET request to ${url.toString()} with auth mode: ${authMode}`);
+      console.log(`Using AppId: ${this.config.appId}, Auth Key starting with: ${authKey.substring(0, 8)}...`);
+
+      const response = await this.fetchWithRetry(url.toString(), {
         method: 'GET',
         headers: {
           'AppId': this.config.appId,
-          'Authorization': this.config.secretKey,
+          'Authorization': authKey,
           'Content-Type': 'application/json',
         },
       });
@@ -133,18 +217,24 @@ class DojahService {
       console.error('Dojah API request failed:', error);
       throw error;
     }
-  }
-
-  private async makePostRequest(endpoint: string, body: any): Promise<DojahResponse> {
+  } private async makePostRequest(
+    endpoint: string,
+    body: any,
+    authModeOverride?: DojahAuthMode
+  ): Promise<DojahResponse> {
     const url = new URL(endpoint, this.config.baseUrl);
 
+    // Determine the authentication mode
+    const authMode = authModeOverride || this.getAuthModeForEndpoint(endpoint);
+    const authKey = this.getAuthKey(authMode);
+
     try {
-      console.log(`Making POST request to ${url.toString()}`);
-      const response = await fetch(url.toString(), {
+      console.log(`Making POST request to ${url.toString()} with auth mode: ${authMode}`);
+      console.log(`Using AppId: ${this.config.appId}, Auth Key starting with: ${authKey.substring(0, 8)}...`); const response = await this.fetchWithRetry(url.toString(), {
         method: 'POST',
         headers: {
           'AppId': this.config.appId,
-          'Authorization': this.config.secretKey,
+          'Authorization': authKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
@@ -182,13 +272,13 @@ class DojahService {
       throw error;
     }
   }
-
   // BVN Lookup
   async lookupBVN(bvn: string, advanced: boolean = false): Promise<GovernmentLookupResult> {
     const endpoint = advanced ? '/api/v1/kyc/bvn/advance' : '/api/v1/kyc/bvn/full';
 
     // Always use real BVN regardless of environment
-    const response = await this.makeRequest(endpoint, { bvn });
+    // Explicitly use SECRET_KEY auth for KYC operations
+    const response = await this.makeRequest(endpoint, { bvn }, DojahAuthMode.SECRET_KEY);
 
     if (!response.entity) {
       return { isMatch: false };
@@ -210,13 +300,13 @@ class DojahService {
       }
     };
   }
-
   // NIN Lookup
   async lookupNIN(nin: string): Promise<GovernmentLookupResult> {
     const endpoint = '/api/v1/kyc/nin';
 
     // Always use real NIN regardless of environment
-    const response = await this.makeRequest(endpoint, { nin });
+    // Explicitly use SECRET_KEY auth for KYC operations
+    const response = await this.makeRequest(endpoint, { nin }, DojahAuthMode.SECRET_KEY);
 
     if (!response.entity) {
       return { isMatch: false };
@@ -238,16 +328,16 @@ class DojahService {
       }
     };
   }
-
   // Passport Lookup
   async lookupPassport(passportNumber: string, surname: string): Promise<GovernmentLookupResult> {
     const endpoint = '/api/v1/kyc/passport';
 
     // Always use real passport number regardless of environment
+    // Explicitly use SECRET_KEY auth for KYC operations
     const response = await this.makeRequest(endpoint, {
       passport_number: passportNumber,
       surname: surname
-    });
+    }, DojahAuthMode.SECRET_KEY);
 
     if (!response.entity) {
       return { isMatch: false };
@@ -267,13 +357,13 @@ class DojahService {
       }
     };
   }
-
   // Driver's License Lookup
   async lookupDriversLicense(licenseNumber: string): Promise<GovernmentLookupResult> {
     const endpoint = '/api/v1/kyc/dl';
 
     // Always use real license number regardless of environment
-    const response = await this.makeRequest(endpoint, { license_number: "FKJ494A2133" });
+    // Explicitly use SECRET_KEY auth for KYC operations
+    const response = await this.makeRequest(endpoint, { license_number: "FKJ494A2133" }, DojahAuthMode.SECRET_KEY);
 
     if (!response.entity) {
       return { isMatch: false };
@@ -293,7 +383,6 @@ class DojahService {
       }
     };
   }
-
   // Document Analysis
   async analyzeDocument(
     imageFrontSide: string,
@@ -310,9 +399,12 @@ class DojahService {
       images: additionalImages
     };
 
-    const response = await this.makePostRequest(endpoint, requestBody);
+    console.log('Making document analysis request with SECRET_KEY authentication');
+    // Always use SECRET_KEY auth for document analysis - explicitly force it
+    const response = await this.makePostRequest(endpoint, requestBody, DojahAuthMode.SECRET_KEY);
 
-    // console.log('Dojah document analysis response:', response);
+    console.log('Dojah document analysis response received:',
+      response?.entity ? 'Response has entity object' : 'No entity in response');
 
     if (!response.entity) {
       return {
@@ -360,7 +452,6 @@ class DojahService {
       isReadable: true
     };
   }
-
   // Selfie Photo ID Match
   async verifySelfieWithPhotoId(selfieBase64: string, idPhotoBase64?: string, userId?: string): Promise<SelfieVerificationResult> {
     // Using the correct endpoint from the documentation
@@ -408,10 +499,11 @@ class DojahService {
       : idPhotoBase64;
 
     // Using the correct parameter names from the documentation
+    // Explicitly use SECRET_KEY auth for KYC operations
     const response = await this.makePostRequest(endpoint, {
       selfie_image: processedSelfieBase64,
       photoid_image: processedIdPhotoBase64  // Note: No underscore between 'photo' and 'id'
-    });
+    }, DojahAuthMode.SECRET_KEY);
 
     // Log the full response for debugging
     console.log('Selfie verification full response:', JSON.stringify(response));
@@ -439,7 +531,6 @@ class DojahService {
       }
     };
   }
-
   // Liveness Check
   async checkLiveness(imageBase64: string): Promise<{
     isLive: boolean;
@@ -456,9 +547,10 @@ class DojahService {
       ? imageBase64.split('base64,')[1]
       : imageBase64;
 
+    // Explicitly use SECRET_KEY auth for liveness check
     const response = await this.makePostRequest(endpoint, {
       image: base64Data
-    });
+    }, DojahAuthMode.SECRET_KEY);
 
     console.log('Liveness check response:', JSON.stringify(response));
 
@@ -485,7 +577,6 @@ class DojahService {
       faceQuality: response.entity.face?.quality || null
     };
   }
-
   // AML Screening
   async performAMLScreening(personalInfo: {
     firstName: string;
@@ -495,12 +586,13 @@ class DojahService {
   }): Promise<any> {
     const endpoint = '/api/v1/aml/individual';
 
+    // Explicitly use SECRET_KEY auth for AML screening
     const response = await this.makePostRequest(endpoint, {
       first_name: personalInfo.firstName,
       last_name: personalInfo.lastName,
       date_of_birth: personalInfo.dateOfBirth,
       nationality: personalInfo.nationality || 'NG'
-    });
+    }, DojahAuthMode.SECRET_KEY);
 
     return response.entity || {};
   }
@@ -850,34 +942,44 @@ class DojahService {
       return undefined;
     }
   }
-
   // FRAUD DETECTION APIS
-
-  // IP Screening
+  // IP Screening  
   async checkIpAddress(ipAddress: string): Promise<any> {
-    const endpoint = '/api/v1/fraud/ip';
-    const response = await this.makeRequest(endpoint, { ip_address: ipAddress });
-    return response;
+    try {
+      const endpoint = '/api/v1/fraud/ip';
+      console.log(`IP Address check: ${ipAddress}`);
+
+      // The fraud/ip endpoint actually requires SECRET_KEY despite being a fraud endpoint
+      // This is an exception to the rule that fraud endpoints use PUBLIC_KEY
+      const response = await this.makeRequest(endpoint, { ip_address: ipAddress }, DojahAuthMode.SECRET_KEY);
+      return response;
+    } catch (error) {
+      console.error('IP check error details:', error);
+      throw error;
+    }
   }
 
   // Email Check
   async checkEmail(emailAddress: string): Promise<any> {
     const endpoint = '/api/v1/fraud/email';
-    const response = await this.makeRequest(endpoint, { email_address: emailAddress });
+    // Explicitly use PUBLIC_KEY auth for fraud detection
+    const response = await this.makeRequest(endpoint, { email_address: emailAddress }, DojahAuthMode.PUBLIC_KEY);
     return response;
   }
 
   // Phone Check
   async checkPhone(phoneNumber: string): Promise<any> {
     const endpoint = '/api/v1/fraud/phone';
-    const response = await this.makeRequest(endpoint, { phone_number: phoneNumber });
+    // Explicitly use PUBLIC_KEY auth for fraud detection
+    const response = await this.makeRequest(endpoint, { phone_number: phoneNumber }, DojahAuthMode.PUBLIC_KEY);
     return response;
   }
 
   // Credit Check
   async checkCreditBureau(bvn: string): Promise<any> {
     const endpoint = '/api/v1/credit_bureau';
-    const response = await this.makeRequest(endpoint, { bvn });
+    // Explicitly use PUBLIC_KEY auth for credit bureau
+    const response = await this.makeRequest(endpoint, { bvn }, DojahAuthMode.PUBLIC_KEY);
     return response;
   }
   // Comprehensive fraud check - only IP check and phone check
@@ -901,14 +1003,18 @@ class DojahService {
     let checksPerformed = 0;
 
     // Run checks in parallel for efficiency
-    const checks: Promise<any>[] = [];
-
-    if (userData.ipAddress) {
+    const checks: Promise<any>[] = []; if (userData.ipAddress) {
       checks.push(this.checkIpAddress(userData.ipAddress)
         .then(result => {
           results.ipCheck = result;
+          // Add a default risk score if the API succeeded but didn't return a risk score
           if (result?.entity?.report?.risk_score?.result) {
             results.overallRisk += result.entity.report.risk_score.result;
+            riskFactors++;
+          } else if (result?.entity) {
+            // Add a moderate risk score if we got a response but no risk score
+            console.log('IP check successful but no risk score provided, using default risk score');
+            results.overallRisk += 30; // Default moderate risk
             riskFactors++;
           }
           checksPerformed++;
@@ -916,6 +1022,10 @@ class DojahService {
         .catch(err => {
           console.error('IP check failed:', err);
           results.ipCheck = { error: err.message };
+          // Add a moderate risk score even on failure to avoid blocking the process
+          results.overallRisk += 30; // Default moderate risk on failure
+          // We still count this as a check performed
+          checksPerformed++;
         }));
     }
 

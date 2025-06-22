@@ -1,13 +1,13 @@
 {
   "name": "digital-onboarding-platform",
   "version": "0.1.0",
-  "private": true,
-  "scripts": {
+  "private": true,  "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:fresh": "npx prisma db push --accept-data-loss"
+    "db:fresh": "npx prisma db push --accept-data-loss",
+    "test:dojah-api": "node scripts/test-dojah-api-responsiveness.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.821.0",

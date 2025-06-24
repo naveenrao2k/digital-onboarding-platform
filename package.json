@@ -1,7 +1,8 @@
 {
   "name": "digital-onboarding-platform",
   "version": "0.1.0",
-  "private": true,  "scripts": {
+  "private": true,
+  "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -16,6 +17,8 @@
     "@prisma/extension-accelerate": "^2.0.0",
     "bcryptjs": "^3.0.2",
     "framer-motion": "^12.12.1",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.1",
     "lucide-react": "^0.511.0",
     "next": "^14.0.3",
     "react": "^18.2.0",

@@ -1,0 +1,73 @@
+transaction_id,date,amount,account_id,merchant_name,transaction_type,location,ip_address
+TX-00001,2025-06-18,250.75,ACC-12345,Amazon,purchase,New York,192.168.1.1
+TX-00002,2025-06-18,1200.00,ACC-12345,Apple Store,purchase,New York,192.168.1.1
+TX-00003,2025-06-18,89.99,ACC-12345,Netflix,subscription,New York,192.168.1.1
+TX-00004,2025-06-18,5000.00,ACC-12345,Company Inc,deposit,New York,192.168.1.1
+TX-00005,2025-06-19,2500.00,ACC-12345,Best Buy,purchase,Los Angeles,192.168.254.10
+TX-00006,2025-06-19,3000.00,ACC-12345,Hotel Booking,travel,Miami,192.168.100.50
+TX-00007,2025-06-20,10000.00,ACC-12345,Investment Fund,investment,New York,192.168.1.1
+TX-00008,2025-06-18,150.50,ACC-67890,Walmart,purchase,Chicago,192.168.2.2
+TX-00009,2025-06-18,75.25,ACC-67890,Target,purchase,Chicago,192.168.2.2
+TX-00010,2025-06-19,500.00,ACC-67890,Amazon,purchase,Chicago,192.168.2.2
+TX-00011,2025-06-20,1000.00,ACC-67890,Flight Booking,travel,Chicago,192.168.2.2
+TX-00012,2025-06-20,5000.00,ACC-67890,Rent Payment,transfer,Chicago,192.168.2.2
+TX-00013,2025-06-20,200.00,ACC-67890,Grocery Store,purchase,Chicago,192.168.2.2
+TX-00014,2025-06-21,300.00,ACC-67890,Restaurant,food,Chicago,192.168.2.2
+TX-00015,2025-06-18,89.99,ACC-13579,Netflix,subscription,Dallas,192.168.3.3
+TX-00016,2025-06-18,45.50,ACC-13579,Spotify,subscription,Dallas,192.168.3.3
+TX-00017,2025-06-19,1500.00,ACC-13579,Best Buy,purchase,Dallas,192.168.3.3
+TX-00018,2025-06-19,2000.00,ACC-13579,Car Repair,service,Dallas,192.168.3.3
+TX-00019,2025-06-20,75.00,ACC-13579,Restaurant,food,Dallas,192.168.3.3
+TX-00020,2025-06-20,150.00,ACC-13579,Gas Station,fuel,Dallas,192.168.3.3
+TX-00021,2025-06-20,2800.00,ACC-13579,Payroll,deposit,Dallas,192.168.3.3
+TX-00022,2025-06-21,50.00,ACC-13579,Pharmacy,healthcare,Dallas,192.168.3.3
+TX-00023,2025-06-18,75.00,ACC-24680,Restaurant,food,Boston,192.168.4.4
+TX-00024,2025-06-18,35.00,ACC-24680,Movie Theater,entertainment,Boston,192.168.4.4
+TX-00025,2025-06-19,500.00,ACC-24680,Clothing Store,purchase,Boston,192.168.4.4
+TX-00026,2025-06-20,100.00,ACC-24680,Grocery Store,purchase,Boston,192.168.4.4
+TX-00027,2025-06-20,3200.00,ACC-24680,Johnson Corp,deposit,Boston,192.168.4.4
+TX-00028,2025-06-21,200.00,ACC-24680,Electronics Store,purchase,Boston,192.168.4.4
+TX-00029,2025-06-22,3000.00,ACC-24680,Rent Payment,transfer,Boston,192.168.4.4
+TX-00030,2025-06-22,50.00,ACC-24680,Pharmacy,healthcare,Boston,192.168.4.4
+TX-00029,2025-06-18,50.00,ACC-98765,Grocery Store,purchase,Seattle,192.168.5.5
+TX-00030,2025-06-18,30.00,ACC-98765,Gas Station,fuel,Seattle,192.168.5.5
+TX-00031,2025-06-19,100.00,ACC-98765,Restaurant,food,Portland,192.168.5.5
+TX-00032,2025-06-19,89.99,ACC-98765,Netflix,subscription,Seattle,192.168.5.5
+TX-00033,2025-06-20,45.50,ACC-98765,Spotify,subscription,Seattle,192.168.5.5
+TX-00034,2025-06-20,1000.00,ACC-98765,Flight Booking,travel,Seattle,192.168.5.5
+TX-00035,2025-06-20,3200.00,ACC-98765,ABC Company,deposit,Seattle,192.168.5.5
+TX-00036,2025-06-21,300.00,ACC-98765,Restaurant,food,San Francisco,192.168.5.5
+TX-00037,2025-06-22,500.00,ACC-98765,Clothing Store,purchase,Seattle,192.168.5.5
+TX-00038,2025-06-22,200.00,ACC-98765,Electronics Store,purchase,Seattle,192.168.5.5
+TX-00039,2025-06-19,3000.00,ACC-55555,Jewelry Store,purchase,Miami,192.168.6.6
+TX-00040,2025-06-19,500.00,ACC-55555,Restaurant,food,Miami,192.168.6.6
+TX-00041,2025-06-20,1000.00,ACC-55555,Casino,entertainment,Las Vegas,192.168.6.6
+TX-00042,2025-06-20,1000.00,ACC-55555,Casino,entertainment,Las Vegas,192.168.6.6
+TX-00043,2025-06-20,1000.00,ACC-55555,Casino,entertainment,Las Vegas,192.168.6.6
+TX-00044,2025-06-20,1000.00,ACC-55555,Casino,entertainment,Las Vegas,192.168.6.6
+TX-00045,2025-06-20,5000.00,ACC-55555,Luxury Car Rental,service,Las Vegas,192.168.6.6
+TX-00046,2025-06-21,10000.00,ACC-55555,Casino,entertainment,Las Vegas,192.168.6.6
+TX-00047,2025-06-21,2500.00,ACC-55555,Luxury Hotel,travel,Las Vegas,192.168.6.6
+TX-00048,2025-06-21,1000.00,ACC-55555,High-end Restaurant,food,Las Vegas,192.168.6.6
+TX-00049,2025-06-18,89.99,ACC-11111,Netflix,subscription,New York,192.168.7.7
+TX-00050,2025-06-18,45.50,ACC-11111,Spotify,subscription,New York,192.168.7.7
+TX-00051,2025-06-18,2000.00,ACC-11111,Medical Bill,healthcare,New York,192.168.7.7
+TX-00052,2025-06-19,100.00,ACC-11111,Grocery Store,purchase,New York,192.168.7.7
+TX-00053,2025-06-19,50.00,ACC-11111,Pharmacy,healthcare,New York,192.168.7.7
+TX-00054,2025-06-19,500.00,ACC-11111,Dentist,healthcare,New York,192.168.7.7
+TX-00055,2025-06-19,4500.00,ACC-11111,Salary,deposit,New York,192.168.7.7
+TX-00056,2025-06-20,200.00,ACC-11111,Electricity Bill,utility,New York,192.168.7.7
+TX-00057,2025-06-21,100.00,ACC-11111,Water Bill,utility,New York,192.168.7.7
+TX-00058,2025-06-21,75.00,ACC-11111,Internet Bill,utility,New York,192.168.7.7
+TX-00059,2025-06-21,50.00,ACC-11111,Phone Bill,utility,New York,192.168.7.7
+TX-00060,2025-06-22,100.00,ACC-11111,Restaurant,food,New York,192.168.7.7
+TX-00061,2025-06-22,35.00,ACC-11111,Movie Theater,entertainment,New York,192.168.7.7
+TX-00062,2025-06-22,50.00,ACC-11111,Gas Station,fuel,New York,192.168.7.7
+TX-00063,2025-06-20,2000.00,ACC-22222,Electronic Store,purchase,Austin,192.168.8.8
+TX-00064,2025-06-20,2000.00,ACC-22222,Electronic Store,purchase,Austin,192.168.8.8
+TX-00065,2025-06-20,2000.00,ACC-22222,Electronic Store,purchase,Austin,192.168.8.8
+TX-00066,2025-06-20,2000.00,ACC-22222,Electronic Store,purchase,Austin,192.168.8.8
+TX-00067,2025-06-20,2000.00,ACC-22222,Electronic Store,purchase,Austin,192.168.8.8
+TX-00068,2025-06-20,2000.00,ACC-22222,Electronic Store,purchase,Austin,192.168.8.8
+TX-00069,2025-06-20,2000.00,ACC-22222,Electronic Store,purchase,Austin,192.168.8.8
+TX-00070,2025-06-20,2000.00,ACC-22222,Electronic Store,purchase,Austin,192.168.8.8

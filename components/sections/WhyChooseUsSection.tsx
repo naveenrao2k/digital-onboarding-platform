@@ -65,7 +65,6 @@ const WhyChooseUsSection: React.FC = () => {
           
           <div className="lg:pl-10">
             <div className="relative">
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl blur opacity-30 animate-pulse"></div>
               <div className="relative bg-white p-8 rounded-2xl shadow-xl border border-slate-100">
                 <div className="aspect-w-16 aspect-h-9 mb-6 bg-slate-100 rounded-lg overflow-hidden">
                   <img 

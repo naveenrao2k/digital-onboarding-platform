@@ -844,7 +844,7 @@ export default function TransactionAnalysis() {
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="date" />
                             <YAxis />
-                            <Tooltip formatter={(value: any, name) => [name === 'amount' ? `$${Number(value).toFixed(2)}` : value, name.charAt(0).toUpperCase() + name.slice(1)]} />
+                            <Tooltip formatter={(value: any, name) => [name === 'amount' ? `$${Number(value).toFixed(2)}` : value, String(name).charAt(0).toUpperCase() + String(name).slice(1)]} />
                             <Legend />
                             <Line type="monotone" dataKey="amount" name="Amount ($)" stroke="#3b82f6" activeDot={{ r: 8 }} />
                           </LineChart>

@@ -620,8 +620,8 @@ const UploadKYCDocumentsPage = () => {
         // Update status after successful upload
         setUploadStatus(prev => ({
           ...prev,
-          idCardFront: 'success',
-          idCardBack: 'success'
+          idCardFront: 'Verified',
+          idCardBack: 'Verified'
         }));
 
       } catch (error) {
@@ -629,8 +629,8 @@ const UploadKYCDocumentsPage = () => {
         setError('Failed to verify ID card. Please try again.');
         setUploadStatus(prev => ({
           ...prev,
-          idCardFront: 'error',
-          idCardBack: 'error'
+          idCardFront: 'File Mismatched',
+          idCardBack: 'File Mismatched'
         }));
       }
 
@@ -658,16 +658,23 @@ const UploadKYCDocumentsPage = () => {
       // 1. Upload
       setUploadStatus(prev => ({ ...prev, [docType]: 'Uploading' }));
       try {
-        await uploadKycDocument(docTypeToEnumMapping(docType), getFileByType(accountType, docType), (progress) => setUploadProgress(prev => ({ ...prev, [docType]: progress })));
+        const file = getFileByType(accountType, docType);
+        if (!file) {
+          setError(`File not found for ${formatDocumentName(docType)}`);
+          setIsSubmitting(false);
+          return;
+        }
+        
+        await uploadKycDocument(docTypeToEnumMapping(docType), file, (progress) => setUploadProgress(prev => ({ ...prev, [docType]: progress })));
         setUploadStatus(prev => ({ ...prev, [docType]: 'Uploaded' }));
         // 2. Extract/Validate
         setUploadStatus(prev => ({ ...prev, [docType]: 'Verifying' }));
         let validationResult;
-        if (accountType === 'individual') validationResult = await validateIndividualDocument(docTypeToEnumMapping(docType), getFileByType(accountType, docType));
-        else if (accountType === 'partnership') validationResult = await validatePartnershipDocument(docTypeToEnumMapping(docType), getFileByType(accountType, docType));
-        else if (accountType === 'enterprise') validationResult = await validateEnterpriseDocument(docTypeToEnumMapping(docType), getFileByType(accountType, docType));
-        else if (accountType === 'llc') validationResult = await validateLlcDocument(docTypeToEnumMapping(docType), getFileByType(accountType, docType));
-        if (validationResult.isValid) {
+        if (accountType === 'individual') validationResult = await validateIndividualDocument(docTypeToEnumMapping(docType), file);
+        else if (accountType === 'partnership') validationResult = await validatePartnershipDocument(docTypeToEnumMapping(docType), file);
+        else if (accountType === 'enterprise') validationResult = await validateEnterpriseDocument(docTypeToEnumMapping(docType), file);
+        else if (accountType === 'llc') validationResult = await validateLlcDocument(docTypeToEnumMapping(docType), file);
+        if (validationResult?.isValid) {
           setUploadStatus(prev => ({ ...prev, [docType]: 'Verified' }));
         } else {
           setUploadStatus(prev => ({ ...prev, [docType]: 'File Mismatched' }));
@@ -684,10 +691,26 @@ const UploadKYCDocumentsPage = () => {
     }
     // 3. Final verification if all files are verified
     if (getRequiredDocumentsForAccountType(accountType).every(docType => uploadStatus[docType] === 'Verified')) {
-      await finalVerificationAPI(); // Call your final verification API here
+      // All documents are verified, mark as submitted
       setIsSubmitted(true);
     }
     setIsSubmitting(false);
+  };
+
+  // Helper function to get the file by type and account type
+  const getFileByType = (accountType: string, docType: string): File | null => {
+    switch (accountType) {
+      case 'individual':
+        return individualDocuments[docType as keyof typeof individualDocuments];
+      case 'partnership':
+        return partnershipDocuments[docType as keyof typeof partnershipDocuments];
+      case 'enterprise':
+        return enterpriseDocuments[docType as keyof typeof enterpriseDocuments];
+      case 'llc':
+        return llcDocuments[docType as keyof typeof llcDocuments];
+      default:
+        return null;
+    }
   };
 
   // File upload component
@@ -736,23 +759,7 @@ const UploadKYCDocumentsPage = () => {
     }
 
     const progress = uploadProgress[docType] || 0;
-    const status = uploadStatus[docType] || (existingServerDoc ? 'success' : 'idle');
-
-    // Helper function to get the file by type and account type
-    const getFileByType = (accountType: string, docType: string): File | null => {
-      switch (accountType) {
-        case 'individual':
-          return individualDocuments[docType as keyof typeof individualDocuments];
-        case 'partnership':
-          return partnershipDocuments[docType as keyof typeof partnershipDocuments];
-        case 'enterprise':
-          return enterpriseDocuments[docType as keyof typeof enterpriseDocuments];
-        case 'llc':
-          return llcDocuments[docType as keyof typeof llcDocuments];
-        default:
-          return null;
-      }
-    };
+    const status = uploadStatus[docType] || (existingServerDoc ? 'Verified' : 'Choose File');
 
     // Create preview for image files
     const handlePreview = (file: File) => {
@@ -773,7 +780,7 @@ const UploadKYCDocumentsPage = () => {
     const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!isFileUploaded && status !== 'uploading') {
+      if (!isFileUploaded && status !== 'Uploading') {
         setIsDragging(true);
       }
     };
@@ -794,7 +801,7 @@ const UploadKYCDocumentsPage = () => {
       e.stopPropagation();
       setIsDragging(false);
 
-      if (!isFileUploaded && status !== 'uploading' && fileRef.current) {
+      if (!isFileUploaded && status !== 'Uploading' && fileRef.current) {
         const dt = e.dataTransfer;
         if (dt.files && dt.files.length > 0) {
           // Create a synthetic event to be used with handleFileChange
@@ -866,8 +873,8 @@ const UploadKYCDocumentsPage = () => {
         )}
         <div
           className={`border-2 border-dashed rounded-lg p-4 transition-all duration-300 relative h-[180px] ${isDragging ? 'border-blue-500 bg-blue-50' :
-            status === 'success' ? 'border-green-300 bg-green-50' :
-              status === 'error' ? 'border-red-300 bg-red-50' :
+            status === 'Verified' ? 'border-green-300 bg-green-50' :
+              status === 'File Mismatched' ? 'border-red-300 bg-red-50' :
                 isFileUploaded ? 'border-blue-300 bg-blue-50/50' :
                   'border-slate-200 hover:border-blue-400 hover:bg-blue-50/30'
             }`}
@@ -876,7 +883,7 @@ const UploadKYCDocumentsPage = () => {
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          {status === 'uploading' ? (<div className="flex flex-col items-center py-4 absolute top-0 left-0 right-0 bottom-0 justify-center transition-opacity duration-300">
+          {status === 'Uploading' ? (<div className="flex flex-col items-center py-4 absolute top-0 left-0 right-0 bottom-0 justify-center transition-opacity duration-300">
             <div className="mb-4 relative">
               <div className="h-16 w-16 rounded-full flex items-center justify-center bg-blue-50">
                 <div className="h-10 w-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -900,7 +907,7 @@ const UploadKYCDocumentsPage = () => {
                   progress < 90 ? 'Uploading file...' :
                     'Finalizing submission...'}
             </p>
-          </div>) : status === 'success' ? (
+          </div>) : status === 'Verified' ? (
             <div className="flex items-center p-2 absolute top-0 left-0 right-0 bottom-0 justify-center">
               <div className="h-14 w-14 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 border border-green-200">
                 <CheckCircle className="h-7 w-7 text-green-600" />
@@ -924,7 +931,7 @@ const UploadKYCDocumentsPage = () => {
                 </div>
                 )}
               </div>
-            </div>) : status === 'error' ? (
+            </div>) : status === 'File Mismatched' ? (
               <div className="flex items-center p-2 absolute top-0 left-0 right-0 bottom-0 justify-center">
                 <div className="h-14 w-14 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0 border border-red-200">
                   <AlertCircle className="h-7 w-7 text-red-600" />
@@ -1767,7 +1774,7 @@ const UploadKYCDocumentsPage = () => {
           <div className="mt-8 flex flex-col items-center">
             <button
               type="submit"
-              disabled={isSubmitting || !allRequiredSelected}
+              disabled={isSubmitting || !getRequiredDocumentsForAccountType(accountType).every(docType => getFileByType(accountType, docType) !== null)}
               className={`w-full max-w-md py-4 px-6 ${isSubmitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
                 } text-white font-semibold rounded-xl transition-all duration-300 flex items-center justify-center shadow-lg shadow-blue-500/20 ${!isSubmitting ? 'hover:shadow-blue-500/30 hover:scale-[1.01] hover:-translate-y-0.5' : ''
                 }`}

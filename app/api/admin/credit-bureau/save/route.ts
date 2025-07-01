@@ -78,7 +78,6 @@ export async function POST(req: NextRequest) {
       data: {
         userId: userId || adminUser.id, // If no user found, link to admin who performed the check
         verificationType: 'CREDIT_CHECK',
-        bvn: bvn,
         riskScore: riskScore,
         isFraudSuspected: isFraudSuspected,
         requestData: { bvn },

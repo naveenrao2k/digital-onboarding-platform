@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Upload, CheckCircle, User, Building, Building2, FileText } from 'lucide-react';
+import { AlertCircle, Upload, CheckCircle, User, Building, Building2, FileText, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import {
   uploadKycDocument,
@@ -116,6 +116,8 @@ const UploadKYCDocumentsPage = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [accountType, setAccountType] = useState('individual');
   const [hasCheckedStatus, setHasCheckedStatus] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [formDataLoaded, setFormDataLoaded] = useState(false);
 
   const {
     documents,
@@ -137,8 +139,89 @@ const UploadKYCDocumentsPage = () => {
     } else if (user && !hasCheckedStatus) {
       setHasCheckedStatus(true);
       fetchVerificationStatus(user.id);
+      loadFormData();
     }
   }, [user, loading, router, hasCheckedStatus, fetchVerificationStatus]);
+
+  // Load existing form data from database
+  const loadFormData = async () => {
+    try {
+      const response = await fetch('/api/user/kyc-form-data');
+      if (response.ok) {
+        const result = await response.json();
+        if (result.data) {
+          const data = result.data;
+          setAccountType(data.accountType.toLowerCase());
+          setBusinessName(data.businessName || '');
+          setBusinessAddress(data.businessAddress || '');
+          setTaxInfo({
+            taxNumber: data.taxNumber || '',
+            scumlNumber: data.scumlNumber || ''
+          });
+          setReferences({
+            ref1Name: data.ref1Name || '',
+            ref1Address: data.ref1Address || '',
+            ref1Phone: data.ref1Phone || '',
+            ref2Name: data.ref2Name || '',
+            ref2Address: data.ref2Address || '',
+            ref2Phone: data.ref2Phone || ''
+          });
+          if (data.extractedData) {
+            setExtractedDocumentData(data.extractedData);
+          }
+          setFormDataLoaded(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading form data:', error);
+    }
+  };
+
+  // Function to check verification status
+  const checkVerificationStatus = async () => {
+    setIsCheckingStatus(true);
+    try {
+      await fetchVerificationStatus(user!.id);
+      // Show success message or update UI
+    } catch (error) {
+      console.error('Error checking status:', error);
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
+
+  // Save form data to database
+  const saveFormData = async (isSubmitted = false) => {
+    try {
+      const formData = {
+        accountType: accountType.toUpperCase(),
+        businessName,
+        businessAddress,
+        taxNumber: taxInfo.taxNumber,
+        scumlNumber: taxInfo.scumlNumber,
+        references,
+        extractedData: extractedDocumentData,
+        isSubmitted
+      };
+
+      const response = await fetch('/api/user/kyc-form-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save form data');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error saving form data:', error);
+      throw error;
+    }
+  };
 
   // If documents are already approved, show completion message
   if (isDocumentUploadComplete) {
@@ -160,7 +243,7 @@ const UploadKYCDocumentsPage = () => {
   const [error, setError] = useState('');
 
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
-  const [uploadStatus, setUploadStatus] = useState<{ [key: string]: 'idle' | 'uploading' | 'success' | 'error' }>({});
+  const [uploadStatus, setUploadStatus] = useState<{ [key: string]: 'Choose File' | 'File Selected' | 'Uploading' | 'Uploaded' | 'Verifying' | 'Verified' | 'File Mismatched' }>({});
 
   // Individual account documents
   const [individualDocuments, setIndividualDocuments] = useState({
@@ -318,7 +401,7 @@ const UploadKYCDocumentsPage = () => {
       }
 
       // Update file status to uploading
-      setUploadStatus(prev => ({ ...prev, [docType]: 'uploading' }));
+      setUploadStatus(prev => ({ ...prev, [docType]: 'File Selected' }));
       setUploadProgress(prev => ({ ...prev, [docType]: 5 }));
       // Set up a progress simulation for the validation phase
       // Start at minimum 5% so user sees immediate feedback
@@ -348,7 +431,7 @@ const UploadKYCDocumentsPage = () => {
               // Clear the progress simulation interval for ID card validation
               clearInterval(progressInterval);
 
-              setUploadStatus(prev => ({ ...prev, [docType]: 'error' }));
+              setUploadStatus(prev => ({ ...prev, [docType]: 'File Mismatched' }));
               setError(`Document validation failed: ${validationResult.message}`);
               return;
             }
@@ -375,7 +458,7 @@ const UploadKYCDocumentsPage = () => {
 
             // Set upload as completed
             setUploadProgress(prev => ({ ...prev, [docType]: 100 }));
-            setUploadStatus(prev => ({ ...prev, [docType]: 'success' }));
+            setUploadStatus(prev => ({ ...prev, [docType]: 'Verified' }));
             // For ID cards, we'll let the useEffect handle verification
             console.log(`ID card ${docType} uploaded successfully`);
 
@@ -400,7 +483,7 @@ const UploadKYCDocumentsPage = () => {
 
           // If validation fails, show error and return
           if (!validationResult.isValid) {
-            setUploadStatus(prev => ({ ...prev, [docType]: 'error' }));
+            setUploadStatus(prev => ({ ...prev, [docType]: 'File Mismatched' }));
             setError(`Document validation failed: ${validationResult.message}`);
             return;
           }
@@ -471,14 +554,14 @@ const UploadKYCDocumentsPage = () => {
 
         // Update progress and status
         setUploadProgress(prev => ({ ...prev, [docType]: 100 }));
-        setUploadStatus(prev => ({ ...prev, [docType]: 'success' }));
+        setUploadStatus(prev => ({ ...prev, [docType]: 'Verified' }));
 
       } catch (error) {
         // Clear the progress simulation interval
         clearInterval(progressInterval);
 
         console.error(`Error handling file upload for ${docType}:`, error);
-        setUploadStatus(prev => ({ ...prev, [docType]: 'error' }));
+        setUploadStatus(prev => ({ ...prev, [docType]: 'File Mismatched' }));
         setError(error instanceof Error ? error.message : 'An error occurred during file processing');
       }
     }
@@ -571,338 +654,43 @@ const UploadKYCDocumentsPage = () => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
-
-    // Validate business-specific information
-    if (accountType === 'partnership' || accountType === 'enterprise' || accountType === 'llc') {
-      // Validate corporate references for business accounts
-      const missingReference = [
-        references.ref1Name,
-        references.ref1Address,
-        references.ref1Phone,
-        references.ref2Name,
-        references.ref2Address,
-        references.ref2Phone
-      ].some((val) => !val.trim());
-
-      if (missingReference) {
-        setError('Please fill in all corporate reference fields.');
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Validate business address for enterprise and LLC
-      if ((accountType === 'enterprise' || accountType === 'llc') && !businessAddress.trim()) {
-        setError('Business address is required.');
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Validate tax information for LLC
-      if (accountType === 'llc' && !taxInfo.taxNumber.trim()) {
-        setError('Tax Identification Number is required for Limited Liability Companies.');
+    for (const docType of getRequiredDocumentsForAccountType(accountType)) {
+      // 1. Upload
+      setUploadStatus(prev => ({ ...prev, [docType]: 'Uploading' }));
+      try {
+        await uploadKycDocument(docTypeToEnumMapping(docType), getFileByType(accountType, docType), (progress) => setUploadProgress(prev => ({ ...prev, [docType]: progress })));
+        setUploadStatus(prev => ({ ...prev, [docType]: 'Uploaded' }));
+        // 2. Extract/Validate
+        setUploadStatus(prev => ({ ...prev, [docType]: 'Verifying' }));
+        let validationResult;
+        if (accountType === 'individual') validationResult = await validateIndividualDocument(docTypeToEnumMapping(docType), getFileByType(accountType, docType));
+        else if (accountType === 'partnership') validationResult = await validatePartnershipDocument(docTypeToEnumMapping(docType), getFileByType(accountType, docType));
+        else if (accountType === 'enterprise') validationResult = await validateEnterpriseDocument(docTypeToEnumMapping(docType), getFileByType(accountType, docType));
+        else if (accountType === 'llc') validationResult = await validateLlcDocument(docTypeToEnumMapping(docType), getFileByType(accountType, docType));
+        if (validationResult.isValid) {
+          setUploadStatus(prev => ({ ...prev, [docType]: 'Verified' }));
+        } else {
+          setUploadStatus(prev => ({ ...prev, [docType]: 'File Mismatched' }));
+          setError(`File mismatch for ${formatDocumentName(docType)}. Please re-upload.`);
+          setIsSubmitting(false);
+          return;
+        }
+      } catch (err) {
+        setUploadStatus(prev => ({ ...prev, [docType]: 'File Mismatched' }));
+        setError(`Upload failed for ${formatDocumentName(docType)}. Please try again.`);
         setIsSubmitting(false);
         return;
       }
     }
-
-    try {
-      // Upload documents based on account type
-      let uploadPromises: Promise<any>[] = [];
-      let documentsToSave: any = {
-        accountType,
-        documents: {},
-        extractedData: extractedDocumentData  // Include extracted data from document validation
-      };
-
-      // Check if user already has documents submitted
-      if (hasSubmittedDocuments()) {
-        setError('You have already submitted documents. Please check your verification status.');
-        setIsSubmitting(false);
-        return;
-      } switch (accountType) {
-        case 'individual':
-          // ID Card Front
-          if (individualDocuments.idCardFront) {
-            setUploadStatus(prev => ({ ...prev, idCardFront: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.ID_CARD,
-                individualDocuments.idCardFront,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, idCardFront: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, idCardFront: 'success' })))
-                .catch(() => setUploadStatus(prev => ({ ...prev, idCardFront: 'error' })))
-            );
-            documentsToSave.documents.idCardFront = individualDocuments.idCardFront.name;
-          }
-
-          // ID Card Back
-          if (individualDocuments.idCardBack) {
-            setUploadStatus(prev => ({ ...prev, idCardBack: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.ID_CARD,
-                individualDocuments.idCardBack,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, idCardBack: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, idCardBack: 'success' })))
-                .catch(() => setUploadStatus(prev => ({ ...prev, idCardBack: 'error' })))
-            );
-            documentsToSave.documents.idCardBack = individualDocuments.idCardBack.name;
-          }
-
-          // Passport
-          if (individualDocuments.passport) {
-            setUploadStatus(prev => ({ ...prev, passport: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.PASSPORT,
-                individualDocuments.passport,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, passport: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, passport: 'success' })))
-                .catch(() => setUploadStatus(prev => ({ ...prev, passport: 'error' })))
-            );
-            documentsToSave.documents.passport = individualDocuments.passport.name;
-          }
-
-          // Utility Bill
-          if (individualDocuments.utilityBill) {
-            setUploadStatus(prev => ({ ...prev, utilityBill: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.UTILITY_BILL,
-                individualDocuments.utilityBill,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, utilityBill: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, utilityBill: 'success' })))
-                .catch(() => setUploadStatus(prev => ({ ...prev, utilityBill: 'error' })))
-            );
-            documentsToSave.documents.utilityBill = individualDocuments.utilityBill.name;
-          }
-
-          // If both front and back ID cards are uploaded, trigger combined verification
-          if (individualDocuments.idCardFront && individualDocuments.idCardBack) {
-            documentsToSave.hasBothIdCardSides = true;
-          }
-          break;
-
-        case 'partnership':
-          // Certificate of Registration
-          if (partnershipDocuments.certificateOfRegistration) {
-            setUploadStatus(prev => ({ ...prev, certificateOfRegistration: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.CERTIFICATE_OF_REGISTRATION,
-                partnershipDocuments.certificateOfRegistration,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, certificateOfRegistration: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, certificateOfRegistration: 'success' })))
-                .catch(() => setUploadStatus(prev => ({ ...prev, certificateOfRegistration: 'error' })))
-            );
-            documentsToSave.documents.certificateOfRegistration = partnershipDocuments.certificateOfRegistration.name;
-          }
-
-          // Form of Application
-          if (partnershipDocuments.formOfApplication) {
-            setUploadStatus(prev => ({ ...prev, formOfApplication: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.FORM_OF_APPLICATION,
-                partnershipDocuments.formOfApplication,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, formOfApplication: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, formOfApplication: 'success' })))
-                .catch(() => setUploadStatus(prev => ({ ...prev, formOfApplication: 'error' })))
-            );
-            documentsToSave.documents.formOfApplication = partnershipDocuments.formOfApplication.name;
-          }
-
-          // Valid ID of Partners
-          if (partnershipDocuments.validIdOfPartners) {
-            setUploadStatus(prev => ({ ...prev, validIdOfPartners: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.VALID_ID_OF_PARTNERS,
-                partnershipDocuments.validIdOfPartners,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, validIdOfPartners: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, validIdOfPartners: 'success' })))
-                .catch(() => setUploadStatus(prev => ({ ...prev, validIdOfPartners: 'error' })))
-            );
-            documentsToSave.documents.validIdOfPartners = partnershipDocuments.validIdOfPartners.name;
-          }
-
-          // Proof of Address
-          if (partnershipDocuments.proofOfAddress) {
-            setUploadStatus(prev => ({ ...prev, proofOfAddress: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.PROOF_OF_ADDRESS,
-                partnershipDocuments.proofOfAddress,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, proofOfAddress: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, proofOfAddress: 'success' })))
-                .catch(() => setUploadStatus(prev => ({ ...prev, proofOfAddress: 'error' })))
-            );
-            documentsToSave.documents.proofOfAddress = partnershipDocuments.proofOfAddress.name;
-          }
-
-          documentsToSave.references = references;
-          documentsToSave.businessName = businessName;
-          break;
-
-        case 'enterprise':
-          // Add upload logic for all enterprise documents
-          if (enterpriseDocuments.certificateOfRegistration) {
-            setUploadStatus(prev => ({ ...prev, certificateOfRegistration: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.CERTIFICATE_OF_REGISTRATION,
-                enterpriseDocuments.certificateOfRegistration,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, certificateOfRegistration: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, certificateOfRegistration: 'success' })))
-                .catch(() => setUploadStatus(prev => ({ ...prev, certificateOfRegistration: 'error' })))
-            );
-            documentsToSave.documents.certificateOfRegistration = enterpriseDocuments.certificateOfRegistration.name;
-          }
-
-          // Add other enterprise documents
-          // ...existing code...
-
-          documentsToSave.businessAddress = businessAddress;
-          documentsToSave.businessName = businessName;
-          documentsToSave.references = references;
-          break;
-
-        case 'llc':
-          // Add upload logic for all LLC documents
-          if (llcDocuments.certificateOfIncorporation) {
-            setUploadStatus(prev => ({ ...prev, certificateOfIncorporation: 'uploading' }));
-            uploadPromises.push(
-              uploadKycDocument(
-                DocumentType.CERTIFICATE_OF_INCORPORATION,
-                llcDocuments.certificateOfIncorporation,
-                (progress) => {
-                  setUploadProgress(prev => ({ ...prev, certificateOfIncorporation: progress }));
-                }
-              ).then(() => setUploadStatus(prev => ({ ...prev, certificateOfIncorporation: 'success' })))
-                .catch(() => setUploadStatus(prev => ({ ...prev, certificateOfIncorporation: 'error' })))
-            );
-            documentsToSave.documents.certificateOfIncorporation = llcDocuments.certificateOfIncorporation.name;
-          }
-
-          // Add other LLC documents
-          // ...existing code...
-
-          documentsToSave.taxInfo = taxInfo;
-          documentsToSave.businessAddress = businessAddress;
-          documentsToSave.businessName = businessName;
-          documentsToSave.references = references;
-          break;
-      }      // Check if there are any documents to upload and validate required documents
-      if (uploadPromises.length === 0) {
-        setError('Please upload at least one document.');
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Validate required documents based on account type
-      const requiredDocs = getRequiredDocumentsForAccountType(accountType);
-      let missingRequired = false;
-
-      if (accountType === 'individual') {
-        // For individual accounts, require both front and back of ID card
-        if (!individualDocuments.idCardFront || !individualDocuments.idCardBack) {
-          setError('Please upload both the front and back sides of your ID card.');
-          missingRequired = true;
-        }
-      } else if (accountType === 'partnership') {
-        // Check for required partnership documents
-        const hasAllRequired = requiredDocs.every(doc => {
-          const docKey = doc as keyof typeof partnershipDocuments;
-          return !!partnershipDocuments[docKey];
-        });
-
-        if (!hasAllRequired) {
-          setError('Please upload all required documents for partnership account.');
-          missingRequired = true;
-        }
-      } else if (accountType === 'enterprise') {
-        // Check for required enterprise documents
-        const hasAllRequired = requiredDocs.every(doc => {
-          const docKey = doc as keyof typeof enterpriseDocuments;
-          return !!enterpriseDocuments[docKey];
-        });
-
-        if (!hasAllRequired) {
-          setError('Please upload all required documents for enterprise account.');
-          missingRequired = true;
-        }
-      } else if (accountType === 'llc') {
-        // Check for required LLC documents
-        const hasAllRequired = requiredDocs.every(doc => {
-          const docKey = doc as keyof typeof llcDocuments;
-          return !!llcDocuments[docKey];
-        });
-
-        if (!hasAllRequired) {
-          setError('Please upload all required documents for LLC account.');
-          missingRequired = true;
-        }
-      }
-
-      if (missingRequired) {
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Wait for all uploads to complete
-      await Promise.all(uploadPromises);
-
-      // Save metadata to localStorage
-      localStorage.setItem('kycDocuments', JSON.stringify(documentsToSave));
-      // For individual accounts, trigger combined verification if both ID card sides are uploaded
-      if (accountType === 'individual' && documentsToSave.hasBothIdCardSides) {
-        try {
-          await triggerCombinedIdCardVerification();
-          console.log('Combined verification triggered after submission');
-        } catch (error) {
-          console.warn('Failed to trigger combined verification after submission:', error);
-          // Continue with submission even if combined verification fails
-        }
-      }
-
-      // Set submission as complete
+    // 3. Final verification if all files are verified
+    if (getRequiredDocumentsForAccountType(accountType).every(docType => uploadStatus[docType] === 'Verified')) {
+      await finalVerificationAPI(); // Call your final verification API here
       setIsSubmitted(true);
-    } catch (err) {
-      console.error('Document upload error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to upload documents. Please try again.';
-
-      // Set the error in a more user-friendly format
-      if (errorMessage.includes('You have already uploaded')) {
-        setError('You can only upload one document of each type. You have already uploaded this document type.');
-      } else if (errorMessage.includes('network') || errorMessage.includes('connection')) {
-        setError('Network error. Please check your internet connection and try again.');
-      } else if (errorMessage.includes('size')) {
-        setError('One or more files exceed the maximum allowed size (5MB).');
-      } else {
-        setError(errorMessage);
-      }
-    } finally {
-      setIsSubmitting(false);
     }
-  };  // File upload component
+    setIsSubmitting(false);
+  };
+
+  // File upload component
   const FileUploadBox = ({
     docType,
     label,
@@ -1066,8 +854,17 @@ const UploadKYCDocumentsPage = () => {
           <label className="block text-sm font-medium text-slate-700">
             {label} {isRequired && <span className="text-rose-500">*</span>}
           </label>
-          {status === 'success' && <span className="text-xs bg-green-100 text-green-800 py-0.5 px-2 rounded-full">Verified</span>}
-        </div><div
+          <span className="text-xs py-0.5 px-2 rounded-full bg-slate-100 text-slate-700">
+            {status}
+          </span>
+        </div>
+        {status === 'File Selected' && (
+          <button type="button" onClick={() => fileRef.current?.click()} className="ml-2 text-blue-600 underline text-xs">Replace File</button>
+        )}
+        {status === 'File Mismatched' && (
+          <button type="button" onClick={() => fileRef.current?.click()} className="ml-2 text-red-600 underline text-xs">Re-upload File</button>
+        )}
+        <div
           className={`border-2 border-dashed rounded-lg p-4 transition-all duration-300 relative h-[180px] ${isDragging ? 'border-blue-500 bg-blue-50' :
             status === 'success' ? 'border-green-300 bg-green-50' :
               status === 'error' ? 'border-red-300 bg-red-50' :
@@ -1266,7 +1063,7 @@ const UploadKYCDocumentsPage = () => {
     );
   };
 
-  // Already submitted screen component
+  // Already submitted screen component with Check Now button
   const AlreadySubmittedScreen = () => {
     return (
       <div className="min-h-[80vh] flex items-center justify-center px-4">
@@ -1303,9 +1100,10 @@ const UploadKYCDocumentsPage = () => {
                   <div className="w-1/3">
                     <span className="text-xs font-medium text-slate-500">Submission Date:</span>
                   </div>
-                  <div className="w-2/3">                    <span className="text-sm font-medium text-slate-700">
-                    {documents && documents.length > 0 ? new Date(documents[0].uploadedAt).toLocaleDateString() : 'Processing'}
-                  </span>
+                  <div className="w-2/3">
+                    <span className="text-sm font-medium text-slate-700">
+                      {documents && documents.length > 0 ? new Date(documents[0].uploadedAt).toLocaleDateString() : 'Processing'}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center">
@@ -1331,15 +1129,35 @@ const UploadKYCDocumentsPage = () => {
               </div>
             </div>
 
-            <button
-              onClick={() => router.push('/user/dashboard')}
-              className="w-full py-4 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all duration-300 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 flex items-center justify-center"
-            >
-              <span className="mr-2">Go to Dashboard</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </button>
+            <div className="space-y-4">
+              <button
+                onClick={checkVerificationStatus}
+                disabled={isCheckingStatus}
+                className="w-full py-4 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-xl transition-all duration-300 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 flex items-center justify-center"
+              >
+                {isCheckingStatus ? (
+                  <>
+                    <RefreshCw className="h-5 w-5 animate-spin mr-2" />
+                    <span>Checking Status...</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-5 w-5 mr-2" />
+                    <span>Check Now</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => router.push('/user/dashboard')}
+                className="w-full py-4 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-all duration-300 flex items-center justify-center"
+              >
+                <span className="mr-2">Go to Dashboard</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1355,6 +1173,21 @@ const UploadKYCDocumentsPage = () => {
   if (alreadySubmitted) {
     return <AlreadySubmittedScreen />;
   }
+
+  // Show loading state while form data is being loaded
+ 
+  if (formDataLoaded && user) {
+    return (
+      
+      <div className="min-h-[80vh] flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-16 w-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading your form data... </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 rounded">
       <div className='rounded-xl shadow-lg p-6 md:p-8 bg-white border border-slate-100'>
@@ -1934,7 +1767,7 @@ const UploadKYCDocumentsPage = () => {
           <div className="mt-8 flex flex-col items-center">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !allRequiredSelected}
               className={`w-full max-w-md py-4 px-6 ${isSubmitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
                 } text-white font-semibold rounded-xl transition-all duration-300 flex items-center justify-center shadow-lg shadow-blue-500/20 ${!isSubmitting ? 'hover:shadow-blue-500/30 hover:scale-[1.01] hover:-translate-y-0.5' : ''
                 }`}

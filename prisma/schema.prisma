@@ -25,6 +25,7 @@ model User {
   account            Account?
   auditLogs          AuditLog[]
   kycDocuments       KYCDocument[]
+  kycFormData        KYCFormData?
   notifications      Notification[]
   references         Reference[]
   selfieVerification SelfieVerification?
@@ -33,6 +34,12 @@ model User {
   adminReviews       AdminReview[]
   reviewedByMe       AdminReview[]       @relation("AdminReviews")
   fraudDetections    FraudDetection[]
+  creditScore        CreditScore?
+  creditBureauChecks CreditBureauCheck[]
+  creditFactors      CreditFactor[]
+  creditAccounts     CreditAccount[]
+  creditEnquiries    CreditEnquiry[]
+  creditAlerts       CreditAlert[]
 }
 
 model Account {
@@ -145,8 +152,6 @@ model SystemSettings {
   updatedAt   DateTime @updatedAt
   updatedBy   String?
 }
-
-
 
 model DojahVerification {
   id                String                @id @default(cuid())
@@ -312,27 +317,23 @@ enum AdminReviewStatus {
 }
 
 model FraudDetection {
-  id                 String            @id @default(cuid())
-  userId             String
-  verificationType   FraudCheckType
-  ipAddress          String?
-  emailAddress       String?
-  phoneNumber        String?
-  bvn                String?
-  requestData        Json?
-  responseData       Json?
-  riskScore          Float?
-  isFraudSuspected   Boolean           @default(false)
-  detectionDetails   Json?
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  notes              String?
-  reviewStatus       AdminReviewStatus @default(PENDING)
-  reviewedAt         DateTime?
-  reviewedBy         String?
-  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String        @id @default(cuid())
+  userId            String
+  verificationType  FraudCheckType
+  ipAddress         String?
+  emailAddress      String?
+  phoneNumber       String?
+  requestData       Json?
+  responseData      Json?
+  riskScore         Int           @default(0)
+  isFraudSuspected  Boolean       @default(false)
+  detectionDetails  Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([userId, verificationType])
+  @@index([createdAt])
 }
 
 enum FraudCheckType {
@@ -348,4 +349,136 @@ enum RiskLevel {
   MEDIUM
   HIGH
   CRITICAL
+}
+
+// CIBIL Credit Scoring Models
+model CreditScore {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  accountType   AccountType
+  currentScore  Int       @default(300)
+  previousScore Int?
+  scoreChange   Int?
+  lastUpdated   DateTime  @default(now())
+  scoreHistory  CreditScoreHistory[]
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CreditScoreHistory {
+  id            String    @id @default(cuid())
+  creditScoreId String
+  score         Int
+  changeReason  String?
+  factors       Json?
+  createdAt     DateTime  @default(now())
+  creditScore   CreditScore @relation(fields: [creditScoreId], references: [id], onDelete: Cascade)
+  
+  @@index([creditScoreId, createdAt])
+}
+
+model CreditBureauCheck {
+  id            String    @id @default(cuid())
+  userId        String
+  bvn           String
+  accountType   AccountType
+  creditScore   Int?
+  riskScore     Int?
+  riskLevel     RiskLevel?
+  responseData  Json?
+  extractedData Json?
+  createdAt     DateTime  @default(now())
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, createdAt])
+  @@index([bvn])
+}
+
+model CreditFactor {
+  id          String    @id @default(cuid())
+  userId      String
+  factorType  String
+  factorValue Float
+  factorWeight Float
+  impact      String
+  description String?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, factorType])
+}
+
+model CreditAccount {
+  id            String    @id @default(cuid())
+  userId        String
+  accountType   String
+  institution   String
+  accountNumber String?
+  balance       Float?
+  limit         Float?
+  status        String
+  openedDate    DateTime?
+  closedDate    DateTime?
+  createdAt     DateTime  @default(now())
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, accountType])
+}
+
+model CreditEnquiry {
+  id            String    @id @default(cuid())
+  userId        String
+  institution   String
+  enquiryType   String
+  enquiryDate   DateTime
+  amount        Float?
+  purpose       String?
+  createdAt     DateTime  @default(now())
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, enquiryDate])
+}
+
+model CreditAlert {
+  id          String    @id @default(cuid())
+  userId      String
+  alertType   String
+  message     String
+  severity    String
+  isRead      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, isRead])
+}
+
+model KYCFormData {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  accountType           AccountType
+  businessName          String?
+  businessAddress       String?
+  taxNumber             String?
+  scumlNumber           String?
+  bvn                   String?   // Add BVN field for credit score calculations
+  
+  // References
+  ref1Name              String?
+  ref1Address           String?
+  ref1Phone             String?
+  ref2Name              String?
+  ref2Address           String?
+  ref2Phone             String?
+  
+  // Extracted document data
+  extractedData         Json?
+  
+  // Form metadata
+  isSubmitted           Boolean   @default(false)
+  submittedAt           DateTime?
+  lastCheckedAt         DateTime?
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

@@ -427,7 +427,7 @@ const UserDashboard = () => {
             </div>
 
             {/* Credit Score Card (Gauge Style) */}
-            <CreditScore score={750} darkMode={darkMode} />
+            <CreditScore darkMode={darkMode} />
 
 
 

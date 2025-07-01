@@ -148,3 +148,65 @@ async function runTests() {
 }
 
 runTests();
+
+async function testDojahCredentials() {
+  console.log('🔍 Testing Dojah API Credentials...\n');
+  
+  // Check if environment variables are set
+  const requiredVars = ['DOJAH_APP_ID', 'DOJAH_SECRET_KEY', 'DOJAH_BASE_URL'];
+  const missingVars = requiredVars.filter(varName => !process.env[varName]);
+  
+  if (missingVars.length > 0) {
+    console.log('❌ Missing environment variables:');
+    missingVars.forEach(varName => console.log(`   - ${varName}`));
+    console.log('\n📝 Please add these to your .env.local file');
+    return;
+  }
+  
+  console.log('✅ Environment variables found:');
+  console.log(`   - DOJAH_APP_ID: ${process.env.DOJAH_APP_ID ? '✓ Set' : '✗ Missing'}`);
+  console.log(`   - DOJAH_SECRET_KEY: ${process.env.DOJAH_SECRET_KEY ? '✓ Set' : '✗ Missing'}`);
+  console.log(`   - DOJAH_BASE_URL: ${process.env.DOJAH_BASE_URL}`);
+  
+  // Test API call with a sample BVN
+  const testBvn = '12345678901'; // This is a test BVN
+  
+  try {
+    console.log('\n🔄 Testing API call...');
+    
+    const response = await fetch(`${process.env.DOJAH_BASE_URL}/api/v1/credit_bureau?bvn=${testBvn}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': process.env.DOJAH_SECRET_KEY,
+        'AppId': process.env.DOJAH_APP_ID,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log('✅ API call successful!');
+      console.log('📊 Response status:', response.status);
+      console.log('📄 Response data:', JSON.stringify(data, null, 2));
+    } else {
+      console.log('❌ API call failed!');
+      console.log('📊 Response status:', response.status);
+      console.log('📄 Error data:', JSON.stringify(data, null, 2));
+      
+      if (data.error && data.error.includes('Secret Key')) {
+        console.log('\n🔧 Possible solutions:');
+        console.log('   1. Check if your DOJAH_SECRET_KEY is correct');
+        console.log('   2. Verify your Dojah account is active');
+        console.log('   3. Check if you have credit bureau access enabled');
+        console.log('   4. Contact Dojah support if the issue persists');
+      }
+    }
+    
+  } catch (error) {
+    console.log('❌ Network error:', error.message);
+  }
+}
+
+// Run the test
+testDojahCredentials().catch(console.error);

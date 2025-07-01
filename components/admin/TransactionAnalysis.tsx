@@ -3,6 +3,8 @@
 import { useState, useRef } from 'react';
 import { FileText, UploadCloud, AlertCircle, CheckCircle2, Loader2, Download, RefreshCw, AlertTriangle, Info, FileQuestion } from 'lucide-react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, ResponsiveContainer } from 'recharts';
+import { Modal } from 'react-responsive-modal';
+import 'react-responsive-modal/styles.css';
 
 // Interface for the fraud detection results
 interface FraudDetectionResult {
@@ -60,7 +62,10 @@ export default function TransactionAnalysis() {
   const [error, setError] = useState<string | null>(null);
   const [showUploadSection, setShowUploadSection] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const reportContainerRef = useRef<HTMLDivElement>(null);  // Data transformation functions for charts
+  const reportContainerRef = useRef<HTMLDivElement>(null);
+  const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
+  const [showTrendModal, setShowTrendModal] = useState(false);
+
   const getRiskDistributionData = (findings: FraudDetectionResult['findings']) => {
     const distribution = {
       'High': 0,
@@ -565,6 +570,21 @@ export default function TransactionAnalysis() {
     }
   };
 
+  // Helper to get transaction trend for an account
+  const getAccountTransactionTrend = (accountId: string) => {
+    if (!results?.transactionDetails?.suspiciousTransactions) return [];
+    return results.transactionDetails.suspiciousTransactions
+      .filter(tx => tx.accountId === accountId)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .map(tx => ({
+        date: tx.date.split('T')[0],
+        amount: tx.amount,
+        riskScore: tx.riskScore,
+        merchant: tx.merchant,
+        fraudType: tx.fraudType,
+      }));
+  };
+
   return (
     <div className="bg-white shadow rounded-lg p-6">
       <div className="mb-6 flex justify-between items-center">
@@ -798,47 +818,39 @@ export default function TransactionAnalysis() {
                   </div>
                 )}
 
-                {/* Account Balance Comparison Chart */}
+                {/* Seasonal Trend Analysis per account */}
                 {results.loanEligibility?.accountAnalysis && (
                   <div className="bg-white border rounded-lg p-4 shadow-sm col-span-1 md:col-span-2">
-                    <h4 className="text-md font-medium mb-3">Account Balance Comparison</h4>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={getAccountBalanceData(results.loanEligibility.accountAnalysis)}
-                          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    <h4 className="text-md font-medium mb-3">Seasonal Trend Analysis (Click account for trend)</h4>
+                    <div className="flex flex-wrap gap-4">
+                      {results.loanEligibility.accountAnalysis.map(account => (
+                        <button
+                          key={account.accountId}
+                          className={`px-4 py-2 rounded border shadow hover:bg-indigo-50 transition-colors font-mono text-sm ${selectedAccount === account.accountId ? 'bg-indigo-100 border-indigo-400' : 'bg-white border-gray-200'}`}
+                          onClick={() => { setSelectedAccount(account.accountId); setShowTrendModal(true); }}
                         >
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="accountId" />
-                          <YAxis />
-                          <Tooltip formatter={(value: any, name) => [name === 'balance' ? `$${Number(value).toLocaleString()}` : value, name === 'balance' ? 'Balance' : 'Risk Level']} />
-                          <Legend />
-                          <Bar dataKey="balance" name="Average Balance ($)" fill="#3b82f6">
-                            {getAccountBalanceData(results.loanEligibility.accountAnalysis).map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={
-                                entry.risk === 3 ? "#ef4444" :  // high risk
-                                  entry.risk === 2 ? "#f59e0b" :  // medium risk
-                                    "#10b981"  // low risk
-                              } />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                          {account.accountId}
+                        </button>
+                      ))}
                     </div>
-                    <div className="flex justify-center mt-2 text-xs">
-                      <div className="flex items-center mr-4">
-                        <div className="w-3 h-3 bg-green-500 mr-1"></div>
-                        <span>Low Risk</span>
+                    <Modal open={showTrendModal} onClose={() => setShowTrendModal(false)} center>
+                      <div className="w-[350px] md:w-[500px] h-[350px]">
+                        <h4 className="text-md font-semibold mb-2">Trend for Account: <span className="font-mono">{selectedAccount}</span></h4>
+                        <ResponsiveContainer width="100%" height="90%">
+                          <LineChart
+                            data={selectedAccount ? getAccountTransactionTrend(selectedAccount) : []}
+                            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="date" />
+                            <YAxis />
+                            <Tooltip formatter={(value: any, name) => [name === 'amount' ? `$${Number(value).toFixed(2)}` : value, name.charAt(0).toUpperCase() + name.slice(1)]} />
+                            <Legend />
+                            <Line type="monotone" dataKey="amount" name="Amount ($)" stroke="#3b82f6" activeDot={{ r: 8 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
                       </div>
-                      <div className="flex items-center mr-4">
-                        <div className="w-3 h-3 bg-amber-500 mr-1"></div>
-                        <span>Medium Risk</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-3 h-3 bg-red-500 mr-1"></div>
-                        <span>High Risk</span>
-                      </div>
-                    </div>
+                    </Modal>
                   </div>
                 )}
               </div>
@@ -1091,80 +1103,6 @@ export default function TransactionAnalysis() {
                 </div>
               </div>            </div>
           )}
-
-          {/* Risk Score Trend Line Chart
-          {results.transactionDetails?.suspiciousTransactions && (
-            <div className="bg-white border rounded-lg p-4 shadow-sm">
-              <h4 className="text-md font-medium mb-3">Risk Score Trend</h4>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={getRiskScoreTrendData(results.transactionDetails.suspiciousTransactions)}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis yAxisId="left" />
-                    <YAxis yAxisId="right" orientation="right" />
-                    <Tooltip />
-                    <Legend />
-                    <Line
-                      yAxisId="left"
-                      type="monotone"
-                      dataKey="riskScore"
-                      name="Risk Score"
-                      stroke="#ff7300"
-                      activeDot={{ r: 8 }}
-                    />
-                    <Line yAxisId="right" type="monotone" dataKey="amount" name="Amount ($)" stroke="#387908" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )} */}
-
-          {/* Account Balance Comparison Chart */}
-          {/* {results.loanEligibility?.accountAnalysis && (
-            <div className="bg-white border rounded-lg p-4 shadow-sm col-span-1 md:col-span-2">
-              <h4 className="text-md font-medium mb-3">Account Balance Comparison</h4>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={getAccountBalanceData(results.loanEligibility.accountAnalysis)}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="accountId" />
-                    <YAxis />
-                    <Tooltip formatter={(value: any, name) => [name === 'balance' ? `$${Number(value).toLocaleString()}` : value, name === 'balance' ? 'Balance' : 'Risk Level']} />
-                    <Legend />
-                    <Bar dataKey="balance" name="Average Balance ($)" fill="#3b82f6">
-                      {getAccountBalanceData(results.loanEligibility.accountAnalysis).map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={
-                          entry.risk === 3 ? "#ef4444" :  // high risk
-                            entry.risk === 2 ? "#f59e0b" :  // medium risk
-                              "#10b981"  // low risk
-                        } />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex justify-center mt-2 text-xs">
-                <div className="flex items-center mr-4">
-                  <div className="w-3 h-3 bg-green-500 mr-1"></div>
-                  <span>Low Risk</span>
-                </div>
-                <div className="flex items-center mr-4">
-                  <div className="w-3 h-3 bg-amber-500 mr-1"></div>
-                  <span>Medium Risk</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-red-500 mr-1"></div>
-                  <span>High Risk</span>
-                </div>
-              </div>            </div>
-          )} */}
 
           {/* Download Report Button */}
           <div className="flex justify-end mt-8">

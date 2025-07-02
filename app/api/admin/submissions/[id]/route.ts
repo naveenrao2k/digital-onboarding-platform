@@ -9,7 +9,7 @@ type JsonValue = JsonPrimitive | { [key: string]: JsonValue } | JsonValue[];
 interface JsonObject {
   [key: string]: JsonValue;
 }
-interface JsonArray extends Array<JsonValue> {}
+interface JsonArray extends Array<JsonValue> { }
 
 interface ValidationResult {
   isValid: boolean;
@@ -66,6 +66,13 @@ interface SubmissionResponse {
   submittedAt: string;
   status: string;
   documents: DocumentSubmission[];
+  scumlData?: {
+    scumlNumber: string;
+    accountType: string;
+    businessName?: string;
+    businessAddress?: string;
+    submittedAt: string;
+  } | null;
   governmentVerifications: Array<{
     type: string;
     status: string;
@@ -120,12 +127,12 @@ const formatVerificationSteps = (
   dojahVerifications: DojahVerification[]
 ): VerificationStep[] => {
   // Find Dojah verifications related to this document
-  const docVerification = dojahVerifications.find(v => 
+  const docVerification = dojahVerifications.find(v =>
     v.documentId === doc.id && v.verificationType === 'DOCUMENT_ANALYSIS'
   );
-  
-  const govVerifications = dojahVerifications.filter(v => 
-    v.documentId === doc.id && 
+
+  const govVerifications = dojahVerifications.filter(v =>
+    v.documentId === doc.id &&
     ['BVN_LOOKUP', 'NIN_LOOKUP', 'PASSPORT_LOOKUP', 'DRIVERS_LICENSE_LOOKUP'].includes(v.verificationType)
   );
 
@@ -147,15 +154,15 @@ const formatVerificationSteps = (
       confidence: doc.documentAnalysis?.confidence ?? null,
       details: doc.documentAnalysis
         ? {
-            isReadable: doc.documentAnalysis.isReadable,
-            qualityScore: doc.documentAnalysis.qualityScore,
-            documentType: typeof doc.documentAnalysis.documentType === 'object' 
-              ? JSON.stringify(doc.documentAnalysis.documentType)
-              : String(doc.documentAnalysis.documentType || ''),
-            extractedFields: doc.documentAnalysis.extractedData 
-              ? Object.keys(doc.documentAnalysis.extractedData as object).length
-              : 0,
-          } as JsonObject
+          isReadable: doc.documentAnalysis.isReadable,
+          qualityScore: doc.documentAnalysis.qualityScore,
+          documentType: typeof doc.documentAnalysis.documentType === 'object'
+            ? JSON.stringify(doc.documentAnalysis.documentType)
+            : String(doc.documentAnalysis.documentType || ''),
+          extractedFields: doc.documentAnalysis.extractedData
+            ? Object.keys(doc.documentAnalysis.extractedData as object).length
+            : 0,
+        } as JsonObject
         : undefined,
     },
     {
@@ -165,20 +172,20 @@ const formatVerificationSteps = (
       confidence: doc.documentAnalysis?.confidence ?? null,
       details: doc.documentAnalysis?.extractedData
         ? {
-            fieldsExtracted: Object.keys(doc.documentAnalysis.extractedData as object).length,
-            documentType: typeof doc.documentAnalysis.documentType === 'object' 
-              ? JSON.stringify(doc.documentAnalysis.documentType)
-              : String(doc.documentAnalysis.documentType || ''),
-            extractedDataSummary: JSON.stringify(doc.documentAnalysis.extractedData),
-          } as JsonObject
+          fieldsExtracted: Object.keys(doc.documentAnalysis.extractedData as object).length,
+          documentType: typeof doc.documentAnalysis.documentType === 'object'
+            ? JSON.stringify(doc.documentAnalysis.documentType)
+            : String(doc.documentAnalysis.documentType || ''),
+          extractedDataSummary: JSON.stringify(doc.documentAnalysis.extractedData),
+        } as JsonObject
         : undefined,
     },
     {
       name: 'Government Verification',
-      status: govVerifications.length > 0 
+      status: govVerifications.length > 0
         ? govVerifications.some(v => v.status === 'SUCCESS') ? 'SUCCESS' : 'FAILED'
         : 'PENDING',
-      completedAt: govVerifications.length > 0 
+      completedAt: govVerifications.length > 0
         ? new Date(Math.max(...govVerifications.map(v => v.updatedAt.getTime()))).toISOString()
         : undefined,
       confidence: govVerifications.length > 0
@@ -186,21 +193,21 @@ const formatVerificationSteps = (
         : null,
       details: govVerifications.length > 0
         ? {
-            isMatch: govVerifications.some(v => v.matchResult && 
-                (v.matchResult as any).isMatch === true),            verificationTypes: govVerifications.map(v => String(v.verificationType)) as unknown as JsonValue,
-            verifications: govVerifications.map(v => ({
-              type: String(v.verificationType),
-              status: String(v.status),
-              isMatch: (v.matchResult as any)?.isMatch || false,
-              confidence: v.confidence,
-              matchDetails: v.governmentData
-                ? {
-                    fieldsMatched: Object.keys(v.governmentData as object).length,
-                    matchSummary: v.governmentData as unknown as JsonValue,
-                  }
-                : null,
-            })) as unknown as JsonValue,
-          } as JsonObject
+          isMatch: govVerifications.some(v => v.matchResult &&
+            (v.matchResult as any).isMatch === true), verificationTypes: govVerifications.map(v => String(v.verificationType)) as unknown as JsonValue,
+          verifications: govVerifications.map(v => ({
+            type: String(v.verificationType),
+            status: String(v.status),
+            isMatch: (v.matchResult as any)?.isMatch || false,
+            confidence: v.confidence,
+            matchDetails: v.governmentData
+              ? {
+                fieldsMatched: Object.keys(v.governmentData as object).length,
+                matchSummary: v.governmentData as unknown as JsonValue,
+              }
+              : null,
+          })) as unknown as JsonValue,
+        } as JsonObject
         : undefined,
     },
   ];
@@ -210,12 +217,20 @@ const formatVerificationSteps = (
 const formatUserData = (user: any): SubmissionResponse => {
   // Get selfie verification related Dojah verification if exists
   const selfieVerificationId = user.selfieVerification?.id;
-  const selfieDojahVerification = selfieVerificationId 
-    ? user.dojahVerifications.find((v: DojahVerification) => 
-        v.documentId === selfieVerificationId && 
-        v.verificationType === 'SELFIE_PHOTO_ID_MATCH'
-      )
+  const selfieDojahVerification = selfieVerificationId
+    ? user.dojahVerifications.find((v: DojahVerification) =>
+      v.documentId === selfieVerificationId &&
+      v.verificationType === 'SELFIE_PHOTO_ID_MATCH'
+    )
     : null;
+
+  // Determine status based on documents or SCUML
+  let status = VerificationStatusEnum.PENDING;
+  if (user.kycDocuments.length > 0) {
+    status = user.kycDocuments[0].status;
+  } else if (user.kycFormData?.scumlNumber) {
+    status = VerificationStatusEnum.PENDING; // SCUML submissions start as pending for admin review
+  }
 
   return {
     id: user.id,
@@ -225,13 +240,13 @@ const formatUserData = (user: any): SubmissionResponse => {
       email: user.email,
     },
     submittedAt: user.createdAt.toISOString(),
-    status: user.kycDocuments.length > 0 ? user.kycDocuments[0].status : VerificationStatusEnum.PENDING,
+    status,
     documents: user.kycDocuments.map((doc: any) => {
       // Find document related Dojah verifications
-      const docVerification = user.dojahVerifications.find((v: DojahVerification) => 
+      const docVerification = user.dojahVerifications.find((v: DojahVerification) =>
         v.documentId === doc.id && v.verificationType === 'DOCUMENT_ANALYSIS'
       );
-      
+
       return {
         id: doc.id,
         type: doc.type,
@@ -240,37 +255,37 @@ const formatUserData = (user: any): SubmissionResponse => {
         status: doc.status,
         documentAnalysis: doc.documentAnalysis
           ? {
-              extractedText: doc.documentAnalysis.extractedText,
-              extractedData: doc.documentAnalysis.extractedData as any as JsonObject,
-              documentType: doc.documentAnalysis.documentType 
-                ? (typeof doc.documentAnalysis.documentType === 'object' 
-                  ? (doc.documentAnalysis.documentType as any).type || null 
-                  : String(doc.documentAnalysis.documentType)
-                  )
-                : null,
-              confidence: doc.documentAnalysis.confidence,
-              isReadable: doc.documentAnalysis.isReadable,
-              qualityScore: doc.documentAnalysis.qualityScore,
-              createdAt: doc.documentAnalysis.createdAt.toISOString(),
-            }
+            extractedText: doc.documentAnalysis.extractedText,
+            extractedData: doc.documentAnalysis.extractedData as any as JsonObject,
+            documentType: doc.documentAnalysis.documentType
+              ? (typeof doc.documentAnalysis.documentType === 'object'
+                ? (doc.documentAnalysis.documentType as any).type || null
+                : String(doc.documentAnalysis.documentType)
+              )
+              : null,
+            confidence: doc.documentAnalysis.confidence,
+            isReadable: doc.documentAnalysis.isReadable,
+            qualityScore: doc.documentAnalysis.qualityScore,
+            createdAt: doc.documentAnalysis.createdAt.toISOString(),
+          }
           : undefined,
         dojahVerification: docVerification
           ? {
-              id: docVerification.id,
-              status: docVerification.status,
-              confidence: docVerification.confidence,
-              matchResult: docVerification.matchResult as any as JsonObject,
-              extractedData: docVerification.extractedData as any as JsonObject,
-              governmentData: docVerification.governmentData as any as JsonObject,
-              errorMessage: docVerification.errorMessage,
-              createdAt: docVerification.createdAt.toISOString(),
-              steps: formatVerificationSteps(doc, user.dojahVerifications),
-            }
+            id: docVerification.id,
+            status: docVerification.status,
+            confidence: docVerification.confidence,
+            matchResult: docVerification.matchResult as any as JsonObject,
+            extractedData: docVerification.extractedData as any as JsonObject,
+            governmentData: docVerification.governmentData as any as JsonObject,
+            errorMessage: docVerification.errorMessage,
+            createdAt: docVerification.createdAt.toISOString(),
+            steps: formatVerificationSteps(doc, user.dojahVerifications),
+          }
           : undefined,
       };
     }),
     governmentVerifications: user.dojahVerifications
-      .filter((v: DojahVerification) => 
+      .filter((v: DojahVerification) =>
         ['BVN_LOOKUP', 'NIN_LOOKUP', 'PASSPORT_LOOKUP', 'DRIVERS_LICENSE_LOOKUP'].includes(v.verificationType) &&
         user.kycDocuments.some((doc: any) => doc.id === v.documentId)
       )
@@ -289,18 +304,27 @@ const formatUserData = (user: any): SubmissionResponse => {
       }),
     selfieVerification: user.selfieVerification
       ? {
-          id: user.selfieVerification.id,
-          status: user.selfieVerification.status,
-          capturedAt: user.selfieVerification.capturedAt.toISOString(),
-          dojahVerification: selfieDojahVerification
-            ? {
-                status: selfieDojahVerification.status,
-                confidence: selfieDojahVerification.confidence,
-                matchResult: selfieDojahVerification.matchResult as any as JsonObject,
-                errorMessage: selfieDojahVerification.errorMessage,
-              }
-            : undefined,
-        }
+        id: user.selfieVerification.id,
+        status: user.selfieVerification.status,
+        capturedAt: user.selfieVerification.capturedAt.toISOString(),
+        dojahVerification: selfieDojahVerification
+          ? {
+            status: selfieDojahVerification.status,
+            confidence: selfieDojahVerification.confidence,
+            matchResult: selfieDojahVerification.matchResult as any as JsonObject,
+            errorMessage: selfieDojahVerification.errorMessage,
+          }
+          : undefined,
+      }
+      : null,
+    scumlData: user.kycFormData?.scumlNumber
+      ? {
+        scumlNumber: user.kycFormData.scumlNumber,
+        accountType: user.kycFormData.accountType,
+        businessName: user.kycFormData.businessName || undefined,
+        businessAddress: user.kycFormData.businessAddress || undefined,
+        submittedAt: user.kycFormData.createdAt.toISOString(),
+      }
       : null,
     notes: user.kycDocuments[0]?.notes || '',
   };
@@ -323,10 +347,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const adminUser = await prisma.user.findUnique({
       where: { id: userId },
       select: { role: true },
-    });    if (!adminUser || !(adminUser.role === 'ADMIN' || adminUser.role === 'SUPER_ADMIN')) {
+    }); if (!adminUser || !(adminUser.role === 'ADMIN' || adminUser.role === 'SUPER_ADMIN')) {
       return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 403 });
     }
-  // Fetch user data with necessary includes
+    // Fetch user data with necessary includes
     const user = await prisma.user.findUnique({
       where: { id: params.id },
       include: {
@@ -335,6 +359,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
             documentAnalysis: true,
           },
         },
+        kycFormData: true, // Include SCUML data
         dojahVerifications: true,
         selfieVerification: true,
       },

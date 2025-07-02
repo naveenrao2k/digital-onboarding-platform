@@ -33,6 +33,7 @@ interface UserDetails {
   accountType: string;
   accountStatus: string;
   createdAt: string;
+  scumlNumber?: string; // Add SCUML license number
   verificationStatus: {
     overallStatus: string;
     kycStatus: string;
@@ -391,6 +392,17 @@ export default function UserDetailsPage() {
                   <p className="text-sm text-gray-600">Member Since</p>
                   <p className="font-medium">{new Date(userDetails.createdAt).toLocaleDateString()}</p>
                 </div>
+                {/* SCUML License Information */}
+                {userDetails.scumlNumber && ['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(userDetails.accountType) && (
+                  <div>
+                    <p className="text-sm text-gray-600">SCUML License</p>
+                    <div className="flex items-center mt-1">
+                      <Shield className="h-4 w-4 text-green-500 mr-2" />
+                      <p className="font-medium text-green-600">{userDetails.scumlNumber}</p>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Securities and Commodities Market License</p>
+                  </div>
+                )}
               </div>
             </div>            <div className="bg-white rounded-lg border p-6 mt-6">
               <div className="flex items-center justify-between mb-4">

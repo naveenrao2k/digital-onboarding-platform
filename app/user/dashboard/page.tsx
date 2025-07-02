@@ -24,7 +24,9 @@ const UserDashboard = () => {
   const { user, loading, signOut } = useAuth();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  const [error, setError] = useState<string | null>(null); const [greeting, setGreeting] = useState('Good afternoon');
+  const [error, setError] = useState<string | null>(null);
+  const [kycFormData, setKycFormData] = useState<any>(null); // Add state for KYC form data
+  const [greeting, setGreeting] = useState('Good afternoon');
   const [darkMode, setDarkMode] = useState(false);
 
   // State for document re-upload modal
@@ -63,8 +65,17 @@ const UserDashboard = () => {
       try {
         setIsLoadingProfile(true);
         setError(null);
-        const profile = await fetchUserProfile();
+
+        // Fetch both user profile and KYC form data
+        const [profile, kycResponse] = await Promise.all([
+          fetchUserProfile(),
+          fetch('/api/user/kyc-form-data').then(res => res.ok ? res.json() : null)
+        ]);
+
         setUserProfile(profile);
+        if (kycResponse?.data) {
+          setKycFormData(kycResponse.data);
+        }
 
         // Also update verification status
         await fetchVerificationStatus(user.id);
@@ -114,6 +125,18 @@ const UserDashboard = () => {
       default:
         return <User className="h-5 w-5" />;
     }
+  };
+
+  // Helper function to get SCUML number from either account or KYC form data
+  const getSCUMLNumber = () => {
+    return userProfile?.account?.scumlNumber || kycFormData?.scumlNumber || null;
+  };
+
+  // Check if user has SCUML license
+  const hasSCUMLLicense = () => {
+    const scumlNumber = getSCUMLNumber();
+    const accountType = userProfile?.accountType;
+    return scumlNumber && ['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(accountType || '');
   };
 
   if (isLoadingProfile || loading) {
@@ -233,6 +256,27 @@ const UserDashboard = () => {
                         <p className="font-medium">{formatAccountType(userProfile?.accountType || 'INDIVIDUAL')}</p>
                       </div>
                     </div>
+
+                    {/* SCUML License Information */}
+                    {hasSCUMLLicense() && (
+                      <div className={`flex items-start p-3 rounded-lg ${darkMode ? 'bg-green-800/20 border border-green-600/30' : 'bg-green-50 border border-green-200'}`}>
+                        <div className={`${darkMode ? 'bg-green-700' : 'bg-green-100'} rounded-full p-2`}>
+                          <Shield className={`h-5 w-5 ${darkMode ? 'text-green-300' : 'text-green-600'}`} />
+                        </div>
+                        <div className="ml-3 flex-1">
+                          <div className="flex items-center justify-between">
+                            <p className={`text-sm font-medium ${darkMode ? 'text-green-300' : 'text-green-800'}`}>SCUML License</p>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${darkMode ? 'bg-green-700 text-green-200' : 'bg-green-100 text-green-800'}`}>
+                              Verified
+                            </span>
+                          </div>
+                          <p className={`font-mono text-lg ${darkMode ? 'text-green-200' : 'text-green-900'} mt-1`}>{getSCUMLNumber()}</p>
+                          <p className={`text-xs ${darkMode ? 'text-green-300/70' : 'text-green-600'} mt-1`}>
+                            Securities and Commodities Market License
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -303,14 +347,50 @@ const UserDashboard = () => {
 
                   {(!userProfile?.documents || userProfile.documents.length === 0) && (
                     <div className="text-center py-6">
-                      <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>No documents uploaded yet.</p>
-                      <Link
-                        href="/user/upload-kyc-documents"
-                        className={`mt-4 inline-flex items-center px-4 py-2 ${darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-600 hover:bg-blue-700'
-                          } text-white font-medium rounded-lg transition-colors`}
-                      >
-                        Upload your documents
-                      </Link>
+                      {/* Check if user has SCUML license instead of documents */}
+                      {hasSCUMLLicense() ? (
+                        <div className="space-y-4">
+                          <div className={`${darkMode ? 'bg-green-800/20 border-green-600/30' : 'bg-green-50 border-green-200'} border rounded-lg p-6`}>
+                            <div className="flex items-center justify-center mb-4">
+                              <div className={`${darkMode ? 'bg-green-700' : 'bg-green-100'} rounded-full p-3`}>
+                                <Shield className={`h-8 w-8 ${darkMode ? 'text-green-300' : 'text-green-600'}`} />
+                              </div>
+                            </div>
+                            <h3 className={`text-lg font-semibold ${darkMode ? 'text-green-300' : 'text-green-800'} mb-2`}>
+                              SCUML License Verification
+                            </h3>
+                            <p className={`${darkMode ? 'text-green-200' : 'text-green-700'} mb-4`}>
+                              Your account is verified through your Securities and Commodities Market License.
+                            </p>
+                            <div className={`${darkMode ? 'bg-green-900/30' : 'bg-white'} rounded-md p-4 border ${darkMode ? 'border-green-600/20' : 'border-green-100'}`}>
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className={`text-sm font-medium ${darkMode ? 'text-green-300' : 'text-green-800'}`}>License Number</p>
+                                  <p className={`text-lg font-mono ${darkMode ? 'text-green-200' : 'text-green-900'}`}>
+                                    {getSCUMLNumber()}
+                                  </p>
+                                </div>
+                                <CheckCircle className={`h-6 w-6 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
+                              </div>
+                            </div>
+                            <p className={`text-xs ${darkMode ? 'text-green-300/70' : 'text-green-600'} mt-3`}>
+                              No additional document uploads required for SCUML verified accounts.
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        // Show default no documents message for non-SCUML accounts
+                        <>
+                          <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>No documents uploaded yet.</p>
+                          <Link
+                            href="/user/upload-kyc-documents"
+                            className={`mt-4 inline-flex items-center px-4 py-2 ${darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-600 hover:bg-blue-700'
+                              } text-white font-medium rounded-lg transition-colors`}
+                          >
+                            Upload your documents
+                          </Link>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -405,6 +485,7 @@ const UserDashboard = () => {
                       className={`${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'} text-sm font-medium inline-flex items-center`}
                     >
                       View verification status <span className="ml-1">→</span>
+
                     </Link>
                   ) : (
                     <div className="flex flex-col items-center gap-2">

@@ -31,6 +31,8 @@ interface Submission {
   status: VerificationStatusEnum;
   fileName: string;
   totalDocuments: number;
+  submissionType?: 'documents' | 'scuml';
+  scumlNumber?: string;
 }
 
 const AdminSubmissionsPage = () => {
@@ -39,7 +41,7 @@ const AdminSubmissionsPage = () => {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState('');  const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState(''); const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [documentTypeFilter, setDocumentTypeFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
@@ -81,7 +83,7 @@ const AdminSubmissionsPage = () => {
       }
 
       const data = await response.json();
-      
+
       if (data.data && data.pagination) {
         setSubmissions(data.data);
         setTotalPages(data.pagination.totalPages);
@@ -106,7 +108,7 @@ const AdminSubmissionsPage = () => {
     router.push(`/admin/submissions/${userId}`);
   };
 
- 
+
 
   // Filter submissions based on filters
   const filteredSubmissions = submissions.filter(submission => {
@@ -136,7 +138,7 @@ const AdminSubmissionsPage = () => {
 
   return (
     <div className="w-full">
-      
+
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-8">
         {/* Search and Filters */}
         <div className="p-3 sm:p-4 border-b border-gray-200">
@@ -265,21 +267,39 @@ const AdminSubmissionsPage = () => {
                       </td>
                       <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <FileText className="h-4 w-4 text-gray-500 mr-2 flex-shrink-0" />
-                          <div>
-                            <div className="text-sm md:text-base truncate max-w-[120px] md:max-w-none">{submission.documentType}</div>
-                            <div className="text-xs text-gray-500 truncate max-w-[120px] hidden sm:block">
-                              {submission.totalDocuments > 1 
-                                ? `${submission.totalDocuments} documents submitted` 
-                                : submission.fileName}
-                            </div>
-                          </div>
+                          {submission.submissionType === 'scuml' ? (
+                            <>
+                              <div className="h-4 w-4 text-green-600 mr-2 flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                                </svg>
+                              </div>
+                              <div>
+                                <div className="text-sm md:text-base text-green-800 font-medium">{submission.documentType}</div>
+                                <div className="text-xs text-green-600 truncate max-w-[120px] hidden sm:block">
+                                  {submission.scumlNumber}
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <FileText className="h-4 w-4 text-gray-500 mr-2 flex-shrink-0" />
+                              <div>
+                                <div className="text-sm md:text-base truncate max-w-[120px] md:max-w-none">{submission.documentType}</div>
+                                <div className="text-xs text-gray-500 truncate max-w-[120px] hidden sm:block">
+                                  {submission.totalDocuments > 1
+                                    ? `${submission.totalDocuments} documents submitted`
+                                    : submission.fileName}
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </td>
                       <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap text-sm hidden sm:table-cell">
                         <div className="flex items-center">
 
-                      
+
                           <Calendar className="h-4 w-4 text-gray-500 mr-2 flex-shrink-0" />
                           <div>
                             {new Date(submission.dateSubmitted).toLocaleDateString('en-US', {
@@ -298,10 +318,10 @@ const AdminSubmissionsPage = () => {
                       </td>
                       <td className="px-3 py-3 md:px-6 md:py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${submission.status === 'PENDING' ? 'bg-amber-100 text-amber-800' :
-                            submission.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                              submission.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                                submission.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                                  ''
+                          submission.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
+                            submission.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                              submission.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                                ''
                           }`}>
                           {submission.status === 'PENDING' ? 'Pending' :
                             submission.status === 'IN_PROGRESS' ? 'In Progress' :
@@ -311,23 +331,23 @@ const AdminSubmissionsPage = () => {
                         </span>
                       </td>
                       <td className="px-3 py-3 md:px-6 md:py-4 ">
-                                              
-                          <button
-                            onClick={() => handleViewSubmission(submission.userId)}
-                            className="p-1 flex text-xs font-semibold gap-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded"
-                            title="View Details"
-                          >
-                            View
-                            {/* <Eye className="h-4 w-4" /> */}
-                          </button>
-                         
+
+                        <button
+                          onClick={() => handleViewSubmission(submission.userId)}
+                          className="p-1 flex text-xs font-semibold gap-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded"
+                          title="View Details"
+                        >
+                          View
+                          {/* <Eye className="h-4 w-4" /> */}
+                        </button>
+
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            
+
             {/* Pagination component */}
             {totalPages > 1 && (
               <div className="p-4 border-t border-gray-200">

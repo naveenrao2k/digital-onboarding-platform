@@ -80,6 +80,67 @@ const formatDocumentName = (docType: string): string => {
   return docType.replace(/([A-Z])/g, ' $1').trim();
 };
 
+// SCUML validation function
+const validateSCUMLNumber = (scumlNumber: string): boolean => {
+  // Format: SC + 9 digits (e.g., SC123456789)
+  const scumlPattern = /^SC\d{9}$/;
+  return scumlPattern.test(scumlNumber);
+};
+
+// SCUML Toggle Component
+const SCUMLToggle = ({
+  checked,
+  onChange
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) => (
+  <div className="flex items-center space-x-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+    <div className="flex items-center">
+      <input
+        type="checkbox"
+        id="scuml-toggle"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+      />
+      <label htmlFor="scuml-toggle" className="ml-2 text-sm font-medium text-gray-700">
+        I have a SCUML (Securities and Commodities Market License)
+      </label>
+    </div>
+  </div>
+);
+
+// SCUML Number Input Component
+const SCUMLInput = ({
+  value,
+  onChange,
+  error
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  error: string;
+}) => (
+  <div>
+    <label className="block text-sm font-medium text-slate-700 mb-2">
+      SCUML License Number <span className="text-rose-500">*</span>
+    </label>
+    <input
+      type="text"
+      value={value}
+      onChange={onChange}
+      placeholder="SC123456789"
+      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm bg-white/50 backdrop-blur-sm ${error ? 'border-red-300 bg-red-50' : 'border-slate-300'
+        }`}
+      maxLength={11}
+    />
+    {error && (
+      <p className="mt-1 text-sm text-red-600">{error}</p>
+    )}
+    <p className="mt-1 text-xs text-slate-500">Format: SC followed by 9 digits (e.g., SC123456789)</p>
+  </div>
+);
+
 // Helper function to convert form docType to valid DocumentType enum
 const docTypeToEnumMapping = (docType: string): DocumentType => {
   const mapping: { [key: string]: DocumentType } = {
@@ -158,6 +219,9 @@ const UploadKYCDocumentsPage = () => {
             taxNumber: data.taxNumber || '',
             scumlNumber: data.scumlNumber || ''
           });
+          // Set SCUML states
+          setSCUMLNumber(data.scumlNumber || '');
+          setHasSCUMLLicense(!!data.scumlNumber);
           setReferences({
             ref1Name: data.ref1Name || '',
             ref1Address: data.ref1Address || '',
@@ -198,7 +262,7 @@ const UploadKYCDocumentsPage = () => {
         businessName,
         businessAddress,
         taxNumber: taxInfo.taxNumber,
-        scumlNumber: taxInfo.scumlNumber,
+        scumlNumber: hasSCUMLLicense ? scumlNumber : '',
         references,
         extractedData: extractedDocumentData,
         isSubmitted
@@ -297,6 +361,11 @@ const UploadKYCDocumentsPage = () => {
     taxNumber: '',
     scumlNumber: ''
   });
+
+  // SCUML toggle and validation states
+  const [hasSCUMLLicense, setHasSCUMLLicense] = useState(false);
+  const [scumlNumber, setSCUMLNumber] = useState('');
+  const [scumlError, setSCUMLError] = useState('');
 
   // File names for display
   const [fileNames, setFileNames] = useState({
@@ -650,50 +719,102 @@ const UploadKYCDocumentsPage = () => {
     setTaxInfo(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleSCUMLChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.toUpperCase();
+    setSCUMLNumber(value);
+
+    // Validate SCUML format in real-time
+    if (value && !validateSCUMLNumber(value)) {
+      setSCUMLError('SCUML number must be in format SC followed by 9 digits (e.g., SC123456789)');
+    } else {
+      setSCUMLError('');
+    }
+  };
+
+  const handleSCUMLToggle = (checked: boolean) => {
+    setHasSCUMLLicense(checked);
+    if (!checked) {
+      setSCUMLNumber('');
+      setSCUMLError('');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
-    for (const docType of getRequiredDocumentsForAccountType(accountType)) {
-      // 1. Upload
-      setUploadStatus(prev => ({ ...prev, [docType]: 'Uploading' }));
-      try {
-        const file = getFileByType(accountType, docType);
-        if (!file) {
-          setError(`File not found for ${formatDocumentName(docType)}`);
-          setIsSubmitting(false);
-          return;
-        }
-        
-        await uploadKycDocument(docTypeToEnumMapping(docType), file, (progress) => setUploadProgress(prev => ({ ...prev, [docType]: progress })));
-        setUploadStatus(prev => ({ ...prev, [docType]: 'Uploaded' }));
-        // 2. Extract/Validate
-        setUploadStatus(prev => ({ ...prev, [docType]: 'Verifying' }));
-        let validationResult;
-        if (accountType === 'individual') validationResult = await validateIndividualDocument(docTypeToEnumMapping(docType), file);
-        else if (accountType === 'partnership') validationResult = await validatePartnershipDocument(docTypeToEnumMapping(docType), file);
-        else if (accountType === 'enterprise') validationResult = await validateEnterpriseDocument(docTypeToEnumMapping(docType), file);
-        else if (accountType === 'llc') validationResult = await validateLlcDocument(docTypeToEnumMapping(docType), file);
-        if (validationResult?.isValid) {
-          setUploadStatus(prev => ({ ...prev, [docType]: 'Verified' }));
-        } else {
-          setUploadStatus(prev => ({ ...prev, [docType]: 'File Mismatched' }));
-          setError(`File mismatch for ${formatDocumentName(docType)}. Please re-upload.`);
-          setIsSubmitting(false);
-          return;
-        }
-      } catch (err) {
-        setUploadStatus(prev => ({ ...prev, [docType]: 'File Mismatched' }));
-        setError(`Upload failed for ${formatDocumentName(docType)}. Please try again.`);
+
+    try {
+      // Check if this is a business account with SCUML license
+      const isBusinessAccount = ['partnership', 'enterprise', 'llc'].includes(accountType);
+      const hasValidSCUML = isBusinessAccount && hasSCUMLLicense && scumlNumber && !scumlError;
+
+      if (hasValidSCUML) {
+        // For SCUML submissions, skip document processing and save form data directly
+        console.log('Processing SCUML submission...');
+
+        // Save form data with SCUML information
+        await saveFormData(true);
+
+        // Mark as submitted
+        setIsSubmitted(true);
         setIsSubmitting(false);
         return;
       }
+
+      // Regular document processing flow for non-SCUML submissions
+      const requiredDocuments = getRequiredDocumentsForAccountType(accountType);
+
+      for (const docType of requiredDocuments) {
+        // 1. Upload
+        setUploadStatus(prev => ({ ...prev, [docType]: 'Uploading' }));
+        try {
+          const file = getFileByType(accountType, docType);
+          if (!file) {
+            setError(`File not found for ${formatDocumentName(docType)}`);
+            setIsSubmitting(false);
+            return;
+          }
+
+          await uploadKycDocument(docTypeToEnumMapping(docType), file, (progress) => setUploadProgress(prev => ({ ...prev, [docType]: progress })));
+          setUploadStatus(prev => ({ ...prev, [docType]: 'Uploaded' }));
+
+          // 2. Extract/Validate
+          setUploadStatus(prev => ({ ...prev, [docType]: 'Verifying' }));
+          let validationResult;
+          if (accountType === 'individual') validationResult = await validateIndividualDocument(docTypeToEnumMapping(docType), file);
+          else if (accountType === 'partnership') validationResult = await validatePartnershipDocument(docTypeToEnumMapping(docType), file);
+          else if (accountType === 'enterprise') validationResult = await validateEnterpriseDocument(docTypeToEnumMapping(docType), file);
+          else if (accountType === 'llc') validationResult = await validateLlcDocument(docTypeToEnumMapping(docType), file);
+
+          if (validationResult?.isValid) {
+            setUploadStatus(prev => ({ ...prev, [docType]: 'Verified' }));
+          } else {
+            setUploadStatus(prev => ({ ...prev, [docType]: 'File Mismatched' }));
+            setError(`File mismatch for ${formatDocumentName(docType)}. Please re-upload.`);
+            setIsSubmitting(false);
+            return;
+          }
+        } catch (err) {
+          setUploadStatus(prev => ({ ...prev, [docType]: 'File Mismatched' }));
+          setError(`Upload failed for ${formatDocumentName(docType)}. Please try again.`);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // 3. Final verification if all files are verified
+      if (requiredDocuments.every(docType => uploadStatus[docType] === 'Verified')) {
+        // Save form data
+        await saveFormData(true);
+        // All documents are verified, mark as submitted
+        setIsSubmitted(true);
+      }
+    } catch (error) {
+      console.error('Error during form submission:', error);
+      setError('An error occurred during submission. Please try again.');
     }
-    // 3. Final verification if all files are verified
-    if (getRequiredDocumentsForAccountType(accountType).every(docType => uploadStatus[docType] === 'Verified')) {
-      // All documents are verified, mark as submitted
-      setIsSubmitted(true);
-    }
+
     setIsSubmitting(false);
   };
 
@@ -915,13 +1036,13 @@ const UploadKYCDocumentsPage = () => {
               <div className="ml-4 flex-grow flex gap-10">
                 <div className='flex flex-col justify-center w-1/2'>
                   <div className="flex items-center">
-                  <span className="text-sm font-medium text-slate-800">{fileIcon} {fileName}</span>
-                  {formattedFileSize && <span className="text-xs text-slate-500 ml-2">({formattedFileSize})</span>}
-                </div>               
-                 <p className="text-xs text-green-600 font-medium mt-0.5">Verification successful</p>
-               
+                    <span className="text-sm font-medium text-slate-800">{fileIcon} {fileName}</span>
+                    {formattedFileSize && <span className="text-xs text-slate-500 ml-2">({formattedFileSize})</span>}
+                  </div>
+                  <p className="text-xs text-green-600 font-medium mt-0.5">Verification successful</p>
+
                 </div>
-               
+
                 {previewUrl && (<div className="mt-2 max-w-[900px]">
                   <img
                     src={previewUrl}
@@ -1182,10 +1303,10 @@ const UploadKYCDocumentsPage = () => {
   }
 
   // Show loading state while form data is being loaded
- 
+
   if (formDataLoaded && user) {
     return (
-      
+
       <div className="min-h-[80vh] flex items-center justify-center">
         <div className="text-center">
           <div className="h-16 w-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -1202,7 +1323,7 @@ const UploadKYCDocumentsPage = () => {
           <h2 className="text-3xl font-bold mb-3">Upload KYC Documents</h2>
           <p className="text-blue-100 max-w-2xl">Please upload the required documents for identity verification. Your information is securely encrypted and verified.</p>
 
-        
+
         </div>
 
         <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-xl p-5 mb-10 shadow-sm">
@@ -1344,161 +1465,187 @@ const UploadKYCDocumentsPage = () => {
                 </div>
               </div>
 
+              {/* SCUML Section - First Priority */}
               <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
                 <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
                   <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">1</span>
-                  Required Business Documents
+                  Securities License Information
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
-                  <FileUploadBox
-                    docType="certificateOfRegistration"
-                    label="Certificate of Registration (Original to be sighted)"
-                    accountTypeKey="partnership"
-                    fileRef={fileInputRefs.certificateOfRegistration}
+                <div className="space-y-4">
+                  <SCUMLToggle
+                    checked={hasSCUMLLicense}
+                    onChange={handleSCUMLToggle}
                   />
-
-                  <FileUploadBox
-                    docType="validIdOfPartners"
-                    label="Valid Identification of Partners"
-                    accountTypeKey="partnership"
-                    fileRef={fileInputRefs.validIdOfPartners}
-                  />
+                  {hasSCUMLLicense && (
+                    <SCUMLInput
+                      value={scumlNumber}
+                      onChange={handleSCUMLChange}
+                      error={scumlError}
+                    />
+                  )}
                 </div>
               </div>
 
-              <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
-                <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
-                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">2</span>
-                  Additional Documents
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
-                  <FileUploadBox
-                    docType="formOfApplication"
-                    label="Form of Application for Registration (Certified by CAC)"
-                    accountTypeKey="partnership"
-                    fileRef={fileInputRefs.formOfApplication}
-                  />
-
-                  <FileUploadBox
-                    docType="proofOfAddress"
-                    label="Proof of Address (Utility Bill, Bank Statement, etc.)"
-                    accountTypeKey="partnership"
-                    fileRef={fileInputRefs.proofOfAddress}
-                  />
-                </div>
-              </div>
-
-              <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
-                <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
-                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">3</span>
-                  Corporate References
-                  <span className="ml-2 text-xs bg-blue-100 text-blue-800 py-0.5 px-2 rounded-full">Required</span>
-                </h4>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
-                  <div className="p-5 border border-slate-200 rounded-lg bg-white shadow-sm">
-                    <div className="flex items-center mb-4">
-                      <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center mr-2">
-                        <span className="font-semibold text-slate-600 text-sm">1</span>
-                      </div>
-                      <h5 className="font-medium text-slate-700">First Reference</h5>
-                    </div>
-                    <div className="space-y-4">
-                      <TextInput
-                        label="Name"
-                        name="ref1Name"
-                        value={references.ref1Name}
-                        placeholder="Company/Individual Name"
-                        onChange={handleReferenceChange}
+              {/* Show other fields only if no SCUML license or SCUML is valid */}
+              {!hasSCUMLLicense && (
+                <>
+                  <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
+                    <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
+                      <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">2</span>
+                      Required Business Documents
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
+                      <FileUploadBox
+                        docType="certificateOfRegistration"
+                        label="Certificate of Registration (Original to be sighted)"
+                        accountTypeKey="partnership"
+                        fileRef={fileInputRefs.certificateOfRegistration}
                       />
-                      <TextInput
-                        label="Address"
-                        name="ref1Address"
-                        value={references.ref1Address}
-                        placeholder="Full Address"
-                        onChange={handleReferenceChange}
-                      />
-                      <TextInput
-                        label="Phone Number"
-                        name="ref1Phone"
-                        value={references.ref1Phone}
-                        placeholder="Contact Number"
-                        onChange={handleReferenceChange}
+
+                      <FileUploadBox
+                        docType="validIdOfPartners"
+                        label="Valid Identification of Partners"
+                        accountTypeKey="partnership"
+                        fileRef={fileInputRefs.validIdOfPartners}
                       />
                     </div>
                   </div>
 
-                  <div className="p-5 border border-slate-200 rounded-lg bg-white shadow-sm">
-                    <div className="flex items-center mb-4">
-                      <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center mr-2">
-                        <span className="font-semibold text-slate-600 text-sm">2</span>
-                      </div>
-                      <h5 className="font-medium text-slate-700">Second Reference</h5>
-                    </div>
-                    <div className="space-y-4">
-                      <TextInput
-                        label="Name"
-                        name="ref2Name"
-                        value={references.ref2Name}
-                        placeholder="Company/Individual Name"
-                        onChange={handleReferenceChange}
+                  <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
+                    <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
+                      <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">2</span>
+                      Additional Documents
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
+                      <FileUploadBox
+                        docType="formOfApplication"
+                        label="Form of Application for Registration (Certified by CAC)"
+                        accountTypeKey="partnership"
+                        fileRef={fileInputRefs.formOfApplication}
                       />
-                      <TextInput
-                        label="Address"
-                        name="ref2Address"
-                        value={references.ref2Address}
-                        placeholder="Full Address"
-                        onChange={handleReferenceChange}
-                      />
-                      <TextInput
-                        label="Phone Number"
-                        name="ref2Phone"
-                        value={references.ref2Phone}
-                        placeholder="Contact Number"
-                        onChange={handleReferenceChange}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
 
-              {/* Show auto-filled data notice */}
-              {extractedDocumentData.certificateOfRegistration && (
-                <div className="p-5 bg-blue-50 border border-blue-200 rounded-lg shadow-sm" style={slideUpAnimation}>
-                  <div className="flex items-start">
-                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mr-3 flex-shrink-0">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
+                      <FileUploadBox
+                        docType="proofOfAddress"
+                        label="Proof of Address (Utility Bill, Bank Statement, etc.)"
+                        accountTypeKey="partnership"
+                        fileRef={fileInputRefs.proofOfAddress}
+                      />
                     </div>
-                    <div>
-                      <h4 className="font-medium text-blue-800 mb-2">Data Extracted Successfully</h4>
-                      <p className="text-sm text-blue-700 mb-3">
-                        We've automatically extracted the following information from your uploaded documents:
-                      </p>
-                      <div className="bg-white rounded-md p-3 border border-blue-200">
-                        {extractedDocumentData.certificateOfRegistration.businessName && (
-                          <div className="flex items-center mb-2">
-                            <span className="text-xs text-blue-500 font-medium w-36">Business Name:</span>
-                            <span className="text-sm font-medium">{extractedDocumentData.certificateOfRegistration.businessName}</span>
+                  </div>
+
+                  <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
+                    <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
+                      <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">3</span>
+                      Corporate References
+                      <span className="ml-2 text-xs bg-blue-100 text-blue-800 py-0.5 px-2 rounded-full">Required</span>
+                    </h4>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
+                      <div className="p-5 border border-slate-200 rounded-lg bg-white shadow-sm">
+                        <div className="flex items-center mb-4">
+                          <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center mr-2">
+                            <span className="font-semibold text-slate-600 text-sm">1</span>
                           </div>
-                        )}
-                        {extractedDocumentData.certificateOfRegistration.registrationNumber && (
-                          <div className="flex items-center mb-2">
-                            <span className="text-xs text-blue-500 font-medium w-36">Registration Number:</span>
-                            <span className="text-sm font-medium">{extractedDocumentData.certificateOfRegistration.registrationNumber}</span>
+                          <h5 className="font-medium text-slate-700">First Reference</h5>
+                        </div>
+                        <div className="space-y-4">
+                          <TextInput
+                            label="Name"
+                            name="ref1Name"
+                            value={references.ref1Name}
+                            placeholder="Company/Individual Name"
+                            onChange={handleReferenceChange}
+                          />
+                          <TextInput
+                            label="Address"
+                            name="ref1Address"
+                            value={references.ref1Address}
+                            placeholder="Full Address"
+                            onChange={handleReferenceChange}
+                          />
+                          <TextInput
+                            label="Phone Number"
+                            name="ref1Phone"
+                            value={references.ref1Phone}
+                            placeholder="Contact Number"
+                            onChange={handleReferenceChange}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="p-5 border border-slate-200 rounded-lg bg-white shadow-sm">
+                        <div className="flex items-center mb-4">
+                          <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center mr-2">
+                            <span className="font-semibold text-slate-600 text-sm">2</span>
                           </div>
-                        )}
-                        {extractedDocumentData.certificateOfRegistration.registrationDate && (
-                          <div className="flex items-center">
-                            <span className="text-xs text-blue-500 font-medium w-36">Registration Date:</span>
-                            <span className="text-sm font-medium">{extractedDocumentData.certificateOfRegistration.registrationDate}</span>
-                          </div>
-                        )}
+                          <h5 className="font-medium text-slate-700">Second Reference</h5>
+                        </div>
+                        <div className="space-y-4">
+                          <TextInput
+                            label="Name"
+                            name="ref2Name"
+                            value={references.ref2Name}
+                            placeholder="Company/Individual Name"
+                            onChange={handleReferenceChange}
+                          />
+                          <TextInput
+                            label="Address"
+                            name="ref2Address"
+                            value={references.ref2Address}
+                            placeholder="Full Address"
+                            onChange={handleReferenceChange}
+                          />
+                          <TextInput
+                            label="Phone Number"
+                            name="ref2Phone"
+                            value={references.ref2Phone}
+                            placeholder="Contact Number"
+                            onChange={handleReferenceChange}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+
+                  {/* Show auto-filled data notice */}
+                  {extractedDocumentData.certificateOfRegistration && (
+                    <div className="p-5 bg-blue-50 border border-blue-200 rounded-lg shadow-sm" style={slideUpAnimation}>
+                      <div className="flex items-start">
+                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mr-3 flex-shrink-0">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-blue-800 mb-2">Data Extracted Successfully</h4>
+                          <p className="text-sm text-blue-700 mb-3">
+                            We've automatically extracted the following information from your uploaded documents:
+                          </p>
+                          <div className="bg-white rounded-md p-3 border border-blue-200">
+                            {extractedDocumentData.certificateOfRegistration.businessName && (
+                              <div className="flex items-center mb-2">
+                                <span className="text-xs text-blue-500 font-medium w-36">Business Name:</span>
+                                <span className="text-sm font-medium">{extractedDocumentData.certificateOfRegistration.businessName}</span>
+                              </div>
+                            )}
+                            {extractedDocumentData.certificateOfRegistration.registrationNumber && (
+                              <div className="flex items-center mb-2">
+                                <span className="text-xs text-blue-500 font-medium w-36">Registration Number:</span>
+                                <span className="text-sm font-medium">{extractedDocumentData.certificateOfRegistration.registrationNumber}</span>
+                              </div>
+                            )}
+                            {extractedDocumentData.certificateOfRegistration.registrationDate && (
+                              <div className="flex items-center">
+                                <span className="text-xs text-blue-500 font-medium w-36">Registration Date:</span>
+                                <span className="text-sm font-medium">{extractedDocumentData.certificateOfRegistration.registrationDate}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -1511,114 +1658,141 @@ const UploadKYCDocumentsPage = () => {
                 <h3 className="text-lg font-medium">Enterprise Account Requirements</h3>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
-                <FileUploadBox
-                  docType="certificateOfRegistration"
-                  label="Certificate of Registration (Original to be sighted)"
-                  accountTypeKey="enterprise"
-                  fileRef={fileInputRefs.certificateOfRegistration}
-                />
-
-                <FileUploadBox
-                  docType="formOfApplication"
-                  label="Form of Application for Registration (Certified by CAC)"
-                  accountTypeKey="enterprise"
-                  fileRef={fileInputRefs.formOfApplication}
-                />
-
-                <FileUploadBox
-                  docType="passportPhotos"
-                  label="Two recent passport-size photographs of each owner"
-                  accountTypeKey="enterprise"
-                  fileRef={fileInputRefs.passportPhotos}
-                />
-
-                <FileUploadBox
-                  docType="utilityReceipt"
-                  label="Photocopy of Public Utility Receipt (Original sighted)"
-                  accountTypeKey="enterprise"
-                  fileRef={fileInputRefs.utilityReceipt}
-                />
-
-                <div className="md:col-span-2">
-                  <FileUploadBox
-                    docType="businessOwnerID"
-                    label="Valid Identification of Business Owner"
-                    accountTypeKey="enterprise"
-                    fileRef={fileInputRefs.businessOwnerID}
+              {/* SCUML Section - First Priority */}
+              <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
+                <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
+                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">1</span>
+                  Securities License Information
+                </h4>
+                <div className="space-y-4">
+                  <SCUMLToggle
+                    checked={hasSCUMLLicense}
+                    onChange={handleSCUMLToggle}
                   />
+                  {hasSCUMLLicense && (
+                    <SCUMLInput
+                      value={scumlNumber}
+                      onChange={handleSCUMLChange}
+                      error={scumlError}
+                    />
+                  )}
                 </div>
               </div>
 
-              <div className="mt-6">
-                <TextInput
-                  label="Company's Operating Business Address"
-                  name="businessAddress"
-                  value={businessAddress}
-                  placeholder="Full business address"
-                  onChange={(e) => setBusinessAddress(e.target.value)}
-                />
-              </div>
+              {/* Show other fields only if no SCUML license */}
+              {!hasSCUMLLicense && (
+                <>
 
-              <div className="mt-8">
-                <h4 className="text-lg font-medium mb-4">Corporate References (Two independent references required)</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
+                    <FileUploadBox
+                      docType="certificateOfRegistration"
+                      label="Certificate of Registration (Original to be sighted)"
+                      accountTypeKey="enterprise"
+                      fileRef={fileInputRefs.certificateOfRegistration}
+                    />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
-                  <div className="p-6 border border-slate-200 rounded-lg">
-                    <h5 className="font-medium mb-4">Reference 1</h5>
-                    <div className="space-y-4">
-                      <TextInput
-                        label="Name"
-                        name="ref1Name"
-                        value={references.ref1Name}
-                        placeholder="Company/Individual Name"
-                        onChange={handleReferenceChange}
-                      />
-                      <TextInput
-                        label="Address"
-                        name="ref1Address"
-                        value={references.ref1Address}
-                        placeholder="Full Address"
-                        onChange={handleReferenceChange}
-                      />
-                      <TextInput
-                        label="Phone Number"
-                        name="ref1Phone"
-                        value={references.ref1Phone}
-                        placeholder="Contact Number"
-                        onChange={handleReferenceChange}
+                    <FileUploadBox
+                      docType="formOfApplication"
+                      label="Form of Application for Registration (Certified by CAC)"
+                      accountTypeKey="enterprise"
+                      fileRef={fileInputRefs.formOfApplication}
+                    />
+
+                    <FileUploadBox
+                      docType="passportPhotos"
+                      label="Two recent passport-size photographs of each owner"
+                      accountTypeKey="enterprise"
+                      fileRef={fileInputRefs.passportPhotos}
+                    />
+
+                    <FileUploadBox
+                      docType="utilityReceipt"
+                      label="Photocopy of Public Utility Receipt (Original sighted)"
+                      accountTypeKey="enterprise"
+                      fileRef={fileInputRefs.utilityReceipt}
+                    />
+
+                    <div className="md:col-span-2">
+                      <FileUploadBox
+                        docType="businessOwnerID"
+                        label="Valid Identification of Business Owner"
+                        accountTypeKey="enterprise"
+                        fileRef={fileInputRefs.businessOwnerID}
                       />
                     </div>
                   </div>
 
-                  <div className="p-6 border border-slate-200 rounded-lg">
-                    <h5 className="font-medium mb-4">Reference 2</h5>
-                    <div className="space-y-4">
-                      <TextInput
-                        label="Name"
-                        name="ref2Name"
-                        value={references.ref2Name}
-                        placeholder="Company/Individual Name"
-                        onChange={handleReferenceChange}
-                      />
-                      <TextInput
-                        label="Address"
-                        name="ref2Address"
-                        value={references.ref2Address}
-                        placeholder="Full Address"
-                        onChange={handleReferenceChange}
-                      />
-                      <TextInput
-                        label="Phone Number"
-                        name="ref2Phone"
-                        value={references.ref2Phone}
-                        placeholder="Contact Number"
-                        onChange={handleReferenceChange}
-                      />
+                  <div className="mt-6">
+                    <TextInput
+                      label="Company's Operating Business Address"
+                      name="businessAddress"
+                      value={businessAddress}
+                      placeholder="Full business address"
+                      onChange={(e) => setBusinessAddress(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="mt-8">
+                    <h4 className="text-lg font-medium mb-4">Corporate References (Two independent references required)</h4>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
+                      <div className="p-6 border border-slate-200 rounded-lg">
+                        <h5 className="font-medium mb-4">Reference 1</h5>
+                        <div className="space-y-4">
+                          <TextInput
+                            label="Name"
+                            name="ref1Name"
+                            value={references.ref1Name}
+                            placeholder="Company/Individual Name"
+                            onChange={handleReferenceChange}
+                          />
+                          <TextInput
+                            label="Address"
+                            name="ref1Address"
+                            value={references.ref1Address}
+                            placeholder="Full Address"
+                            onChange={handleReferenceChange}
+                          />
+                          <TextInput
+                            label="Phone Number"
+                            name="ref1Phone"
+                            value={references.ref1Phone}
+                            placeholder="Contact Number"
+                            onChange={handleReferenceChange}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="p-6 border border-slate-200 rounded-lg">
+                        <h5 className="font-medium mb-4">Reference 2</h5>
+                        <div className="space-y-4">
+                          <TextInput
+                            label="Name"
+                            name="ref2Name"
+                            value={references.ref2Name}
+                            placeholder="Company/Individual Name"
+                            onChange={handleReferenceChange}
+                          />
+                          <TextInput
+                            label="Address"
+                            name="ref2Address"
+                            value={references.ref2Address}
+                            placeholder="Full Address"
+                            onChange={handleReferenceChange}
+                          />
+                          <TextInput
+                            label="Phone Number"
+                            name="ref2Phone"
+                            value={references.ref2Phone}
+                            placeholder="Contact Number"
+                            onChange={handleReferenceChange}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
+                </>
+              )}
             </div>
           )}
 
@@ -1630,133 +1804,160 @@ const UploadKYCDocumentsPage = () => {
                 <h3 className="text-lg font-medium">Limited Liability Account Requirements</h3>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
-                <FileUploadBox
-                  docType="certificateOfIncorporation"
-                  label="Certificate of Incorporation / Registration Number"
-                  accountTypeKey="llc"
-                  fileRef={fileInputRefs.certificateOfIncorporation}
-                />
-
-                <FileUploadBox
-                  docType="memorandumArticles"
-                  label="Memorandum and Articles of Association"
-                  accountTypeKey="llc"
-                  fileRef={fileInputRefs.memorandumArticles}
-                />
-
-                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6  pb-6">
-                  <TextInput
-                    label="Tax Identification Number (TIN)"
-                    name="taxNumber"
-                    value={taxInfo.taxNumber}
-                    placeholder="Enter TIN"
-                    onChange={handleTaxInfoChange}
+              {/* SCUML Section - First Priority */}
+              <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
+                <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
+                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">1</span>
+                  Securities License Information
+                </h4>
+                <div className="space-y-4">
+                  <SCUMLToggle
+                    checked={hasSCUMLLicense}
+                    onChange={handleSCUMLToggle}
                   />
-
-                  <TextInput
-                    label="SCUML Registration Number (if applicable)"
-                    name="scumlNumber"
-                    value={taxInfo.scumlNumber}
-                    placeholder="Enter SCUML Number"
-                    onChange={handleTaxInfoChange}
-                  />
+                  {hasSCUMLLicense && (
+                    <SCUMLInput
+                      value={scumlNumber}
+                      onChange={handleSCUMLChange}
+                      error={scumlError}
+                    />
+                  )}
                 </div>
-
-                <FileUploadBox
-                  docType="boardResolution"
-                  label="Board Resolution authorizing the account opening"
-                  accountTypeKey="llc"
-                  fileRef={fileInputRefs.boardResolution}
-                />
-
-                <FileUploadBox
-                  docType="directorsID"
-                  label="Valid Identification of Directors and Signatories"
-                  accountTypeKey="llc"
-                  fileRef={fileInputRefs.directorsID}
-                />
-
-
-                <div className="md:col-span-2">
-                  <FileUploadBox
-                    docType="proofOfAddress"
-                    label="Proof of Address (Utility Bill, Bank Statement, etc.)"
-                    accountTypeKey="llc"
-                    fileRef={fileInputRefs.proofOfAddress}
-                  />
-                </div>
-
-              </div>
-              <div className="mt-6">
-                <TextInput
-                  label="Company's Operating Business Address"
-                  name="businessAddress"
-                  value={businessAddress}
-                  placeholder="Full business address"
-                  onChange={(e) => setBusinessAddress(e.target.value)}
-                />
               </div>
 
-              <div className="mt-8">
-                <h4 className="text-lg font-medium mb-4">Corporate References (Two independent references required)</h4>
+              {/* Show other fields only if no SCUML license */}
+              {!hasSCUMLLicense && (
+                <>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
-                  <div className="p-6 border border-slate-200 rounded-lg">
-                    <h5 className="font-medium mb-4">Reference 1</h5>
-                    <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
+                    <FileUploadBox
+                      docType="certificateOfIncorporation"
+                      label="Certificate of Incorporation / Registration Number"
+                      accountTypeKey="llc"
+                      fileRef={fileInputRefs.certificateOfIncorporation}
+                    />
+
+                    <FileUploadBox
+                      docType="memorandumArticles"
+                      label="Memorandum and Articles of Association"
+                      accountTypeKey="llc"
+                      fileRef={fileInputRefs.memorandumArticles}
+                    />
+
+                    <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6  pb-6">
                       <TextInput
-                        label="Name"
-                        name="ref1Name"
-                        value={references.ref1Name}
-                        placeholder="Company/Individual Name"
-                        onChange={handleReferenceChange}
+                        label="Tax Identification Number (TIN)"
+                        name="taxNumber"
+                        value={taxInfo.taxNumber}
+                        placeholder="Enter TIN"
+                        onChange={handleTaxInfoChange}
                       />
+
                       <TextInput
-                        label="Address"
-                        name="ref1Address"
-                        value={references.ref1Address}
-                        placeholder="Full Address"
-                        onChange={handleReferenceChange}
-                      />
-                      <TextInput
-                        label="Phone Number"
-                        name="ref1Phone"
-                        value={references.ref1Phone}
-                        placeholder="Contact Number"
-                        onChange={handleReferenceChange}
+                        label="SCUML Registration Number (if applicable)"
+                        name="scumlNumber"
+                        value={taxInfo.scumlNumber}
+                        placeholder="Enter SCUML Number"
+                        onChange={handleTaxInfoChange}
                       />
                     </div>
-                  </div>
 
-                  <div className="p-6 border border-slate-200 rounded-lg">
-                    <h5 className="font-medium mb-4">Reference 2</h5>
-                    <div className="space-y-4">
-                      <TextInput
-                        label="Name"
-                        name="ref2Name"
-                        value={references.ref2Name}
-                        placeholder="Company/Individual Name"
-                        onChange={handleReferenceChange}
-                      />
-                      <TextInput
-                        label="Address"
-                        name="ref2Address"
-                        value={references.ref2Address}
-                        placeholder="Full Address"
-                        onChange={handleReferenceChange}
-                      />
-                      <TextInput
-                        label="Phone Number"
-                        name="ref2Phone"
-                        value={references.ref2Phone}
-                        placeholder="Contact Number"
-                        onChange={handleReferenceChange}
+                    <FileUploadBox
+                      docType="boardResolution"
+                      label="Board Resolution authorizing the account opening"
+                      accountTypeKey="llc"
+                      fileRef={fileInputRefs.boardResolution}
+                    />
+
+                    <FileUploadBox
+                      docType="directorsID"
+                      label="Valid Identification of Directors and Signatories"
+                      accountTypeKey="llc"
+                      fileRef={fileInputRefs.directorsID}
+                    />
+
+
+                    <div className="md:col-span-2">
+                      <FileUploadBox
+                        docType="proofOfAddress"
+                        label="Proof of Address (Utility Bill, Bank Statement, etc.)"
+                        accountTypeKey="llc"
+                        fileRef={fileInputRefs.proofOfAddress}
                       />
                     </div>
+
                   </div>
-                </div>
-              </div>
+                  <div className="mt-6">
+                    <TextInput
+                      label="Company's Operating Business Address"
+                      name="businessAddress"
+                      value={businessAddress}
+                      placeholder="Full business address"
+                      onChange={(e) => setBusinessAddress(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="mt-8">
+                    <h4 className="text-lg font-medium mb-4">Corporate References (Two independent references required)</h4>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
+                      <div className="p-6 border border-slate-200 rounded-lg">
+                        <h5 className="font-medium mb-4">Reference 1</h5>
+                        <div className="space-y-4">
+                          <TextInput
+                            label="Name"
+                            name="ref1Name"
+                            value={references.ref1Name}
+                            placeholder="Company/Individual Name"
+                            onChange={handleReferenceChange}
+                          />
+                          <TextInput
+                            label="Address"
+                            name="ref1Address"
+                            value={references.ref1Address}
+                            placeholder="Full Address"
+                            onChange={handleReferenceChange}
+                          />
+                          <TextInput
+                            label="Phone Number"
+                            name="ref1Phone"
+                            value={references.ref1Phone}
+                            placeholder="Contact Number"
+                            onChange={handleReferenceChange}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="p-6 border border-slate-200 rounded-lg">
+                        <h5 className="font-medium mb-4">Reference 2</h5>
+                        <div className="space-y-4">
+                          <TextInput
+                            label="Name"
+                            name="ref2Name"
+                            value={references.ref2Name}
+                            placeholder="Company/Individual Name"
+                            onChange={handleReferenceChange}
+                          />
+                          <TextInput
+                            label="Address"
+                            name="ref2Address"
+                            value={references.ref2Address}
+                            placeholder="Full Address"
+                            onChange={handleReferenceChange}
+                          />
+                          <TextInput
+                            label="Phone Number"
+                            name="ref2Phone"
+                            value={references.ref2Phone}
+                            placeholder="Contact Number"
+                            onChange={handleReferenceChange}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
           {error && (
@@ -1774,9 +1975,30 @@ const UploadKYCDocumentsPage = () => {
           <div className="mt-8 flex flex-col items-center">
             <button
               type="submit"
-              disabled={isSubmitting || !getRequiredDocumentsForAccountType(accountType).every(docType => getFileByType(accountType, docType) !== null)}
-              className={`w-full max-w-md py-4 px-6 ${isSubmitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-                } text-white font-semibold rounded-xl transition-all duration-300 flex items-center justify-center shadow-lg shadow-blue-500/20 ${!isSubmitting ? 'hover:shadow-blue-500/30 hover:scale-[1.01] hover:-translate-y-0.5' : ''
+              disabled={
+                isSubmitting ||
+                (
+                  (['partnership', 'enterprise', 'llc'].includes(accountType) && hasSCUMLLicense)
+                    ? (!scumlNumber || !!scumlError)
+                    : !getRequiredDocumentsForAccountType(accountType).every(docType => getFileByType(accountType, docType) !== null)
+                )
+              }
+              className={`w-full max-w-md py-4 px-6 ${isSubmitting ||
+                  (
+                    (['partnership', 'enterprise', 'llc'].includes(accountType) && hasSCUMLLicense)
+                      ? (!scumlNumber || !!scumlError)
+                      : !getRequiredDocumentsForAccountType(accountType).every(docType => getFileByType(accountType, docType) !== null)
+                  )
+                  ? 'bg-blue-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700'
+                } text-white font-semibold rounded-xl transition-all duration-300 flex items-center justify-center shadow-lg shadow-blue-500/20 ${!isSubmitting &&
+                  (
+                    (['partnership', 'enterprise', 'llc'].includes(accountType) && hasSCUMLLicense)
+                      ? (scumlNumber && !scumlError)
+                      : getRequiredDocumentsForAccountType(accountType).every(docType => getFileByType(accountType, docType) !== null)
+                  )
+                  ? 'hover:shadow-blue-500/30 hover:scale-[1.01] hover:-translate-y-0.5'
+                  : ''
                 }`}
             >
               {isSubmitting ? (

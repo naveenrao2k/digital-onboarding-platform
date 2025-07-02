@@ -6,7 +6,7 @@ import { cookies } from 'next/headers';
 const getCurrentUserId = (): string | null => {
   const sessionCookie = cookies().get('session')?.value;
   if (!sessionCookie) return null;
-  
+
   try {
     const session = JSON.parse(sessionCookie);
     return session.userId || null;
@@ -78,6 +78,34 @@ export async function POST(request: NextRequest) {
         submittedAt: isSubmitted ? new Date() : undefined
       }
     });
+
+    // Also update the user's account table with business information
+    if (accountType !== 'INDIVIDUAL') {
+      await prisma.account.upsert({
+        where: {
+          userId
+        },
+        update: {
+          businessName,
+          businessAddress,
+          taxNumber,
+          scumlNumber, // This is the key field for SCUML verification
+        },
+        create: {
+          userId,
+          businessName,
+          businessAddress,
+          taxNumber,
+          scumlNumber, // This is the key field for SCUML verification
+        }
+      });
+
+      // Also update the user's account type
+      await prisma.user.update({
+        where: { id: userId },
+        data: { accountType }
+      });
+    }
 
     return NextResponse.json({ success: true, data: kycFormData });
   } catch (error) {

@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 const getCurrentUserId = (): string | null => {
   const sessionCookie = cookies().get('session')?.value;
   if (!sessionCookie) return null;
-  
+
   try {
     const session = JSON.parse(sessionCookie);
     return session.userId || null;
@@ -22,7 +22,7 @@ const getCurrentUserId = (): string | null => {
 export async function GET(request: NextRequest) {
   try {
     const userId = getCurrentUserId();
-    
+
     if (!userId) {
       return new NextResponse(
         JSON.stringify({ error: 'Unauthorized' }),
@@ -96,27 +96,54 @@ export async function GET(request: NextRequest) {
           };
           break;
       }
-    }    // First, get all users with KYC documents based on the filters
+    }    // Get users with either KYC documents OR SCUML submissions
     const usersWithDocuments = await prisma.user.findMany({
       where: {
-        kycDocuments: {
-          some: where,
-        },
-        role: {
-          not: {
-            in: ['ADMIN', 'SUPER_ADMIN'],
+        AND: [
+          {
+            role: {
+              not: {
+                in: ['ADMIN', 'SUPER_ADMIN'],
+              },
+            },
           },
-        },
+          {
+            OR: [
+              // Users with KYC documents
+              {
+                kycDocuments: {
+                  some: where,
+                },
+              },
+              // Users with SCUML submissions (if no document filters are applied)
+              ...(Object.keys(where).length === 0 || (!where.type && !where.fileName) ? [{
+                kycFormData: {
+                  scumlNumber: {
+                    not: null,
+                  },
+                },
+              }] : []),
+            ],
+          },
+        ],
       },
       select: {
         id: true,
         firstName: true,
         lastName: true,
         email: true,
+        createdAt: true,
         kycDocuments: {
           where,
           orderBy: {
             uploadedAt: 'desc',
+          },
+        },
+        kycFormData: {
+          select: {
+            id: true,
+            scumlNumber: true,
+            createdAt: true,
           },
         },
       },
@@ -124,30 +151,53 @@ export async function GET(request: NextRequest) {
         createdAt: 'desc',
       },
     });
-    
+
     // Get the total count of users that match the criteria for pagination
     const totalCount = usersWithDocuments.length;
-    
+
     // Apply pagination to the users array
     const paginatedUsers = usersWithDocuments.slice(skip, skip + limit);
 
     // Format the data for the frontend
     const formattedSubmissions = paginatedUsers.map(user => {
-      // Get the most recent document for this user
-      const mostRecentDoc = user.kycDocuments[0];
-      
-      return {
-        id: mostRecentDoc.id, // Keep the document ID for download purposes
-        userId: user.id,
-        userName: `${user.firstName} ${user.lastName}`,
-        userEmail: user.email,
-        documentType: `${user.kycDocuments.length} Document${user.kycDocuments.length !== 1 ? 's' : ''}`,
-        dateSubmitted: mostRecentDoc.uploadedAt,
-        status: mostRecentDoc.status,
-        fileName: mostRecentDoc.fileName,
-        totalDocuments: user.kycDocuments.length,
-      };
-    });
+      const hasDocuments = user.kycDocuments.length > 0;
+      const hasSCUML = user.kycFormData?.scumlNumber;
+
+      if (hasDocuments) {
+        // User with documents
+        const mostRecentDoc = user.kycDocuments[0];
+        return {
+          id: mostRecentDoc.id,
+          userId: user.id,
+          userName: `${user.firstName} ${user.lastName}`,
+          userEmail: user.email,
+          documentType: `${user.kycDocuments.length} Document${user.kycDocuments.length !== 1 ? 's' : ''}`,
+          dateSubmitted: mostRecentDoc.uploadedAt,
+          status: mostRecentDoc.status,
+          fileName: mostRecentDoc.fileName,
+          totalDocuments: user.kycDocuments.length,
+          submissionType: 'documents',
+        };
+      } else if (hasSCUML && user.kycFormData) {
+        // User with SCUML only
+        const scumlData = user.kycFormData;
+        return {
+          id: `scuml-${scumlData.id}`,
+          userId: user.id,
+          userName: `${user.firstName} ${user.lastName}`,
+          userEmail: user.email,
+          documentType: 'SCUML License',
+          dateSubmitted: scumlData.createdAt,
+          status: 'PENDING', // SCUML submissions are auto-approved but show as pending for admin review
+          fileName: `SCUML: ${scumlData.scumlNumber}`,
+          totalDocuments: 0,
+          scumlNumber: scumlData.scumlNumber,
+          submissionType: 'scuml',
+        };
+      }
+
+      return null;
+    }).filter(Boolean);
 
     return NextResponse.json({
       data: formattedSubmissions,
@@ -161,7 +211,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('FETCH_SUBMISSIONS_ERROR', error);
-    
+
     return new NextResponse(
       JSON.stringify({
         error: error.message || 'An error occurred while fetching submissions',

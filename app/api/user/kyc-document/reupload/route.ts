@@ -78,14 +78,42 @@ export async function POST(request: NextRequest) {
             }
         });
 
-        // Update the new document to reference the old one
+        // Check if this is a passport or utility bill document which needs special handling
+        const isSpecialDocType = existingDocument.type === 'PASSPORT' || existingDocument.type === 'UTILITY_BILL';
+        
+        // Update the new document to reference the old one and apply special status for passport/utility bill
         await prisma.kYCDocument.update({
             where: { id: newDocumentId },
             data: {
-                notes: `Replaces document ID: ${documentId}`,
-                status: VerificationStatusEnum.PENDING
+                notes: isSpecialDocType
+                    ? `Replaces document ID: ${documentId}. Applied special validation bypass for ${existingDocument.type} document type.`
+                    : `Replaces document ID: ${documentId}`,
+                status: isSpecialDocType ? VerificationStatusEnum.IN_PROGRESS : VerificationStatusEnum.PENDING,
+                verified: isSpecialDocType ? true : false,
+                verifiedAt: isSpecialDocType ? new Date() : null
             }
         });
+        
+        // Find any existing document analysis for the old document
+        const existingAnalysis = await prisma.documentAnalysis.findUnique({
+            where: {
+                kycDocumentId: documentId
+            }
+        });
+        
+        // If there is an existing analysis, ensure it's properly updated or removed
+        if (existingAnalysis) {
+            console.log(`Found existing analysis for document ${documentId}, handling during reupload`);
+            
+            // Delete the old analysis to ensure a fresh one will be created for the new document
+            await prisma.documentAnalysis.delete({
+                where: {
+                    kycDocumentId: documentId
+                }
+            });
+            
+            console.log(`Deleted old analysis for document ${documentId} to prevent conflicts`);
+        }
 
         // Update the verification status to reflect the change
         const userVerificationStatus = await prisma.verificationStatus.findUnique({

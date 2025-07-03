@@ -53,14 +53,28 @@ export const useVerificationStore = create<VerificationState>((set, get) => ({
       const statusData = await getVerificationStatus(userId);
       
       // Format documents if available
-      const documents = statusData.documents?.map((doc: any) => ({
-        id: doc.id,
-        type: doc.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase()),
-        fileName: doc.fileName,
-        uploadedAt: new Date(doc.uploadedAt).toLocaleDateString(),
-        status: doc.status,
-        verified: doc.verified
-      })) || [];
+      const documents = statusData.documents?.map((doc: any) => {
+        // Determine the display type based on the document type and filename
+        let displayType = doc.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase());
+        
+        // Special handling for ID Card Front/Back
+        if (displayType === 'Id Card') {
+          if (doc.fileName.toLowerCase().includes('front')) {
+            displayType = 'Id Card (Front)';
+          } else if (doc.fileName.toLowerCase().includes('back')) {
+            displayType = 'Id Card (Back)';
+          }
+        }
+        
+        return {
+          id: doc.id,
+          type: displayType,
+          fileName: doc.fileName,
+          uploadedAt: new Date(doc.uploadedAt).toLocaleDateString(),
+          status: doc.status,
+          verified: doc.verified
+        };
+      }) || [];
       
       set({ 
         overallStatus: statusData.overallStatus,

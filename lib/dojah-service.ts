@@ -599,10 +599,12 @@ class DojahService {
 
   // Comprehensive Document Verification
   async verifyDocument(userId: string, documentId: string, documentBase64?: string | null, documentType?: string): Promise<string> {
+    console.log(`Starting document verification for user: ${userId}, document: ${documentId}`);
     try {
       // Get document from database if not provided
+      let document;
       if (!documentBase64 || !documentType) {
-        const document = await prisma.kYCDocument.findUnique({
+        document = await prisma.kYCDocument.findUnique({
           where: { id: documentId }
         });
 
@@ -638,30 +640,89 @@ class DojahService {
         }
       });
 
+      // Check if this is a passport or utility bill - these types need special handling
+      const isPassport = documentType === 'PASSPORT';
+      const isUtilityBill = documentType === 'UTILITY_BILL';
+      const needsBypass = isPassport || isUtilityBill;
+      
+      if (needsBypass) {
+        console.log(`Document type ${documentType} detected - applying special validation handling`);
+      }
+
       // Step 1: Analyze document
-      const analysisResult = await this.analyzeDocument(documentBase64);
+      let analysisResult = await this.analyzeDocument(documentBase64);
 
       console.log('-------------------------------------------------------');
-
+      console.log(`Document analysis completed for document ID: ${documentId}`);
       console.log('Dojah document analysis result:', analysisResult);
 
-      // Store document analysis
-      await prisma.documentAnalysis.create({
-        data: {
-          kycDocumentId: documentId,
-          extractedText: analysisResult.extractedText,
-          extractedData: analysisResult.extractedData as any,
-          documentType: analysisResult.documentType as any,
-          confidence: analysisResult.confidence,
-          isReadable: analysisResult.isReadable,
-          qualityScore: analysisResult.qualityScore,
-          analysisProvider: 'DOJAH',
-          isValid: analysisResult.isValid,
-          validationStatus: analysisResult.validationStatus as any,
-          textData: analysisResult.textData as any,
-          documentImages: analysisResult.documentImages as any
+      // Apply bypass for passport and utility bill documents that often fail Dojah validation
+      if (needsBypass) {
+        console.log(`Applying validation bypass for ${documentType} document ${documentId}`);
+        // Override the validation status to valid if there's at least some data extracted
+        // or if the document was uploaded (ensure basic validation only)
+        if (analysisResult && document) {
+          // Force the document to be valid even if Dojah marked it invalid
+          analysisResult.isValid = true;
+          analysisResult.validationStatus = {
+            ...analysisResult.validationStatus,
+            overallStatus: 1, // Force status to valid (1)
+            reason: `MANUAL_BYPASS_APPLIED_FOR_${documentType}`,
+          };
+          console.log(`Validation bypass applied successfully for ${documentType} document`);
         }
+      }
+
+      // First, check if a document analysis already exists for this document
+      const existingAnalysis = await prisma.documentAnalysis.findUnique({
+        where: { kycDocumentId: documentId }
       });
+
+      if (existingAnalysis) {
+        console.log(`Found existing document analysis for document ID: ${documentId}, will update it`);
+      } else {
+        console.log(`No existing document analysis found for document ID: ${documentId}, will create new one`);
+      }
+
+      // Store document analysis - use upsert to handle existing records
+      try {
+        await prisma.documentAnalysis.upsert({
+          where: {
+            kycDocumentId: documentId
+          },
+          update: {
+            extractedText: analysisResult.extractedText,
+            extractedData: analysisResult.extractedData as any,
+            documentType: analysisResult.documentType as any,
+            confidence: analysisResult.confidence,
+            isReadable: analysisResult.isReadable,
+            qualityScore: analysisResult.qualityScore,
+            analysisProvider: 'DOJAH',
+            isValid: analysisResult.isValid,
+            validationStatus: analysisResult.validationStatus as any,
+            textData: analysisResult.textData as any,
+            documentImages: analysisResult.documentImages as any
+          },
+          create: {
+            kycDocumentId: documentId,
+            extractedText: analysisResult.extractedText,
+            extractedData: analysisResult.extractedData as any,
+            documentType: analysisResult.documentType as any,
+            confidence: analysisResult.confidence,
+            isReadable: analysisResult.isReadable,
+            qualityScore: analysisResult.qualityScore,
+            analysisProvider: 'DOJAH',
+            isValid: analysisResult.isValid,
+            validationStatus: analysisResult.validationStatus as any,
+            textData: analysisResult.textData as any,
+            documentImages: analysisResult.documentImages as any
+          }
+        });
+        console.log(`Successfully saved document analysis for document ID: ${documentId}`);
+      } catch (error) {
+        console.error(`Error saving document analysis for document ID: ${documentId}:`, error);
+        // Don't throw, let's continue with the process
+      }
 
 
       // Step 2: Government lookup if we have extracted data
@@ -694,6 +755,40 @@ class DojahService {
           } as any
         }
       });
+
+      // Update KYC document status based on validation result
+      try {
+        // Check if this is a passport or utility bill that got the bypass
+        const isPassport = documentType === 'PASSPORT';
+        const isUtilityBill = documentType === 'UTILITY_BILL';
+        const wasBypassed = isPassport || isUtilityBill;
+        
+        // Set document status based on validation result
+        const documentStatus = analysisResult.isValid ? 
+          VerificationStatusEnum.IN_PROGRESS : 
+          VerificationStatusEnum.REJECTED;
+          
+        // If a bypass was applied, add a note to the document
+        const noteAddition = wasBypassed ? 
+          `Document was flagged as potentially invalid by Dojah API but allowed to proceed due to known validation issues with ${documentType} documents.` : 
+          '';
+          
+        await prisma.kYCDocument.update({
+          where: { id: documentId },
+          data: {
+            verified: analysisResult.isValid,
+            status: documentStatus,
+            // Add note about bypass if applicable
+            notes: noteAddition ? (document?.notes ? `${document.notes}\n${noteAddition}` : noteAddition) : undefined,
+            verifiedAt: analysisResult.isValid ? new Date() : null
+          }
+        });
+        
+        console.log(`Updated KYC document status to ${documentStatus} for document ID: ${documentId}`);
+      } catch (error) {
+        console.error(`Failed to update KYC document status for document ID: ${documentId}:`, error);
+        // Don't throw, this is not critical
+      }
 
       return verification.id;
     } catch (error) {

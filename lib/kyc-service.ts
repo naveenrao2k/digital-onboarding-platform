@@ -112,6 +112,19 @@ export const uploadKycDocument = async ({ userId, documentType, file }: KycDocum
       }
     } else {
       // Store as a new KYC document if it doesn't exist
+      let documentDisplayType = documentType;
+      
+      // For ID Card, determine if it's front or back based on filename
+      if (documentType === DocumentType.ID_CARD) {
+        // Check if the filename contains "front" or "back"
+        const isIdFront = file.name.toLowerCase().includes('front');
+        const isIdBack = file.name.toLowerCase().includes('back');
+        
+        // Log what we're processing
+        console.log(`Processing ID card document, filename: ${file.name}`);
+        console.log(`Detected as: ${isIdFront ? 'ID Card Front' : isIdBack ? 'ID Card Back' : 'Generic ID Card'}`);
+      }
+      
       kycDocument = await prisma.kYCDocument.create({
         data: {
           userId,

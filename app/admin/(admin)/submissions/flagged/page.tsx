@@ -17,7 +17,7 @@ import {
   Flag
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { useHeader } from '../../layout';
+import { useHeader } from '../../hooks';
 import { VerificationStatusEnum } from '@/app/generated/prisma';
 import Pagination from '@/components/common/Pagination';
 
@@ -95,7 +95,7 @@ const AdminFlaggedSubmissionsPage = () => {
   const handleViewDetails = (userId: string) => {
     router.push(`/admin/users/${userId}`);
   };
-  
+
   const handleRemoveFlag = async (userId: string, documentId: string) => {
     try {
       // In a real implementation, you would call an API endpoint
@@ -273,7 +273,7 @@ const AdminFlaggedSubmissionsPage = () => {
                         >
                           View
                         </button>
-                        
+
                       </div>
                     </td>
                   </tr>

@@ -14,14 +14,6 @@ interface HeaderContextType {
 
 export const HeaderContext = createContext<HeaderContextType | undefined>(undefined);
 
-export function useHeader() {
-  const context = useContext(HeaderContext);
-  if (context === undefined) {
-    throw new Error('useHeader must be used within a HeaderProvider');
-  }
-  return context;
-}
-
 // Create a sidebar context to manage mobile sidebar state
 interface SidebarContextType {
   isOpen: boolean;
@@ -30,14 +22,6 @@ interface SidebarContextType {
 }
 
 export const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
-
-export function useSidebar() {
-  const context = useContext(SidebarContext);
-  if (context === undefined) {
-    throw new Error('useSidebar must be used within a SidebarProvider');
-  }
-  return context;
-}
 
 export default function AdminLayout({
   children,
@@ -62,11 +46,11 @@ export default function AdminLayout({
         // Check if the click is outside the sidebar
         const sidebar = document.getElementById('admin-sidebar');
         const toggleButton = document.getElementById('sidebar-toggle');
-        
-        if (sidebar && 
-            !sidebar.contains(event.target as Node) && 
-            toggleButton && 
-            !toggleButton.contains(event.target as Node)) {
+
+        if (sidebar &&
+          !sidebar.contains(event.target as Node) &&
+          toggleButton &&
+          !toggleButton.contains(event.target as Node)) {
           setSidebarOpen(false);
         }
       }
@@ -98,22 +82,21 @@ export default function AdminLayout({
           <div className="flex flex-col lg:flex-row min-h-screen bg-gray-50">
             {/* Mobile overlay for sidebar */}
             {sidebarOpen && (
-              <div 
+              <div
                 className="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
                 onClick={closeSidebar}
               />
             )}
-            
+
             {/* Sidebar */}
-            <div 
+            <div
               id="admin-sidebar"
-              className={`fixed inset-y-0 left-0 z-30 transform lg:relative lg:translate-x-0 transition duration-300 ease-in-out ${
-                sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-              } lg:w-64 w-64 lg:block`}
+              className={`fixed inset-y-0 left-0 z-30 transform lg:relative lg:translate-x-0 transition duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+                } lg:w-64 w-64 lg:block`}
             >
               <AdminSidebar />
             </div>
-            
+
             {/* Main content */}
             <div className="flex-1 flex flex-col">
               <AdminHeader title={headerTitle} subtitle={headerSubtitle} />              <main className="flex-1 p-4 sm:p-6 overflow-x-hidden">

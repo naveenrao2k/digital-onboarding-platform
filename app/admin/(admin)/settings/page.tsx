@@ -13,7 +13,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { useHeader } from '../layout';
+import { useHeader } from '../hooks';
 
 interface UserProfile {
   firstName: string;
@@ -256,8 +256,8 @@ const AdminSettingsPage = () => {
               <button
                 onClick={() => setActiveTab('profile')}
                 className={`w-full flex items-center justify-between px-4 py-3 rounded-md text-sm font-medium ${activeTab === 'profile'
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-gray-700 hover:bg-gray-50'
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'text-gray-700 hover:bg-gray-50'
                   }`}
               >
                 <div className="flex items-center">
@@ -268,8 +268,8 @@ const AdminSettingsPage = () => {
               </button>              <button
                 onClick={() => setActiveTab('security')}
                 className={`w-full flex items-center justify-between px-4 py-3 rounded-md text-sm font-medium ${activeTab === 'security'
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-gray-700 hover:bg-gray-50'
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'text-gray-700 hover:bg-gray-50'
                   }`}
               >
                 <div className="flex items-center">
@@ -315,7 +315,7 @@ const AdminSettingsPage = () => {
                           profile.firstName.charAt(0) + profile.lastName.charAt(0)
                         )}
                       </div>
-                      
+
                     </div>
                   </div>                    {/* Name Fields */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">

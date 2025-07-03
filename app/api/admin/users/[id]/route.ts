@@ -64,6 +64,10 @@ export async function GET(request: NextRequest) {
       );
     }
     console.log('GET_USER_DETAILS', user);
+
+    // Check if user has SCUML license
+    const hasSCUML = user.kycFormData?.scumlNumber;
+
     // Transform data to match client expectations if needed
     const responseData = {
       id: user.id,
@@ -77,7 +81,11 @@ export async function GET(request: NextRequest) {
       accountStatus: user.accountStatus,
       createdAt: user.createdAt.toISOString(),
       scumlNumber: user.kycFormData?.scumlNumber || null, // Add SCUML number
-      verificationStatus: user.verificationStatus,
+      verificationStatus: hasSCUML ? {
+        ...user.verificationStatus,
+        kycStatus: 'APPROVED', // Override KYC status for SCUML users
+        overallStatus: 'APPROVED', // Ensure overall status is approved
+      } : user.verificationStatus,
       selfieVerification: user.selfieVerification ? {
         id: user.selfieVerification.id,
         status: user.selfieVerification.status,

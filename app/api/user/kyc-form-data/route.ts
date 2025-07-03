@@ -107,6 +107,32 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // If SCUML number is provided and form is submitted, update verification status to verified
+    if (scumlNumber && isSubmitted && ['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(accountType)) {
+      await prisma.verificationStatus.upsert({
+        where: { userId },
+        update: {
+          overallStatus: 'APPROVED',
+          kycStatus: 'APPROVED',
+          progress: 100,
+          updatedAt: new Date()
+        },
+        create: {
+          userId,
+          overallStatus: 'APPROVED',
+          kycStatus: 'APPROVED',
+          selfieStatus: 'PENDING',
+          progress: 100
+        }
+      });
+
+      // Also update user account status
+      await prisma.user.update({
+        where: { id: userId },
+        data: { accountStatus: 'ACTIVE' }
+      });
+    }
+
     return NextResponse.json({ success: true, data: kycFormData });
   } catch (error) {
     console.error('Error saving KYC form data:', error);

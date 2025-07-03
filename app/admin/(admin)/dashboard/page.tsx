@@ -22,7 +22,7 @@ import { useAuth } from '@/lib/auth-context';
 import WeeklySubmissionsChart from '@/components/dashboard/WeeklySubmissionsChart';
 import StatusDistributionChart from '@/components/dashboard/StatusDistributionChart';
 import StatCard from '@/components/dashboard/StatCard';
-import { useHeader } from '../layout';
+import { useHeader } from '../hooks';
 
 import { VerificationStatusEnum } from '@/app/generated/prisma';
 

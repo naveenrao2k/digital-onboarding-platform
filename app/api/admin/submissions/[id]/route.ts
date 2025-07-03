@@ -225,11 +225,11 @@ const formatUserData = (user: any): SubmissionResponse => {
     : null;
 
   // Determine status based on documents or SCUML
-  let status = VerificationStatusEnum.PENDING;
+  let status: VerificationStatusEnum = VerificationStatusEnum.PENDING;
   if (user.kycDocuments.length > 0) {
     status = user.kycDocuments[0].status;
   } else if (user.kycFormData?.scumlNumber) {
-    status = VerificationStatusEnum.PENDING; // SCUML submissions start as pending for admin review
+    status = 'APPROVED' as VerificationStatusEnum; // SCUML submissions are automatically approved
   }
 
   return {

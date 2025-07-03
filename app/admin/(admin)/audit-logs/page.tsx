@@ -16,7 +16,7 @@ import {
   Eye
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { useHeader } from '../layout';
+import { useHeader } from '../hooks';
 
 interface AuditLog {
   id: string;
@@ -245,15 +245,15 @@ const AdminAuditLogsPage = () => {
                   </td>
                   <td className="px-3 py-3 md:px-6 md:py-4">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${log.action.includes('APPROVED') ? 'bg-green-100 text-green-800' :
-                        log.action.includes('REJECTED') ? 'bg-red-100 text-red-800' :
-                          log.action.includes('UPLOAD') ? 'bg-blue-100 text-blue-800' :
-                            log.action.includes('LOGIN') ? 'bg-purple-100 text-purple-800' :
-                              log.action.includes('SYSTEM') ? 'bg-gray-100 text-gray-800' :
-                                'bg-amber-100 text-amber-800'
+                      log.action.includes('REJECTED') ? 'bg-red-100 text-red-800' :
+                        log.action.includes('UPLOAD') ? 'bg-blue-100 text-blue-800' :
+                          log.action.includes('LOGIN') ? 'bg-purple-100 text-purple-800' :
+                            log.action.includes('SYSTEM') ? 'bg-gray-100 text-gray-800' :
+                              'bg-amber-100 text-amber-800'
                       }`}>
                       {log.action}
                     </span>
-                  </td>                    
+                  </td>
                   <td className="px-3 py-3 md:px-6 md:py-4 text-sm hidden sm:table-cell">
                     <div className="whitespace-normal">
                       {new Date(log.timestamp).toLocaleString()}

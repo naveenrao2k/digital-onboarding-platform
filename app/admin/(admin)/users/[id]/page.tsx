@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import DojahVerificationDisplay from '@/components/admin/DojahVerificationDisplay';
 import RejectDocumentModal from '@/components/admin/RejectDocumentModal';
-import { useHeader } from '../../layout';
+import { useHeader } from '../../hooks';
 
 interface UserDetails {
   id: string;

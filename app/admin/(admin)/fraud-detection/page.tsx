@@ -3,7 +3,7 @@
 import FraudDetectionDashboard from '@/components/admin/FraudDetectionDashboard';
 import CreditBureauCheck from '@/components/admin/CreditBureauCheck';
 import TransactionAnalysis from '@/components/admin/TransactionAnalysis';
-import { useHeader } from '../layout';
+import { useHeader } from '../hooks';
 import { useEffect, useState } from 'react';
 import { Shield } from 'lucide-react';
 
@@ -24,30 +24,27 @@ export default function FraudDetectionPage() {
                         <nav className="-mb-px flex space-x-8">
                             <button
                                 onClick={() => setActiveTab('general')}
-                                className={`${
-                                    activeTab === 'general' 
-                                    ? 'border-indigo-500 text-indigo-600' 
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                                className={`${activeTab === 'general'
+                                        ? 'border-indigo-500 text-indigo-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
                             >
                                 General Fraud Checks
                             </button>                            <button
                                 onClick={() => setActiveTab('credit')}
-                                className={`${
-                                    activeTab === 'credit' 
-                                    ? 'border-indigo-500 text-indigo-600' 
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                                className={`${activeTab === 'credit'
+                                        ? 'border-indigo-500 text-indigo-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
                             >
                                 Credit Bureau Checks
                             </button>
                             <button
                                 onClick={() => setActiveTab('transactions')}
-                                className={`${
-                                    activeTab === 'transactions' 
-                                    ? 'border-indigo-500 text-indigo-600' 
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                                className={`${activeTab === 'transactions'
+                                        ? 'border-indigo-500 text-indigo-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
                             >
                                 Transaction Analysis
                             </button>

@@ -17,7 +17,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { useHeader } from '../layout';
+import { useHeader } from '../hooks';
 import { VerificationStatusEnum } from '@/app/generated/prisma';
 import Pagination from '@/components/common/Pagination';
 

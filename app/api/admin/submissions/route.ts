@@ -188,7 +188,7 @@ export async function GET(request: NextRequest) {
           userEmail: user.email,
           documentType: 'SCUML License',
           dateSubmitted: scumlData.createdAt,
-          status: 'PENDING', // SCUML submissions are auto-approved but show as pending for admin review
+          status: 'APPROVED', // SCUML submissions are automatically approved
           fileName: `SCUML: ${scumlData.scumlNumber}`,
           totalDocuments: 0,
           scumlNumber: scumlData.scumlNumber,

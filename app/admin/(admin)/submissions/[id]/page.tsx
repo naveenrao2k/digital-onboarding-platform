@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import DojahVerificationDisplay from '@/components/admin/DojahVerificationDisplay';
 import RejectDocumentModal from '@/components/admin/RejectDocumentModal';
-import { useHeader } from '../../layout';
+import { useHeader } from '../../hooks';
 
 interface UserDetails {
   id: string;
@@ -280,7 +280,7 @@ export default function UserDetailsPage() {
         <div className="flex items-center space-x-2">
           {getStatusIcon(userDetails.verificationStatus.overallStatus)}
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(userDetails.verificationStatus.overallStatus)}`}>
-            {userDetails.verificationStatus.overallStatus}
+            {userDetails.scumlNumber ? 'APPROVED (SCUML)' : userDetails.verificationStatus.overallStatus}
           </span>
         </div>
       </div>
@@ -601,6 +601,22 @@ export default function UserDetailsPage() {
         </div>
       )}      {activeTab === 'documents' && (
         <div className="space-y-6">
+          {userDetails.scumlNumber && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 mr-3" />
+                <div>
+                  <h3 className="text-base font-medium text-green-800">SCUML License Verified</h3>
+                  <p className="text-sm text-green-700 mt-1">
+                    This business account has been verified with SCUML License Number: <strong>{userDetails.scumlNumber}</strong>
+                  </p>
+                  <p className="text-xs text-green-600 mt-2">
+                    Business accounts with valid SCUML licenses are automatically approved and do not require document uploads.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900">Documents & Dojah Verification</h2>
             <div className="text-sm text-gray-600">
@@ -970,8 +986,19 @@ export default function UserDetailsPage() {
 
             {userDetails.documents.length === 0 && (
               <div className="text-center py-12">
-                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No documents uploaded yet</p>
+                {userDetails.scumlNumber ? (
+                  <div>
+                    <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-green-600 mb-1">SCUML License Verified</h3>
+                    <p className="text-gray-600">SCUML Number: {userDetails.scumlNumber}</p>
+                    <p className="text-sm text-gray-500 mt-2">This business account is verified via SCUML license</p>
+                  </div>
+                ) : (
+                  <>
+                    <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No documents uploaded yet</p>
+                  </>
+                )}
               </div>
             )}
           </div>

@@ -17,7 +17,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { useHeader } from '../../layout';
+import { useHeader } from '../../hooks';
 import { VerificationStatusEnum } from '@/app/generated/prisma';
 import Pagination from '@/components/common/Pagination';
 
@@ -252,20 +252,20 @@ const AdminApprovedSubmissionsPage = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex items-center">
-                      <Calendar className="h-4 w-4 text-gray-500 mr-2" />
-                      <div>
-                        <div>{new Date(submission.dateSubmitted).toLocaleDateString()}</div>
-                        <div className="text-xs text-gray-500">{new Date(submission.dateSubmitted).toLocaleTimeString()}</div>
-                      </div>
+                        <Calendar className="h-4 w-4 text-gray-500 mr-2" />
+                        <div>
+                          <div>{new Date(submission.dateSubmitted).toLocaleDateString()}</div>
+                          <div className="text-xs text-gray-500">{new Date(submission.dateSubmitted).toLocaleTimeString()}</div>
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      <div>
-                        <div>{new Date(submission.approvedAt).toLocaleDateString()}</div>
-                        <div className="text-xs text-gray-500">{new Date(submission.approvedAt).toLocaleTimeString()}</div>
-                      </div>
+                        <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                        <div>
+                          <div>{new Date(submission.approvedAt).toLocaleDateString()}</div>
+                          <div className="text-xs text-gray-500">{new Date(submission.approvedAt).toLocaleTimeString()}</div>
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">

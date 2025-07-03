@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell, LogOut, User, Settings, ChevronDown, Menu } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
-import { useSidebar } from '@/app/admin/(admin)/layout';
+import { useSidebar } from '@/app/admin/(admin)/hooks';
 
 interface AdminHeaderProps {
   title: string;
@@ -45,25 +45,25 @@ const AdminHeader = ({ title, subtitle }: AdminHeaderProps) => {
         <div className="flex justify-between items-center">
           {/* Sidebar toggle for mobile */}
           <div className="lg:hidden">
-            <button 
+            <button
               id="sidebar-toggle"
-              onClick={toggleSidebar} 
+              onClick={toggleSidebar}
               className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none"
               aria-label="Toggle sidebar"
             >
               <Menu className="h-6 w-6" />
             </button>
           </div>
-          
+
           {/* Page title - dynamic based on props */}
           <div className="flex-1 px-4 lg:px-0">
             <h1 className="text-lg md:text-xl font-bold truncate">{title}</h1>
             {subtitle && <p className="text-gray-600 text-xs md:text-sm truncate md:block hidden">{subtitle}</p>}
           </div>
-          
+
           <div className="flex items-center">
             <div className="relative" ref={dropdownRef}>
-              <button 
+              <button
                 className="flex items-center space-x-2 focus:outline-none"
                 onClick={() => setDropdownOpen(!dropdownOpen)}
               >
@@ -72,7 +72,7 @@ const AdminHeader = ({ title, subtitle }: AdminHeaderProps) => {
                 </div>
                 <ChevronDown className="h-4 w-4 text-gray-500 hidden sm:block" />
               </button>
-                {dropdownOpen && (
+              {dropdownOpen && (
                 <div className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg py-1 z-10 border border-gray-200">
                   {/* User details section */}
                   <div className="px-4 py-3 border-b border-gray-100">
@@ -89,7 +89,7 @@ const AdminHeader = ({ title, subtitle }: AdminHeaderProps) => {
                       {user?.role || 'ADMIN'}
                     </div>
                   </div>
-                  
+
                   {/* Menu options */}
                   <button
                     onClick={handleProfileClick}

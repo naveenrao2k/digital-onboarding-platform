@@ -15,7 +15,7 @@ import {
   ChevronDown,
   ChevronRight
 } from 'lucide-react';
-import { useSidebar } from '@/app/admin/(admin)/layout';
+import { useSidebar } from '@/app/admin/(admin)/hooks';
 
 const navItems = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -64,8 +64,8 @@ const AdminSidebar = () => {
                   href={item.href}
                   onClick={() => closeSidebar()}
                   className={`flex items-center justify-between px-4 py-3 text-sm rounded-lg ${isParentActive
-                      ? 'bg-blue-100 text-blue-700 font-medium'
-                      : 'text-slate-600 hover:bg-slate-200 transition-colors'
+                    ? 'bg-blue-100 text-blue-700 font-medium'
+                    : 'text-slate-600 hover:bg-slate-200 transition-colors'
                     }`}
                 >
                   <div className="flex items-center">
@@ -79,8 +79,8 @@ const AdminSidebar = () => {
                   href={item.href}
                   onClick={() => closeSidebar()}
                   className={`flex items-center px-4 py-3 text-sm rounded-lg ${isParentActive
-                      ? 'bg-blue-100 text-blue-700 font-medium'
-                      : 'text-slate-600 hover:bg-slate-200 transition-colors'
+                    ? 'bg-blue-100 text-blue-700 font-medium'
+                    : 'text-slate-600 hover:bg-slate-200 transition-colors'
                     }`}
                 >
                   <item.icon size={18} className={`mr-3 ${isParentActive ? 'text-blue-700' : 'text-slate-500'}`} />
@@ -97,8 +97,8 @@ const AdminSidebar = () => {
                           href={subItem.href}
                           onClick={() => closeSidebar()}
                           className={`flex items-center pl-4 pr-2 py-2 text-sm rounded-lg mb-1 ${isSubItemActive
-                              ? 'bg-blue-50 text-blue-700 font-medium'
-                              : 'text-slate-600 hover:bg-slate-100 transition-colors'
+                            ? 'bg-blue-50 text-blue-700 font-medium'
+                            : 'text-slate-600 hover:bg-slate-100 transition-colors'
                             }`}
                         >
                           <subItem.icon size={15} className={`mr-2 ${isSubItemActive ? 'text-blue-700' : 'text-slate-500'}`} />

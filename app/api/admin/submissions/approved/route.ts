@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 const getCurrentUserId = (): string | null => {
   const sessionCookie = cookies().get('session')?.value;
   if (!sessionCookie) return null;
-  
+
   try {
     const session = JSON.parse(sessionCookie);
     return session.userId || null;
@@ -22,7 +22,7 @@ const getCurrentUserId = (): string | null => {
 export async function GET(request: NextRequest) {
   try {
     const userId = getCurrentUserId();
-    
+
     if (!userId) {
       return new NextResponse(
         JSON.stringify({ error: 'Unauthorized' }),
@@ -93,10 +93,7 @@ export async function GET(request: NextRequest) {
           };
           break;
       }
-    }    // Get the total count of documents matching the criteria
-    const totalCount = await prisma.kYCDocument.count({ where });
-
-    // Get approved documents
+    }    // Get approved documents AND SCUML submissions
     const approvedDocuments = await prisma.kYCDocument.findMany({
       where,
       include: {
@@ -116,6 +113,43 @@ export async function GET(request: NextRequest) {
       take: limit,
     });
 
+    // Also get SCUML submissions with APPROVED verification status
+    const approvedSCUMLUsers = await prisma.user.findMany({
+      where: {
+        role: {
+          not: {
+            in: ['ADMIN', 'SUPER_ADMIN'],
+          },
+        },
+        kycFormData: {
+          scumlNumber: {
+            not: null,
+          },
+          // Only consider SCUML numbers for business accounts
+          accountType: {
+            in: ['PARTNERSHIP', 'ENTERPRISE', 'LLC']
+          }
+        },
+        // Don't include users who have any KYC documents (like fvkohn)
+        // This ensures only pure SCUML users without document uploads are included
+        kycDocuments: {
+          none: {},
+        },
+      },
+      include: {
+        kycFormData: {
+          select: {
+            id: true,
+            scumlNumber: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
     // Find the audit logs for these documents to get approval information
     const documentIds = approvedDocuments.map(doc => doc.id);
     const auditLogs = await prisma.auditLog.findMany({
@@ -128,11 +162,11 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Format the response for the UI
-    const formattedApprovedSubmissions = approvedDocuments.map(doc => {
+    // Format the response for the UI - combine documents and SCUML submissions
+    const formattedDocumentSubmissions = approvedDocuments.map(doc => {
       // Find the most recent audit log entry for this document's approval
       const approvalLog = auditLogs.find(log => log.targetId === doc.id);
-      
+
       return {
         id: doc.id,
         userId: doc.userId,
@@ -145,11 +179,40 @@ export async function GET(request: NextRequest) {
         fileName: doc.fileName,
         approvedBy: doc.verifiedBy || approvalLog?.userId || 'Admin User',
         notes: doc.notes || '',
+        submissionType: 'documents',
       };
     });
 
+    // Format SCUML submissions
+    const formattedSCUMLSubmissions = approvedSCUMLUsers.map(user => {
+      const scumlData = user.kycFormData;
+      return {
+        id: `scuml-${scumlData?.id}`,
+        userId: user.id,
+        userName: `${user.firstName} ${user.lastName}`,
+        userEmail: user.email,
+        documentType: 'SCUML License',
+        dateSubmitted: scumlData?.createdAt.toISOString() || user.createdAt.toISOString(),
+        dateApproved: scumlData?.createdAt.toISOString() || user.createdAt.toISOString(),
+        status: 'APPROVED',
+        fileName: `SCUML: ${scumlData?.scumlNumber}`,
+        approvedBy: 'System (Auto-approved)',
+        notes: 'Automatically approved via SCUML license verification',
+        submissionType: 'scuml',
+        scumlNumber: scumlData?.scumlNumber,
+      };
+    });
+
+    // Combine and sort all submissions by date
+    const allApprovedSubmissions = [...formattedDocumentSubmissions, ...formattedSCUMLSubmissions]
+      .sort((a, b) => new Date(b.dateApproved || b.dateSubmitted).getTime() - new Date(a.dateApproved || a.dateSubmitted).getTime());
+
+    // Apply pagination to the combined results
+    const paginatedResults = allApprovedSubmissions.slice(skip, skip + limit);
+    const totalCount = allApprovedSubmissions.length;
+
     return NextResponse.json({
-      data: formattedApprovedSubmissions,
+      data: paginatedResults,
       pagination: {
         total: totalCount,
         page,
@@ -160,7 +223,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('FETCH_APPROVED_SUBMISSIONS_ERROR', error);
-    
+
     return new NextResponse(
       JSON.stringify({
         error: error.message || 'An error occurred while fetching approved submissions',

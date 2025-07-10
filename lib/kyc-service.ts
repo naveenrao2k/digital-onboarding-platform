@@ -2,6 +2,7 @@
 import { prisma } from './prisma';
 import { DocumentType, VerificationStatusEnum } from '../app/generated/prisma';
 import { uploadFileToS3, generateFileKey, deleteFileFromS3 } from './s3-service';
+import { error } from 'console';
 
 export type KycDocumentUpload = {
   userId: string;
@@ -184,8 +185,6 @@ export const uploadKycDocument = async ({ userId, documentType, file }: KycDocum
     throw error;
   }
 };
-
-
 
 // Trigger Dojah document verification
 async function triggerDojahDocumentVerification(

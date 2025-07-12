@@ -12,7 +12,9 @@ export type KycDocumentUpload = {
 
 export const uploadKycDocument = async ({ userId, documentType, file }: KycDocumentUpload) => {
   console.log(`Starting KYC document upload for user ${userId}, document type: ${documentType}`);
-  
+
+  let triggerDojahDocumentVerificationresult: { verificationId: string, documentTypeMismatchNote?: string } | undefined;
+
   try {
     // Check if the verification status is approved - in this case, don't allow any changes
     const verificationStatus = await prisma.verificationStatus.findUnique({
@@ -144,7 +146,12 @@ export const uploadKycDocument = async ({ userId, documentType, file }: KycDocum
     try {
       console.log(`Triggering Dojah verification for document ID: ${kycDocument.id}`);
       // We don't need to pass base64 since Dojah service will fetch from S3
-      await triggerDojahDocumentVerification(userId, kycDocument.id);
+      const dojahResult = await triggerDojahDocumentVerification(userId, kycDocument.id);
+      if (typeof dojahResult === 'object' && dojahResult !== null && 'verificationId' in dojahResult) {
+        triggerDojahDocumentVerificationresult = dojahResult as { verificationId: string, documentTypeMismatchNote?: string };
+      } else {
+        triggerDojahDocumentVerificationresult = undefined;
+      }
       console.log(`Dojah verification initiated successfully for document ID: ${kycDocument.id}`);
     } catch (error) {
       const dojahError = error as Error;
@@ -180,11 +187,15 @@ export const uploadKycDocument = async ({ userId, documentType, file }: KycDocum
       },
     });
 
+    if(triggerDojahDocumentVerificationresult?.documentTypeMismatchNote) {
+      return triggerDojahDocumentVerificationresult;
+    }
     return kycDocument;
   } catch (error) {
     throw error;
   }
 };
+
 
 // Trigger Dojah document verification
 async function triggerDojahDocumentVerification(
@@ -197,10 +208,12 @@ async function triggerDojahDocumentVerification(
     // Import dojahService dynamically to avoid circular dependencies
     const { default: dojahService } = await import('./dojah-service');
     // Let the Dojah service handle getting the file from S3 if needed
-    await dojahService.verifyDocument(userId, documentId, documentBase64, documentType);
+    const result = await dojahService.verifyDocument(userId, documentId, documentBase64, documentType);
+    return result;
   } catch (error) {
     console.error('Failed to trigger Dojah verification:', error);
-    throw error;
+    return error;
+    //throw error;
   }
 }
 

@@ -42,16 +42,25 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const verificationId = await dojahService.verifyDocument(
+    const result = await dojahService.verifyDocument(
       userId,
       documentId,
       documentBase64,
       documentType
     );
-    
+    let verificationId: string | undefined;
+    let documentTypeMismatchNote: string | undefined;
+    const res: any = result;
+    if (typeof res === 'object' && res !== null && 'verificationId' in res) {
+      verificationId = res.verificationId;
+      documentTypeMismatchNote = res.documentTypeMismatchNote;
+    } else {
+      verificationId = res;
+    }
     return NextResponse.json({ 
       success: true, 
       verificationId,
+      documentTypeMismatchNote,
       message: 'Document analysis initiated successfully' 
     });
   } catch (error: any) {

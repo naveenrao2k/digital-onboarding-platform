@@ -65,13 +65,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const document = await uploadKycDocument({
+    const result = await uploadKycDocument({
       userId,
       documentType,
       file,
     });
 
-    return NextResponse.json(document);
+    if (!result) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Document upload failed' }),
+        { status: 500 }
+      );
+    }
+
+    // console.log('KingRao', result);
+
+    let documentTypeMismatchNote;
+    let documentData;
+    if (typeof result === 'object' && result !== null && 'documentTypeMismatchNote' in result) {
+      documentTypeMismatchNote = result.documentTypeMismatchNote;
+      documentData = { ...result };
+
+      if (documentTypeMismatchNote) {
+        return new NextResponse(
+          JSON.stringify({
+            error: documentTypeMismatchNote,
+          }),
+          { status: 500 }
+        );
+      }
+
+    } else {
+      documentData = result;
+    }
+
+    return NextResponse.json({ result });
+
   } catch (error: any) {
     console.error('KYC_DOCUMENT_UPLOAD_ERROR', error);
 

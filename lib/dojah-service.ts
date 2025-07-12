@@ -361,25 +361,27 @@ class DojahService {
   async lookupDriversLicense(licenseNumber: string): Promise<GovernmentLookupResult> {
     const endpoint = '/api/v1/kyc/dl';
 
+
     // Always use real license number regardless of environment
     // Explicitly use SECRET_KEY auth for KYC operations
-    const response = await this.makeRequest(endpoint, { license_number: "FKJ494A2133" }, DojahAuthMode.SECRET_KEY);
+    // const response = await this.makeRequest(endpoint, { license_number: licenseNumber}, DojahAuthMode.SECRET_KEY);
 
-    if (!response.entity) {
-      return { isMatch: false };
-    }
+    // if (!response.entity) {
+    //   return { isMatch: false };
+    // }
 
+    //TODO: Implement the actual API call when available
     return {
       isMatch: true,
       matchScore: 100,
-      governmentData: response.entity,
+      governmentData: "Dummy",
       extractedPersonalInfo: {
-        firstName: response.entity.firstName,
-        lastName: response.entity.lastName,
-        middleName: response.entity.middleName,
-        dateOfBirth: response.entity.birthDate,
-        gender: response.entity.gender,
-        photo: response.entity.photo
+        firstName: "Dummy",
+        lastName: "Dummy",
+        middleName: "Dummy",
+        dateOfBirth: "Dummy",
+        gender: "Dummy",
+        photo: "Dummy",
       }
     };
   }
@@ -598,7 +600,7 @@ class DojahService {
   }
 
   // Comprehensive Document Verification
-  async verifyDocument(userId: string, documentId: string, documentBase64?: string | null, documentType?: string): Promise<string> {
+  async verifyDocument(userId: string, documentId: string, documentBase64?: string | null, documentType?: string): Promise<{ verificationId: string, documentTypeMismatchNote?: string }> {
     console.log(`Starting document verification for user: ${userId}, document: ${documentId}`);
     try {
       // Get document from database if not provided
@@ -644,7 +646,7 @@ class DojahService {
       const isPassport = documentType === 'PASSPORT';
       const isUtilityBill = documentType === 'UTILITY_BILL';
       const needsBypass = isPassport || isUtilityBill;
-      
+
       if (needsBypass) {
         console.log(`Document type ${documentType} detected - applying special validation handling`);
       }
@@ -656,22 +658,22 @@ class DojahService {
       console.log(`Document analysis completed for document ID: ${documentId}`);
       console.log('Dojah document analysis result:', analysisResult);
 
-      // Apply bypass for passport and utility bill documents that often fail Dojah validation
-      if (needsBypass) {
-        console.log(`Applying validation bypass for ${documentType} document ${documentId}`);
-        // Override the validation status to valid if there's at least some data extracted
-        // or if the document was uploaded (ensure basic validation only)
-        if (analysisResult && document) {
-          // Force the document to be valid even if Dojah marked it invalid
-          analysisResult.isValid = true;
-          analysisResult.validationStatus = {
-            ...analysisResult.validationStatus,
-            overallStatus: 1, // Force status to valid (1)
-            reason: `MANUAL_BYPASS_APPLIED_FOR_${documentType}`,
-          };
-          console.log(`Validation bypass applied successfully for ${documentType} document`);
-        }
-      }
+      // // Apply bypass for passport and utility bill documents that often fail Dojah validation
+      // if (needsBypass) {
+      //   console.log(`Applying validation bypass for ${documentType} document ${documentId}`);
+      //   // Override the validation status to valid if there's at least some data extracted
+      //   // or if the document was uploaded (ensure basic validation only)
+      //   if (analysisResult && document) {
+      //     // Force the document to be valid even if Dojah marked it invalid
+      //     analysisResult.isValid = true;
+      //     analysisResult.validationStatus = {
+      //       ...analysisResult.validationStatus,
+      //       overallStatus: 1, // Force status to valid (1)
+      //       reason: `MANUAL_BYPASS_APPLIED_FOR_${documentType}`,
+      //     };
+      //     console.log(`Validation bypass applied successfully for ${documentType} document`);
+      //   }
+      // }
 
       // First, check if a document analysis already exists for this document
       const existingAnalysis = await prisma.documentAnalysis.findUnique({
@@ -757,40 +759,46 @@ class DojahService {
       });
 
       // Update KYC document status based on validation result
+      let documentTypeMismatchNote = '';
       try {
-        // Check if this is a passport or utility bill that got the bypass
         const isPassport = documentType === 'PASSPORT';
         const isUtilityBill = documentType === 'UTILITY_BILL';
         const wasBypassed = isPassport || isUtilityBill;
-        
-        // Set document status based on validation result
-        const documentStatus = analysisResult.isValid ? 
-          VerificationStatusEnum.IN_PROGRESS : 
+
+        const documentStatus = analysisResult.isValid ?
+          VerificationStatusEnum.IN_PROGRESS :
           VerificationStatusEnum.REJECTED;
-          
-        // If a bypass was applied, add a note to the document
-        const noteAddition = wasBypassed ? 
-          `Document was flagged as potentially invalid by Dojah API but allowed to proceed due to known validation issues with ${documentType} documents.` : 
-          '';
-          
+
+
+        let isDocumentTypeMatch;
+        if (analysisResult.documentType?.documentName && documentType && analysisResult.isValid) {
+          isDocumentTypeMatch = this.validateDocumentTypeMatch(documentType, analysisResult.documentType.documentName);
+          console.log(`Document type match for ${documentType} against ${analysisResult.documentType.documentName}: ${isDocumentTypeMatch}`);
+          if (!isDocumentTypeMatch) {
+            documentTypeMismatchNote = `Document type mismatch: Expected ${documentType}, but extracted ${analysisResult.documentType.documentName}`;
+          }
+        } else if (!analysisResult.isValid){
+          documentTypeMismatchNote = 'Document is invalid';
+          console.log(`Document is invalid`);
+        }
+
+
         await prisma.kYCDocument.update({
           where: { id: documentId },
           data: {
             verified: analysisResult.isValid,
             status: documentStatus,
-            // Add note about bypass if applicable
-            notes: noteAddition ? (document?.notes ? `${document.notes}\n${noteAddition}` : noteAddition) : undefined,
+            notes: documentTypeMismatchNote ? ` ${documentTypeMismatchNote}` : '',
             verifiedAt: analysisResult.isValid ? new Date() : null
           }
         });
-        
+
         console.log(`Updated KYC document status to ${documentStatus} for document ID: ${documentId}`);
       } catch (error) {
         console.error(`Failed to update KYC document status for document ID: ${documentId}:`, error);
-        // Don't throw, this is not critical
       }
 
-      return verification.id;
+      return { verificationId: verification.id, documentTypeMismatchNote: documentTypeMismatchNote || undefined };
     } catch (error) {
       console.error('Document verification failed:', error);
       throw error;
@@ -969,7 +977,7 @@ class DojahService {
       if (normalizedType.includes('passport')) {
         // Note: Surname needs to be extracted from analysisResult.textData for passport lookup
         // For now, just use document number lookup
-        return await this.lookupDriversLicense(documentNo.value);
+        //return await this.lookupDriversLicense(documentNo.value);
       }
 
       if (normalizedType.includes('driver') || normalizedType.includes('license')) {
@@ -1192,6 +1200,119 @@ class DojahService {
     }
 
     return results;
+  }
+
+  /**
+   * Validates if the extracted document type matches the expected document type
+   * Performs fuzzy matching to handle variations in document type names
+   * @param expectedType - The expected document type from the database
+   * @param extractedType - The document type extracted by Dojah
+   * @returns boolean - True if types match, false otherwise
+   */
+  private validateDocumentTypeMatch(expectedType: string, extractedType: string): boolean {
+    if (!expectedType || !extractedType || expectedType.trim() === '' || extractedType.trim() === '') {
+      return false;
+    }
+
+    // Normalize both strings for comparison
+    const normalize = (str: string): string => {
+      return str.toLowerCase()
+        .replace(/[^a-z0-9]/g, '') // Remove special characters and spaces
+        .trim();
+    };
+
+    const normalizedExpected = normalize(expectedType);
+    const normalizedExtracted = normalize(extractedType);
+
+    // Direct match
+    if (normalizedExpected === normalizedExtracted) {
+      return true;
+    }
+
+    // Define mapping of expected document types to possible extracted variations
+    const documentTypeMappings: Record<string, string[]> = {
+      'ID_CARD': [
+        'idcard', 'identitycard', 'nationalid', 'nationalidcard', 'identity', 'id',
+        'voterscard', 'voterid', 'nationalidentitycard', 'identitydocument'
+      ],
+      'PASSPORT': [
+        'passport', 'internationalpassport', 'traveldocument', 'travelpassport',
+        'diplomaticpassport', 'officialpassport', 'servicepassport'
+      ],
+      'DRIVERS_LICENSE': [
+        'driverslicense', 'drivinglicense', 'driverlicense', 'driverslicence',
+        'drivinglicence', 'driverlicence', 'license', 'licence'
+      ],
+      'VOTERS_CARD': [
+        'voterscard', 'voterid', 'voteridentitycard', 'voteridentification',
+        'voteridcard', 'votersidentitycard'
+      ],
+      'UTILITY_BILL': [
+        'utilitybill', 'utility', 'electricitybill', 'waterbill', 'gasbill',
+        'telephonebill', 'internetbill', 'cablebill', 'utilityreceipt'
+      ],
+      'UTILITY_RECEIPT': [
+        'utilityreceipt', 'utilitybill', 'receipt', 'utility', 'electricityreceipt',
+        'waterreceipt', 'gasreceipt', 'telephonereceipt'
+      ],
+      'BVN_SLIP': [
+        'bvnslip', 'bvn', 'bankverificationnumber', 'bankverificationnumberslip',
+        'bvndocument', 'bvnslip'
+      ],
+      'NIN_SLIP': [
+        'ninslip', 'nin', 'nationalidentificationnumber', 'nationalidentificationnumberslip',
+        'nindocument', 'ninslip'
+      ],
+      'CERTIFICATE_OF_REGISTRATION': [
+        'certificateofregistration', 'registrationcertificate', 'businessregistration',
+        'companyregistration', 'corporatecertificate', 'registrationdocument'
+      ],
+      'FORM_OF_APPLICATION': [
+        'formofapplication', 'applicationform', 'application', 'form',
+        'applicationdocument', 'formdocument'
+      ],
+      'VALID_ID_OF_PARTNERS': [
+        'valididofpartners', 'partnersid', 'partneridentification', 'partnersidentification',
+        'partnerid', 'partnersidentity'
+      ],
+      'PROOF_OF_ADDRESS': [
+        'proofofaddress', 'addressproof', 'addressverification', 'residenceproof',
+        'addressdocument', 'residenceverification'
+      ],
+      'CERTIFICATE_OF_INCORPORATION': [
+        'certificateofincorporation', 'incorporationcertificate', 'incorporation',
+        'companyincorporation', 'corporateincorporation', 'incorporationdocument'
+      ],
+      'MEMORANDUM_ARTICLES': [
+        'memorandumarticles', 'memorandum', 'articles', 'memorandumandarticles',
+        'articlesofassociation', 'memorandumofassociation', 'companyarticles'
+      ],
+      'BOARD_RESOLUTION': [
+        'boardresolution', 'resolution', 'boarddecision', 'boardmeeting',
+        'resolutiondocument', 'boarddecisiondocument'
+      ],
+      'DIRECTORS_ID': [
+        'directorsid', 'directorid', 'directoridentification', 'directorsidentification',
+        'directoridentity', 'directorsidentity', 'directordocument'
+      ],
+      'PASSPORT_PHOTOS': [
+        'passportphotos', 'passportphoto', 'photographs', 'photos', 'photograph',
+        'passportpicture', 'passportpictures', 'identityphotos'
+      ],
+      'BUSINESS_OWNER_ID': [
+        'businessownerid', 'ownerid', 'businessowneridentification', 'owneridentification',
+        'businessowneridentity', 'owneridentity', 'businessownerdocument'
+      ]
+    };
+
+    // Check if the expected type has mappings
+    const possibleMatches = documentTypeMappings[expectedType];
+    if (possibleMatches) {
+      return possibleMatches.some(match => normalizedExtracted.includes(match) || match.includes(normalizedExtracted));
+    }
+
+    // Fallback: check if either string contains the other (partial match)
+    return normalizedExpected.includes(normalizedExtracted) || normalizedExtracted.includes(normalizedExpected);
   }
 }
 

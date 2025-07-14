@@ -309,6 +309,7 @@ const UploadKYCDocumentsPage = () => {
 
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
   const [uploadStatus, setUploadStatus] = useState<{ [key: string]: 'Choose File' | 'File Selected' | 'Uploading' | 'Uploaded' | 'Verifying' | 'Verified' | 'File Mismatched' }>({});
+  const [documentErrors, setDocumentErrors] = useState<{ [key: string]: string }>({});
 
   // Individual account documents
   const [individualDocuments, setIndividualDocuments] = useState({
@@ -488,12 +489,14 @@ const UploadKYCDocumentsPage = () => {
       if (isAlreadyUploaded && !isReplacing) {
         console.log(`Document already exists for ${docType}. Preventing upload.`);
         setError(`This document type has already been uploaded. Each document can only be uploaded once.`);
+        setDocumentErrors(prev => ({ ...prev, [docType]: 'This document type has already been uploaded.' }));
         return;
       }
 
       // Update file status to selected and start progress
       setUploadStatus(prev => ({ ...prev, [docType]: 'File Selected' }));
       setUploadProgress(prev => ({ ...prev, [docType]: 5 }));
+      setDocumentErrors(prev => ({ ...prev, [docType]: '' })); // Clear any previous errors
       
       // Set up a progress simulation for the validation phase
       const progressInterval = setInterval(() => {
@@ -569,6 +572,7 @@ const UploadKYCDocumentsPage = () => {
             // Set upload as completed
             setUploadProgress(prev => ({ ...prev, [docType]: 100 }));
             setUploadStatus(prev => ({ ...prev, [docType]: 'Verified' }));
+            setDocumentErrors(prev => ({ ...prev, [docType]: '' })); // Clear any previous errors
             return;
           } else {
             // Handle other individual documents (passport, utility bill)
@@ -703,6 +707,7 @@ const UploadKYCDocumentsPage = () => {
         // Update progress and status
         setUploadProgress(prev => ({ ...prev, [docType]: 100 }));
         setUploadStatus(prev => ({ ...prev, [docType]: 'Verified' }));
+        setDocumentErrors(prev => ({ ...prev, [docType]: '' })); // Clear any previous errors
         console.log(`Document ${docType} uploaded successfully`);
 
       } catch (error) {
@@ -711,7 +716,9 @@ const UploadKYCDocumentsPage = () => {
 
         console.error(`Error handling file upload for ${docType}:`, error);
         setUploadStatus(prev => ({ ...prev, [docType]: 'File Mismatched' }));
-        setError(error instanceof Error ? error.message : 'An error occurred during file processing');
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred during file processing';
+        setError(errorMessage);
+        setDocumentErrors(prev => ({ ...prev, [docType]: errorMessage }));
       }
     }
   };
@@ -771,6 +778,13 @@ const UploadKYCDocumentsPage = () => {
           ...prev,
           idCardFront: 'Verified',
           idCardBack: 'Verified'
+        }));
+        
+        // Clear any previous errors for these documents
+        setDocumentErrors(prev => ({
+          ...prev,
+          idCardFront: '',
+          idCardBack: ''
         }));
 
       } catch (error) {
@@ -931,7 +945,7 @@ const UploadKYCDocumentsPage = () => {
       for (const {docType, file, documentType} of filesToProcess) {
         try {
           setUploadStatus(prev => ({ ...prev, [docType]: 'Verifying' }));
-          let validationResult;
+          let validationResult: { isValid: boolean; message?: string; extractedData?: any } | undefined;
           
           if (accountType === 'individual') {
             validationResult = await validateIndividualDocument(documentType, file);
@@ -960,7 +974,9 @@ const UploadKYCDocumentsPage = () => {
             // For other document types, enforce validation
             console.error(`Validation failed for ${docType}:`, validationResult?.message);
             setUploadStatus(prev => ({ ...prev, [docType]: 'File Mismatched' }));
-            setError(`File mismatch for ${formatDocumentName(docType)}: ${validationResult?.message || 'Unknown error'}. Please re-upload.`);
+            const errorMessage = `File mismatch for ${formatDocumentName(docType)}: ${validationResult?.message || 'Unknown error'}. Please re-upload.`;
+            setError(errorMessage);
+            setDocumentErrors(prev => ({ ...prev, [docType]: validationResult?.message || 'Validation failed' }));
             setIsSubmitting(false);
             return;
           }
@@ -968,7 +984,9 @@ const UploadKYCDocumentsPage = () => {
         } catch (err) {
           console.error(`Error validating ${docType}:`, err);
           setUploadStatus(prev => ({ ...prev, [docType]: 'File Mismatched' }));
-          setError(`Validation failed for ${formatDocumentName(docType)}. Please try again.`);
+          const errorMessage = `Validation failed for ${formatDocumentName(docType)}. Please try again.`;
+          setError(errorMessage);
+          setDocumentErrors(prev => ({ ...prev, [docType]: err instanceof Error ? err.message : 'Validation failed' }));
           setIsSubmitting(false);
           return;
         }
@@ -984,11 +1002,14 @@ const UploadKYCDocumentsPage = () => {
         ).then(() => {
           console.log(`Upload completed for ${docType}`);
           setUploadStatus(prev => ({ ...prev, [docType]: 'Verified' }));
+          setDocumentErrors(prev => ({ ...prev, [docType]: '' })); // Clear any previous errors
           return docType;
         }).catch(err => {
           console.error(`Upload failed for ${docType}:`, err);
           setUploadStatus(prev => ({ ...prev, [docType]: 'File Mismatched' }));
-          throw new Error(`Upload failed for ${formatDocumentName(docType)}: ${err.message || 'Unknown error'}`);
+          const errorMessage = `Upload failed for ${formatDocumentName(docType)}: ${err.message || 'Unknown error'}`;
+          setDocumentErrors(prev => ({ ...prev, [docType]: err.message || 'Upload failed' }));
+          throw new Error(errorMessage);
         });
       });
       
@@ -1184,6 +1205,7 @@ const UploadKYCDocumentsPage = () => {
 
     const progress = uploadProgress[docType] || 0;
     const status = uploadStatus[docType] || (existingServerDoc ? 'Verified' : 'Choose File');
+    const documentError = documentErrors[docType];
 
     // Create preview for image files
     const handlePreview = (file: File) => {
@@ -1398,9 +1420,9 @@ const UploadKYCDocumentsPage = () => {
                 <div className="ml-4 flex-grow">
                   <p className="text-sm font-medium text-slate-800">{fileName || 'Upload failed'}</p>
                   <p className="text-xs text-red-600 font-medium mt-0.5">
-                    {docType === 'utilityBill' ? 
+                    {documentError || (docType === 'utilityBill' ? 
                       'Error: Please ensure your file is a recent utility bill (less than 3 months old)' : 
-                      'Verification failed'}
+                      'Verification failed')}
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
                     {docType === 'utilityBill' ? 
@@ -2308,7 +2330,7 @@ const UploadKYCDocumentsPage = () => {
               )}
             </div>
           )}
-          {error && (
+          {/* {error && (
             <div className="mb-6 p-5 bg-red-50 border-l-4 border-red-500 rounded-lg shadow-sm animate-fadeIn">
               <div className="flex items-start">
                 <AlertCircle className="h-6 w-6 text-red-600 mt-0.5 mr-3" />
@@ -2318,7 +2340,7 @@ const UploadKYCDocumentsPage = () => {
                 </div>
               </div>
             </div>
-          )}
+          )} */}
 
           <div className="mt-8 flex flex-col items-center">
             <button

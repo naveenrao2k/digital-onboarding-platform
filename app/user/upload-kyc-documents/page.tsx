@@ -569,9 +569,9 @@ const UploadKYCDocumentsPage = () => {
             // Clear the progress simulation interval
             clearInterval(progressInterval);
 
-            // Set upload as completed
-            setUploadProgress(prev => ({ ...prev, [docType]: 100 }));
-            setUploadStatus(prev => ({ ...prev, [docType]: 'Verified' }));
+            // Set file as selected and validated but not yet uploaded
+            setUploadProgress(prev => ({ ...prev, [docType]: 0 }));
+            setUploadStatus(prev => ({ ...prev, [docType]: 'File Selected' }));
             setDocumentErrors(prev => ({ ...prev, [docType]: '' })); // Clear any previous errors
             return;
           } else {
@@ -704,11 +704,11 @@ const UploadKYCDocumentsPage = () => {
         // Clear the progress simulation interval
         clearInterval(progressInterval);
 
-        // Update progress and status
-        setUploadProgress(prev => ({ ...prev, [docType]: 100 }));
-        setUploadStatus(prev => ({ ...prev, [docType]: 'Verified' }));
+        // Update progress and status - file is selected and validated but not yet uploaded
+        setUploadProgress(prev => ({ ...prev, [docType]: 0 }));
+        setUploadStatus(prev => ({ ...prev, [docType]: 'File Selected' }));
         setDocumentErrors(prev => ({ ...prev, [docType]: '' })); // Clear any previous errors
-        console.log(`Document ${docType} uploaded successfully`);
+        console.log(`Document ${docType} validated and ready for upload`);
 
       } catch (error) {
         // Clear the progress simulation interval
@@ -758,6 +758,13 @@ const UploadKYCDocumentsPage = () => {
           setError(result.message || 'ID card verification failed');
           return;
         }
+
+        // Set uploading status before starting the upload
+        setUploadStatus(prev => ({
+          ...prev,
+          idCardFront: 'Uploading',
+          idCardBack: 'Uploading'
+        }));
 
         // If validation succeeds, proceed with the upload
         await Promise.all([
@@ -995,6 +1002,7 @@ const UploadKYCDocumentsPage = () => {
       // If all validations pass, upload files
       const uploadPromises = filesToProcess.map(({docType, file, documentType}) => {
         console.log(`Uploading ${docType} file:`, file.name);
+        setUploadStatus(prev => ({ ...prev, [docType]: 'Uploading' }));
         return uploadKycDocument(
           documentType, 
           file, 
@@ -1273,7 +1281,7 @@ const UploadKYCDocumentsPage = () => {
             
             // Re-trigger state update to ensure UI reflects the change
             if (storedFile) {
-              setUploadStatus(prev => ({ ...prev, [docType]: 'Verified' }));
+              setUploadStatus(prev => ({ ...prev, [docType]: 'File Selected' }));
               
               // Also make sure the filename is set
               if (!fileNames[docType as keyof typeof fileNames]) {

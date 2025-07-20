@@ -1,11 +1,8 @@
 // app/api/auth/access/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { PrismaClient } from '@/app/generated/prisma';
+import { prisma } from '@/lib/prisma';
 import dojahService from '@/lib/dojah-service';
-
-// Initialize Prisma client
-const prisma = new PrismaClient();
 
 // Use types from our local schema
 type UserRole = 'USER' | 'ADMIN' | 'SUPER_ADMIN';

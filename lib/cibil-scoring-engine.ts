@@ -1,8 +1,5 @@
-import { PrismaClient } from '@/app/generated/prisma';
+import { prisma } from '@/lib/prisma';
 import { AccountType, RiskLevel } from '@/app/generated/prisma';
-
-// Initialize Prisma client
-const prisma = new PrismaClient();
 
 export interface CibilScoreFactors {
   // Payment History (35% weight)

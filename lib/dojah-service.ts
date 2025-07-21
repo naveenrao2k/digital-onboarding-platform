@@ -385,6 +385,56 @@ class DojahService {
       }
     };
   }
+
+  // CAC Lookup (Corporate Affairs Commission)
+  async lookupCAC(rcNumber: string): Promise<{
+    isValid: boolean;
+    entity?: any;
+    companyData?: {
+      companyName?: string;
+      rcNumber?: string;
+      registrationDate?: string;
+      companyType?: string;
+      status?: string;
+      address?: string;
+      directors?: any[];
+      shareholders?: any[];
+    };
+  }> {
+    const endpoint = '/api/v1/kyc/cac/basic';
+
+    try {
+      // Use SECRET_KEY auth for KYC operations
+
+      const response = await this.makeRequest(endpoint, { rc_number: rcNumber , 'company_type': 'COMPANY' }, DojahAuthMode.SECRET_KEY);
+
+      if (!response.entity) {
+        return { isValid: false };
+      }
+
+      return {
+        isValid: true,
+        entity: response.entity,
+        companyData: {
+          companyName: response.entity.company_name,
+          rcNumber: response.entity.rc_number,
+          registrationDate: response.entity.registration_date,
+          companyType: response.entity.company_type,
+          status: response.entity.status,
+          address: response.entity.address,
+          directors: response.entity.directors || [],
+          shareholders: response.entity.shareholders || []
+        }
+      };
+    } catch (error: any) {
+      console.error('CAC lookup failed:', error);
+      // If the API returns 404 or error, validation failed
+      if (error.message?.includes('404') || error.message?.includes('not found')) {
+        return { isValid: false };
+      }
+      throw error;
+    }
+  }
   // Document Analysis
   async analyzeDocument(
     imageFrontSide: string,

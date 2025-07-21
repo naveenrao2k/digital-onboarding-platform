@@ -49,6 +49,7 @@ model Account {
   businessType    BusinessType?
   businessAddress String?
   taxNumber       String?
+  rcNumber        String?       // Registration Certificate Number
   scumlNumber     String?
   occupation      String?
   sourceOfIncome  String?
@@ -458,6 +459,7 @@ model KYCFormData {
   businessName          String?
   businessAddress       String?
   taxNumber             String?
+  rcNumber              String?   // Registration Certificate Number for CAC validation
   scumlNumber           String?
   bvn                   String?   // Add BVN field for credit score calculations
   

@@ -37,13 +37,15 @@ const TextInput = ({
   name,
   value,
   placeholder,
-  onChange
+  onChange,
+  onBlur
 }: {
   label: string,
   name: string,
   value: string,
   placeholder: string,
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void,
+  onBlur?: () => void
 }) => (
   <div>
     <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -55,6 +57,7 @@ const TextInput = ({
       value={value}
       placeholder={placeholder}
       onChange={onChange}
+      onBlur={onBlur}
       className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm bg-white/50 backdrop-blur-sm"
     />
   </div>
@@ -218,6 +221,7 @@ const UploadKYCDocumentsPage = () => {
           setBusinessAddress(data.businessAddress || '');
           setTaxInfo({
             taxNumber: data.taxNumber || '',
+            rcNumber: data.rcNumber || '',
             scumlNumber: data.scumlNumber || ''
           });
           // Set SCUML states
@@ -263,9 +267,11 @@ const UploadKYCDocumentsPage = () => {
         businessName,
         businessAddress,
         taxNumber: taxInfo.taxNumber,
+        rcNumber: taxInfo.rcNumber,
         scumlNumber: hasSCUMLLicense ? scumlNumber : '',
         references,
         extractedData: extractedDocumentData,
+        cacCompanyData, // Include CAC validation data
         isSubmitted
       };
 
@@ -361,6 +367,7 @@ const UploadKYCDocumentsPage = () => {
   // Tax and registration numbers for LLC
   const [taxInfo, setTaxInfo] = useState({
     taxNumber: '',
+    rcNumber: '',
     scumlNumber: ''
   });
 
@@ -368,6 +375,11 @@ const UploadKYCDocumentsPage = () => {
   const [hasSCUMLLicense, setHasSCUMLLicense] = useState(false);
   const [scumlNumber, setSCUMLNumber] = useState('');
   const [scumlError, setSCUMLError] = useState('');
+
+  // RC Number validation states
+  const [rcValidationStatus, setRcValidationStatus] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle');
+  const [rcValidationError, setRcValidationError] = useState('');
+  const [cacCompanyData, setCacCompanyData] = useState<any>(null);
 
   // File names for display
   const [fileNames, setFileNames] = useState({
@@ -818,6 +830,54 @@ const UploadKYCDocumentsPage = () => {
   const handleTaxInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setTaxInfo(prev => ({ ...prev, [name]: value }));
+    
+    // If RC number changed, reset validation state
+    if (name === 'rcNumber') {
+      setRcValidationStatus('idle');
+      setRcValidationError('');
+      setCacCompanyData(null);
+    }
+  };
+
+  // RC Number validation function
+  const validateRCNumber = async (rcNumber: string): Promise<{ isValid: boolean; companyData?: any; error?: string }> => {
+    try {
+      setRcValidationStatus('validating');
+      setRcValidationError('');
+
+      const response = await fetch('/api/user/validate-rc-number', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rcNumber }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.isValid) {
+        setRcValidationStatus('valid');
+        setCacCompanyData(result.companyData);
+        return { isValid: true, companyData: result.companyData };
+      } else {
+        setRcValidationStatus('invalid');
+        setRcValidationError(result.error || 'RC Number validation failed');
+        setCacCompanyData(null);
+        return { isValid: false, error: result.error || 'RC Number validation failed' };
+      }
+    } catch (error) {
+      setRcValidationStatus('invalid');
+      setRcValidationError('Network error during validation');
+      setCacCompanyData(null);
+      return { isValid: false, error: 'Network error during validation' };
+    }
+  };
+
+  // Handle RC Number blur (validate when user finishes typing)
+  const handleRcNumberBlur = () => {
+    if (taxInfo.rcNumber && taxInfo.rcNumber.length > 0 && rcValidationStatus === 'idle') {
+      validateRCNumber(taxInfo.rcNumber);
+    }
   };
 
   const handleSCUMLChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1916,7 +1976,7 @@ const UploadKYCDocumentsPage = () => {
                       <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">3</span>
                       Company Information
                     </h4>
-                    <div className="mt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                       <TextInput
                         label="Tax Identification Number (TIN)"
                         name="taxNumber"
@@ -1924,6 +1984,54 @@ const UploadKYCDocumentsPage = () => {
                         placeholder="Enter company TIN"
                         onChange={handleTaxInfoChange}
                       />
+                      
+                      <div className="space-y-2">
+                        <TextInput
+                          label="Registration Certificate (RC) Number"
+                          name="rcNumber"
+                          value={taxInfo.rcNumber}
+                          placeholder="Enter RC Number"
+                          onChange={handleTaxInfoChange}
+                          onBlur={handleRcNumberBlur}
+                        />
+                        
+                        {/* RC Number validation status */}
+                        {rcValidationStatus === 'validating' && (
+                          <div className="flex items-center text-sm text-blue-600">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                            Validating RC Number...
+                          </div>
+                        )}
+                        
+                        {rcValidationStatus === 'valid' && cacCompanyData && (
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <div className="flex items-center text-sm text-green-800 font-medium mb-2">
+                              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                              RC Number Validated
+                            </div>
+                            <div className="text-xs text-green-700">
+                              <div><strong>Company:</strong> {cacCompanyData.companyName}</div>
+                              <div><strong>Status:</strong> {cacCompanyData.status}</div>
+                              {cacCompanyData.registrationDate && (
+                                <div><strong>Registered:</strong> {cacCompanyData.registrationDate}</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {rcValidationStatus === 'invalid' && (
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                            <div className="flex items-center text-sm text-red-800">
+                              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                              </svg>
+                              {rcValidationError}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -2116,7 +2224,7 @@ const UploadKYCDocumentsPage = () => {
                     </div>
                   </div>
 
-                  <div className="mt-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                     <TextInput
                       label="Company's Operating Business Address"
                       name="businessAddress"
@@ -2126,7 +2234,7 @@ const UploadKYCDocumentsPage = () => {
                     />
                   </div>
 
-                  <div className="mt-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                     <TextInput
                       label="Tax Identification Number (TIN)"
                       name="taxNumber"
@@ -2134,6 +2242,54 @@ const UploadKYCDocumentsPage = () => {
                       placeholder="Enter company TIN"
                       onChange={handleTaxInfoChange}
                     />
+                    
+                    <div className="space-y-2">
+                      <TextInput
+                        label="Registration Certificate (RC) Number"
+                        name="rcNumber"
+                        value={taxInfo.rcNumber}
+                        placeholder="Enter RC Number"
+                        onChange={handleTaxInfoChange}
+                        onBlur={handleRcNumberBlur}
+                      />
+                      
+                      {/* RC Number validation status */}
+                      {rcValidationStatus === 'validating' && (
+                        <div className="flex items-center text-sm text-blue-600">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                          Validating RC Number...
+                        </div>
+                      )}
+                      
+                      {rcValidationStatus === 'valid' && cacCompanyData && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <div className="flex items-center text-sm text-green-800 font-medium mb-2">
+                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            RC Number Validated
+                          </div>
+                          <div className="text-xs text-green-700">
+                            <div><strong>Company:</strong> {cacCompanyData.companyName}</div>
+                            <div><strong>Status:</strong> {cacCompanyData.status}</div>
+                            {cacCompanyData.registrationDate && (
+                              <div><strong>Registered:</strong> {cacCompanyData.registrationDate}</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {rcValidationStatus === 'invalid' && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                          <div className="flex items-center text-sm text-red-800">
+                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                            {rcValidationError}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mt-8">
@@ -2248,7 +2404,7 @@ const UploadKYCDocumentsPage = () => {
                       fileRef={fileInputRefs.memorandumArticles}
                     />
 
-                    <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6  pb-6">
+                    <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6 pb-6">
                       <TextInput
                         label="Tax Identification Number (TIN)"
                         name="taxNumber"
@@ -2256,6 +2412,45 @@ const UploadKYCDocumentsPage = () => {
                         placeholder="Enter TIN"
                         onChange={handleTaxInfoChange}
                       />
+
+                      <div className="space-y-2">
+                        <TextInput
+                          label="Registration Certificate (RC) Number"
+                          name="rcNumber"
+                          value={taxInfo.rcNumber}
+                          placeholder="Enter RC Number"
+                          onChange={handleTaxInfoChange}
+                          onBlur={handleRcNumberBlur}
+                        />
+                        
+                        {/* RC Number validation status for LLC */}
+                        {rcValidationStatus === 'validating' && (
+                          <div className="flex items-center text-sm text-blue-600">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                            Validating...
+                          </div>
+                        )}
+                        
+                        {rcValidationStatus === 'valid' && cacCompanyData && (
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-2">
+                            <div className="flex items-center text-xs text-green-800 font-medium mb-1">
+                              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                              RC Validated
+                            </div>
+                            <div className="text-xs text-green-700">
+                              <div>{cacCompanyData.companyName}</div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {rcValidationStatus === 'invalid' && (
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-2">
+                            <div className="text-xs text-red-800">{rcValidationError}</div>
+                          </div>
+                        )}
+                      </div>
 
                       <TextInput
                         label="SCUML Registration Number (if applicable)"

@@ -29,10 +29,12 @@ export async function POST(request: NextRequest) {
       businessName,
       businessAddress,
       taxNumber,
+      rcNumber,
       scumlNumber,
       bvn,
       references,
       extractedData,
+      cacCompanyData,
       isSubmitted = false
     } = body;
 
@@ -46,6 +48,7 @@ export async function POST(request: NextRequest) {
         businessName,
         businessAddress,
         taxNumber,
+        rcNumber,
         scumlNumber,
         bvn,
         ref1Name: references?.ref1Name,
@@ -54,7 +57,10 @@ export async function POST(request: NextRequest) {
         ref2Name: references?.ref2Name,
         ref2Address: references?.ref2Address,
         ref2Phone: references?.ref2Phone,
-        extractedData,
+        extractedData: {
+          ...extractedData,
+          cacCompanyData // Store CAC validation data
+        },
         isSubmitted,
         submittedAt: isSubmitted ? new Date() : undefined,
         updatedAt: new Date()
@@ -65,6 +71,7 @@ export async function POST(request: NextRequest) {
         businessName,
         businessAddress,
         taxNumber,
+        rcNumber,
         scumlNumber,
         bvn,
         ref1Name: references?.ref1Name,
@@ -73,7 +80,10 @@ export async function POST(request: NextRequest) {
         ref2Name: references?.ref2Name,
         ref2Address: references?.ref2Address,
         ref2Phone: references?.ref2Phone,
-        extractedData,
+        extractedData: {
+          ...extractedData,
+          cacCompanyData // Store CAC validation data
+        },
         isSubmitted,
         submittedAt: isSubmitted ? new Date() : undefined
       }
@@ -89,6 +99,7 @@ export async function POST(request: NextRequest) {
           businessName,
           businessAddress,
           taxNumber,
+          rcNumber,
           scumlNumber, // This is the key field for SCUML verification
         },
         create: {
@@ -96,6 +107,7 @@ export async function POST(request: NextRequest) {
           businessName,
           businessAddress,
           taxNumber,
+          rcNumber,
           scumlNumber, // This is the key field for SCUML verification
         }
       });

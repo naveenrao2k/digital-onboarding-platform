@@ -82,6 +82,8 @@ export async function GET(request: NextRequest) {
       createdAt: user.createdAt.toISOString(),
       scumlNumber: user.kycFormData?.scumlNumber || null, // Add SCUML number
       tinNumber: user.kycFormData?.taxNumber || null, // Add TIN number
+      rcNumber: user.kycFormData?.rcNumber || null, // Add RC number
+      cacCompanyData: (user.kycFormData?.extractedData as any)?.cacCompanyData || null, // Add CAC validation data
       businessName: user.kycFormData?.businessName || null, // Add business name
       businessAddress: user.kycFormData?.businessAddress || null, // Add business address
       verificationStatus: hasSCUML ? {

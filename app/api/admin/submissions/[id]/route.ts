@@ -67,10 +67,11 @@ interface SubmissionResponse {
   status: string;
   documents: DocumentSubmission[];
   scumlData?: {
-    scumlNumber: string;
+    scumlNumber?: string;
     accountType: string;
     businessName?: string;
     businessAddress?: string;
+    taxNumber?: string;
     submittedAt: string;
   } | null;
   governmentVerifications: Array<{
@@ -323,6 +324,16 @@ const formatUserData = (user: any): SubmissionResponse => {
         accountType: user.kycFormData.accountType,
         businessName: user.kycFormData.businessName || undefined,
         businessAddress: user.kycFormData.businessAddress || undefined,
+        taxNumber: user.kycFormData.taxNumber || undefined,
+        submittedAt: user.kycFormData.createdAt.toISOString(),
+      }
+      : user.kycFormData?.taxNumber && ['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(user.kycFormData.accountType)
+      ? {
+        scumlNumber: undefined,
+        accountType: user.kycFormData.accountType,
+        businessName: user.kycFormData.businessName || undefined,
+        businessAddress: user.kycFormData.businessAddress || undefined,
+        taxNumber: user.kycFormData.taxNumber || undefined,
         submittedAt: user.kycFormData.createdAt.toISOString(),
       }
       : null,

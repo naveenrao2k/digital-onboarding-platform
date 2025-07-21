@@ -34,6 +34,9 @@ interface UserDetails {
   accountStatus: string;
   createdAt: string;
   scumlNumber?: string; // Add SCUML license number
+  tinNumber?: string; // Add TIN number
+  businessName?: string; // Add business name
+  businessAddress?: string; // Add business address
   verificationStatus: {
     overallStatus: string;
     kycStatus: string;
@@ -392,6 +395,36 @@ export default function UserDetailsPage() {
                   <p className="text-sm text-gray-600">Member Since</p>
                   <p className="font-medium">{new Date(userDetails.createdAt).toLocaleDateString()}</p>
                 </div>
+                
+                {/* Business Information for non-Individual accounts */}
+                {['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(userDetails.accountType) && userDetails.businessName && (
+                  <div>
+                    <p className="text-sm text-gray-600">Business Name</p>
+                    <p className="font-medium">{userDetails.businessName}</p>
+                  </div>
+                )}
+                
+                {/* TIN Information for business accounts */}
+                {['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(userDetails.accountType) && userDetails.tinNumber && (
+                  <div>
+                    <p className="text-sm text-gray-600">Tax Identification Number (TIN)</p>
+                    <div className="flex items-center mt-1">
+                      <svg className="h-4 w-4 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <p className="font-medium text-blue-600">{userDetails.tinNumber}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Business Address for business accounts */}
+                {['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(userDetails.accountType) && userDetails.businessAddress && (
+                  <div>
+                    <p className="text-sm text-gray-600">Business Address</p>
+                    <p className="font-medium">{userDetails.businessAddress}</p>
+                  </div>
+                )}
+                
                 {/* SCUML License Information */}
                 {userDetails.scumlNumber && ['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(userDetails.accountType) && (
                   <div>
@@ -401,6 +434,13 @@ export default function UserDetailsPage() {
                       <p className="font-medium text-green-600">{userDetails.scumlNumber}</p>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">Securities and Commodities Market License</p>
+                  </div>
+                )}
+                {/* TIN Information */}
+                {userDetails.tinNumber && ['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(userDetails.accountType) && (
+                  <div>
+                    <p className="text-sm text-gray-600">Tax Identification Number (TIN)</p>
+                    <p className="font-medium">{userDetails.tinNumber}</p>
                   </div>
                 )}
               </div>

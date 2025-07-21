@@ -1914,6 +1914,22 @@ const UploadKYCDocumentsPage = () => {
                   <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
                     <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
                       <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">3</span>
+                      Company Information
+                    </h4>
+                    <div className="mt-6">
+                      <TextInput
+                        label="Tax Identification Number (TIN)"
+                        name="taxNumber"
+                        value={taxInfo.taxNumber}
+                        placeholder="Enter company TIN"
+                        onChange={handleTaxInfoChange}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
+                    <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
+                      <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">4</span>
                       Corporate References
                       <span className="ml-2 text-xs bg-blue-100 text-blue-800 py-0.5 px-2 rounded-full">Required</span>
                     </h4>
@@ -2107,6 +2123,16 @@ const UploadKYCDocumentsPage = () => {
                       value={businessAddress}
                       placeholder="Full business address"
                       onChange={(e) => setBusinessAddress(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="mt-6">
+                    <TextInput
+                      label="Tax Identification Number (TIN)"
+                      name="taxNumber"
+                      value={taxInfo.taxNumber}
+                      placeholder="Enter company TIN"
+                      onChange={handleTaxInfoChange}
                     />
                   </div>
 

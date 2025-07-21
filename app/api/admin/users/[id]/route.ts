@@ -81,6 +81,9 @@ export async function GET(request: NextRequest) {
       accountStatus: user.accountStatus,
       createdAt: user.createdAt.toISOString(),
       scumlNumber: user.kycFormData?.scumlNumber || null, // Add SCUML number
+      tinNumber: user.kycFormData?.taxNumber || null, // Add TIN number
+      businessName: user.kycFormData?.businessName || null, // Add business name
+      businessAddress: user.kycFormData?.businessAddress || null, // Add business address
       verificationStatus: hasSCUML ? {
         ...user.verificationStatus,
         kycStatus: 'APPROVED', // Override KYC status for SCUML users

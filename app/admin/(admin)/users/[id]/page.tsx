@@ -34,6 +34,11 @@ interface UserDetails {
   accountStatus: string;
   createdAt: string;
   scumlNumber?: string; // Add SCUML license number
+  tinNumber?: string; // Add TIN number
+  rcNumber?: string; // Add RC number
+  cacCompanyData?: any; // Add CAC validation data
+  businessName?: string; // Add business name
+  businessAddress?: string; // Add business address
   verificationStatus: {
     overallStatus: string;
     kycStatus: string;
@@ -280,7 +285,7 @@ export default function UserDetailsPage() {
         <div className="flex items-center space-x-2">
           {getStatusIcon(userDetails.verificationStatus.overallStatus)}
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(userDetails.verificationStatus.overallStatus)}`}>
-            {userDetails.verificationStatus.overallStatus}
+            {userDetails.scumlNumber ? 'APPROVED (SCUML)' : userDetails.verificationStatus.overallStatus}
           </span>
         </div>
       </div>
@@ -392,6 +397,36 @@ export default function UserDetailsPage() {
                   <p className="text-sm text-gray-600">Member Since</p>
                   <p className="font-medium">{new Date(userDetails.createdAt).toLocaleDateString()}</p>
                 </div>
+                
+                {/* Business Information for non-Individual accounts */}
+                {['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(userDetails.accountType) && userDetails.businessName && (
+                  <div>
+                    <p className="text-sm text-gray-600">Business Name</p>
+                    <p className="font-medium">{userDetails.businessName}</p>
+                  </div>
+                )}
+                
+                {/* TIN Information for business accounts */}
+                {/* {['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(userDetails.accountType) && userDetails.tinNumber && (
+                  <div>
+                    <p className="text-sm text-gray-600">Tax Identification Number (TIN)</p>
+                    <div className="flex items-center mt-1">
+                      <svg className="h-4 w-4 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <p className="font-medium text-blue-600">{userDetails.tinNumber}</p>
+                    </div>
+                  </div>
+                )}
+                 */}
+                {/* Business Address for business accounts */}
+                {['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(userDetails.accountType) && userDetails.businessAddress && (
+                  <div>
+                    <p className="text-sm text-gray-600">Business Address</p>
+                    <p className="font-medium">{userDetails.businessAddress}</p>
+                  </div>
+                )}
+                
                 {/* SCUML License Information */}
                 {userDetails.scumlNumber && ['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(userDetails.accountType) && (
                   <div>
@@ -401,6 +436,71 @@ export default function UserDetailsPage() {
                       <p className="font-medium text-green-600">{userDetails.scumlNumber}</p>
                     </div>
                     <p className="text-xs text-gray-500 mt-1">Securities and Commodities Market License</p>
+                  </div>
+                )}
+                {/* TIN Information */}
+                {userDetails.tinNumber && ['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(userDetails.accountType) && (
+                  <div>
+                    <p className="text-sm text-gray-600">Tax Identification Number (TIN)</p>
+                    <p className="font-medium">{userDetails.tinNumber}</p>
+                  </div>
+                )}
+                
+                {/* RC Number Information for business accounts */}
+                {['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(userDetails.accountType) && userDetails.rcNumber && (
+                  <div>
+                    <p className="text-sm text-gray-600">Registration Certificate (RC) Number</p>
+                    <div className="flex items-center mt-1">
+                      <svg className="h-4 w-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                      <p className="font-medium text-green-600">{userDetails.rcNumber}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* CAC Company Data - Show validated company information */}
+                {userDetails.cacCompanyData && ['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(userDetails.accountType) && (
+                  <div className="md:col-span-2">
+                    <p className="text-sm text-gray-600 mb-2">CAC Company Information</p>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {userDetails.cacCompanyData.companyName && (
+                          <div>
+                            <p className="text-xs text-green-600 font-medium">Company Name</p>
+                            <p className="text-sm text-green-800">{userDetails.cacCompanyData.companyName}</p>
+                          </div>
+                        )}
+                        {userDetails.cacCompanyData.status && (
+                          <div>
+                            <p className="text-xs text-green-600 font-medium">Registration Status</p>
+                            <p className="text-sm text-green-800">{userDetails.cacCompanyData.status}</p>
+                          </div>
+                        )}
+                        {userDetails.cacCompanyData.companyType && (
+                          <div>
+                            <p className="text-xs text-green-600 font-medium">Company Type</p>
+                            <p className="text-sm text-green-800">{userDetails.cacCompanyData.companyType}</p>
+                          </div>
+                        )}
+                        {userDetails.cacCompanyData.registrationDate && (
+                          <div>
+                            <p className="text-xs text-green-600 font-medium">Registration Date</p>
+                            <p className="text-sm text-green-800">{userDetails.cacCompanyData.registrationDate}</p>
+                          </div>
+                        )}
+                        {userDetails.cacCompanyData.address && (
+                          <div className="md:col-span-2">
+                            <p className="text-xs text-green-600 font-medium">Registered Address</p>
+                            <p className="text-sm text-green-800">{userDetails.cacCompanyData.address}</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-3 flex items-center">
+                        <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                        <p className="text-xs text-green-700 font-medium">Verified via CAC Database</p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -601,6 +701,22 @@ export default function UserDetailsPage() {
         </div>
       )}      {activeTab === 'documents' && (
         <div className="space-y-6">
+          {userDetails.scumlNumber && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 mr-3" />
+                <div>
+                  <h3 className="text-base font-medium text-green-800">SCUML License Verified</h3>
+                  <p className="text-sm text-green-700 mt-1">
+                    This business account has been verified with SCUML License Number: <strong>{userDetails.scumlNumber}</strong>
+                  </p>
+                  <p className="text-xs text-green-600 mt-2">
+                    Business accounts with valid SCUML licenses are automatically approved and do not require document uploads.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900">Documents & Dojah Verification</h2>
             <div className="text-sm text-gray-600">
@@ -970,8 +1086,19 @@ export default function UserDetailsPage() {
 
             {userDetails.documents.length === 0 && (
               <div className="text-center py-12">
-                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No documents uploaded yet</p>
+                {userDetails.scumlNumber ? (
+                  <div>
+                    <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-green-600 mb-1">SCUML License Verified</h3>
+                    <p className="text-gray-600">SCUML Number: {userDetails.scumlNumber}</p>
+                    <p className="text-sm text-gray-500 mt-2">This business account is verified via SCUML license</p>
+                  </div>
+                ) : (
+                  <>
+                    <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No documents uploaded yet</p>
+                  </>
+                )}
               </div>
             )}
           </div>

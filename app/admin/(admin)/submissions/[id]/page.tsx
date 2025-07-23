@@ -407,7 +407,7 @@ export default function UserDetailsPage() {
                 )}
                 
                 {/* TIN Information for business accounts */}
-                {['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(userDetails.accountType) && userDetails.tinNumber && (
+                {/* {['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(userDetails.accountType) && userDetails.tinNumber && (
                   <div>
                     <p className="text-sm text-gray-600">Tax Identification Number (TIN)</p>
                     <div className="flex items-center mt-1">
@@ -418,7 +418,7 @@ export default function UserDetailsPage() {
                     </div>
                   </div>
                 )}
-                
+                 */}
                 {/* Business Address for business accounts */}
                 {['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(userDetails.accountType) && userDetails.businessAddress && (
                   <div>

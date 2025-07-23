@@ -406,7 +406,7 @@ class DojahService {
     try {
       // Use SECRET_KEY auth for KYC operations
 
-      const response = await this.makeRequest(endpoint, { rc_number: rcNumber , 'company_type': 'COMPANY' }, DojahAuthMode.SECRET_KEY);
+      const response = await this.makeRequest(endpoint, { rc_number: rcNumber, 'company_type': 'COMPANY' }, DojahAuthMode.SECRET_KEY);
 
       if (!response.entity) {
         return { isValid: false };
@@ -650,7 +650,7 @@ class DojahService {
   }
 
   // Comprehensive Document Verification
-  async verifyDocument(userId: string, documentId: string, documentBase64?: string | null, documentType?: string): Promise<{ verificationId: string, documentTypeMismatchNote?: string }> {
+  async verifyDocument(accountType: string, userId: string, documentId: string, documentBase64?: string | null, documentType?: string): Promise<{ verificationId: string, documentTypeMismatchNote?: string }> {
     console.log(`Starting document verification for user: ${userId}, document: ${documentId}`);
     try {
       // Get document from database if not provided
@@ -811,25 +811,28 @@ class DojahService {
       // Update KYC document status based on validation result
       let documentTypeMismatchNote = '';
       try {
-        const isPassport = documentType === 'PASSPORT';
-        const isUtilityBill = documentType === 'UTILITY_BILL';
-        const wasBypassed = isPassport || isUtilityBill;
 
         const documentStatus = analysisResult.isValid ?
           VerificationStatusEnum.IN_PROGRESS :
           VerificationStatusEnum.REJECTED;
 
 
+
         let isDocumentTypeMatch;
-        if (analysisResult.documentType?.documentName && documentType && analysisResult.isValid) {
-          isDocumentTypeMatch = this.validateDocumentTypeMatch(documentType, analysisResult.documentType.documentName);
-          console.log(`Document type match for ${documentType} against ${analysisResult.documentType.documentName}: ${isDocumentTypeMatch}`);
-          if (!isDocumentTypeMatch) {
-            documentTypeMismatchNote = `Document type mismatch: Expected ${documentType}, but extracted ${analysisResult.documentType.documentName}`;
+
+        console.log(`Vishal : ${accountType} - ${documentType}`);
+        // Add a if condition to check if AccountType is Individual if its individual then we can check for documentType match else we can skip this check
+        if (accountType === 'individual') { 
+          if (analysisResult.documentType?.documentName && documentType && analysisResult.isValid) {
+            isDocumentTypeMatch = this.validateDocumentTypeMatch(documentType, analysisResult.documentType.documentName);
+            console.log(`Document type match for ${documentType} against ${analysisResult.documentType.documentName}: ${isDocumentTypeMatch}`);
+            if (!isDocumentTypeMatch) {
+              documentTypeMismatchNote = `Document type mismatch: Expected ${documentType}, but extracted ${analysisResult.documentType.documentName}`;
+            }
+          } else if (!analysisResult.isValid) {
+            documentTypeMismatchNote = 'Document is invalid';
+            console.log(`Document is invalid`);
           }
-        // } else if (!analysisResult.isValid){
-        //   documentTypeMismatchNote = 'Document is invalid';
-        //   console.log(`Document is invalid`);
         }
 
 

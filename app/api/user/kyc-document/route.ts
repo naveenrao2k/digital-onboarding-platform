@@ -22,6 +22,7 @@ const getCurrentUserId = (): string | null => {
   }
 };
 
+
 export async function POST(request: NextRequest) {
   try {
     const userId = getCurrentUserId();
@@ -32,9 +33,11 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
     const formData = await request.formData();
     const documentTypeString = formData.get('documentType') as string;
     const file = formData.get('file') as File;
+    const accountType = formData.get('accountType') as string | undefined;
 
     if (!documentTypeString || !file) {
       return new NextResponse(
@@ -65,11 +68,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+
     const result = await uploadKycDocument({
       userId,
       documentType,
       file,
+      accountType,
     });
+
+    console.log('KYC_DOCUMENT_UPLOAD_RESULT', accountType);
 
     if (!result) {
       return new NextResponse(

@@ -783,11 +783,13 @@ const UploadKYCDocumentsPage = () => {
           uploadKycDocument(
             DocumentType.ID_CARD,
             individualDocuments.idCardFront,
+            accountType,
             (progress) => setUploadProgress(prev => ({ ...prev, idCardFront: progress }))
           ),
           uploadKycDocument(
             DocumentType.ID_CARD,
             individualDocuments.idCardBack,
+            accountType,
             (progress) => setUploadProgress(prev => ({ ...prev, idCardBack: progress }))
           )
         ]);
@@ -1063,6 +1065,7 @@ const UploadKYCDocumentsPage = () => {
         return uploadKycDocument(
           documentType,
           file,
+          accountType,
           (progress) => setUploadProgress(prev => ({ ...prev, [docType]: progress }))
         ).then(() => {
           console.log(`Upload completed for ${docType}`);

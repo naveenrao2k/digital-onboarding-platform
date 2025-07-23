@@ -8,10 +8,13 @@ export type KycDocumentUpload = {
   userId: string;
   documentType: DocumentType;
   file: File;
+  accountType?: string;
 };
 
-export const uploadKycDocument = async ({ userId, documentType, file }: KycDocumentUpload) => {
+export const uploadKycDocument = async ({ userId, documentType, file, accountType }: KycDocumentUpload) => {
   console.log(`Starting KYC document upload for user ${userId}, document type: ${documentType}`);
+  console.log(`uploadKycDocument Account Type: ${accountType}`);
+
 
   let triggerDojahDocumentVerificationresult: { verificationId: string, documentTypeMismatchNote?: string } | undefined;
 
@@ -141,12 +144,13 @@ export const uploadKycDocument = async ({ userId, documentType, file }: KycDocum
         },
       });
     }
-
+    console.log(`Before try Dojah Account Type: ${accountType}`);
     // Trigger Dojah document verification
     try {
       console.log(`Triggering Dojah verification for document ID: ${kycDocument.id}`);
+      console.log(`try Dojah Account Type: ${accountType}`);
       // We don't need to pass base64 since Dojah service will fetch from S3
-      const dojahResult = await triggerDojahDocumentVerification(userId, kycDocument.id);
+      const dojahResult = await triggerDojahDocumentVerification(accountType ?? '', userId, kycDocument.id);
       if (typeof dojahResult === 'object' && dojahResult !== null && 'verificationId' in dojahResult) {
         triggerDojahDocumentVerificationresult = dojahResult as { verificationId: string, documentTypeMismatchNote?: string };
       } else {
@@ -199,16 +203,19 @@ export const uploadKycDocument = async ({ userId, documentType, file }: KycDocum
 
 // Trigger Dojah document verification
 async function triggerDojahDocumentVerification(
+  accountType: string,
   userId: string, 
   documentId: string, 
   documentBase64?: string, 
-  documentType?: string
+  documentType?: string,
 ) {
   try {
     // Import dojahService dynamically to avoid circular dependencies
+    console.log(`triggerDojahDocumentVerification Account Type: ${accountType}`);
+
     const { default: dojahService } = await import('./dojah-service');
     // Let the Dojah service handle getting the file from S3 if needed
-    const result = await dojahService.verifyDocument(userId, documentId, documentBase64, documentType);
+    const result = await dojahService.verifyDocument(accountType, userId, documentId, documentBase64, documentType);
     return result;
   } catch (error) {
     console.error('Failed to trigger Dojah verification:', error);

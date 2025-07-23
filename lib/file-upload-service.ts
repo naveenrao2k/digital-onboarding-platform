@@ -4,6 +4,7 @@ import { DocumentType } from '@/app/generated/prisma';
 export const uploadKycDocument = async (
   documentType: DocumentType | string, 
   file: File, 
+  accountType?: string,
   onProgress?: (progress: number) => void
 ) => {
   try {
@@ -15,6 +16,9 @@ export const uploadKycDocument = async (
     const formData = new FormData();
     formData.append('documentType', documentType.toString());
     formData.append('file', file);
+    if (accountType) {
+      formData.append('accountType', accountType);
+    }
 
     // Use XMLHttpRequest for progress tracking
     if (onProgress) {

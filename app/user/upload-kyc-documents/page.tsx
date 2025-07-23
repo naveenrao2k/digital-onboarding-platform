@@ -40,7 +40,7 @@ const TextInput = ({
   onChange,
   onBlur
 }: {
-  label: string,
+  label: React.ReactNode,
   name: string,
   value: string,
   placeholder: string,
@@ -126,7 +126,7 @@ const SCUMLInput = ({
 }) => (
   <div>
     <label className="block text-sm font-medium text-slate-700 mb-2">
-      SCUML License Number <span className="text-rose-500">*</span>
+      SCUML License Number <span className="text-slate-400">(Optional)</span>
     </label>
     <input
       type="text"
@@ -148,7 +148,7 @@ const SCUMLInput = ({
 const docTypeToEnumMapping = (docType: string): DocumentType => {
   const mapping: { [key: string]: DocumentType } = {
     // Individual documents
-    idCard: DocumentType.ID_CARD, 
+    idCard: DocumentType.ID_CARD,
     idCardFront: DocumentType.ID_CARD,
     idCardBack: DocumentType.ID_CARD,
     passport: DocumentType.PASSPORT,
@@ -447,10 +447,10 @@ const UploadKYCDocumentsPage = () => {
       // For ID Card Front/Back, rename the file to make it more distinctive
       if (docType === 'idCardFront' || docType === 'idCardBack') {
         // Create a new file object with a more distinctive name
-        const newFileName = docType === 'idCardFront' 
+        const newFileName = docType === 'idCardFront'
           ? `ID_Card_Front_${Date.now()}${file.name.substr(file.name.lastIndexOf('.'))}`
           : `ID_Card_Back_${Date.now()}${file.name.substr(file.name.lastIndexOf('.'))}`;
-          
+
         // Create a new File object with the renamed file
         file = new File([file], newFileName, { type: file.type });
         console.log(`Renamed file to: ${file.name}`);
@@ -459,7 +459,7 @@ const UploadKYCDocumentsPage = () => {
       // Map docType to appropriate DocumentType enum
       const documentEnum = docTypeToEnumMapping(docType);
       const docTypeFormatted = documentEnum.toString().replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-      
+
       // Check for existing files - both locally and on server
       let isReplacing = false;
 
@@ -478,23 +478,23 @@ const UploadKYCDocumentsPage = () => {
           isReplacing = !!llcDocuments[docType as keyof typeof llcDocuments];
           break;
       }
-      
+
       // Check if this document exists on the server
       let existingServerDoc = false;
       if (docType === 'idCardFront') {
-        existingServerDoc = documents?.some(doc => 
-          (doc.type === 'Id Card' && doc.fileName.toLowerCase().includes('front')) || 
+        existingServerDoc = documents?.some(doc =>
+          (doc.type === 'Id Card' && doc.fileName.toLowerCase().includes('front')) ||
           doc.type === 'Id Card Front'
         );
       } else if (docType === 'idCardBack') {
-        existingServerDoc = documents?.some(doc => 
-          (doc.type === 'Id Card' && doc.fileName.toLowerCase().includes('back')) || 
+        existingServerDoc = documents?.some(doc =>
+          (doc.type === 'Id Card' && doc.fileName.toLowerCase().includes('back')) ||
           doc.type === 'Id Card Back'
         );
       } else {
         existingServerDoc = documents?.some(doc => doc.type === docTypeFormatted);
       }
-      
+
       // Check if this document is already uploaded
       const isAlreadyUploaded = isReplacing || existingServerDoc;
 
@@ -509,7 +509,7 @@ const UploadKYCDocumentsPage = () => {
       setUploadStatus(prev => ({ ...prev, [docType]: 'File Selected' }));
       setUploadProgress(prev => ({ ...prev, [docType]: 5 }));
       setDocumentErrors(prev => ({ ...prev, [docType]: '' })); // Clear any previous errors
-      
+
       // Set up a progress simulation for the validation phase
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
@@ -522,12 +522,12 @@ const UploadKYCDocumentsPage = () => {
           return prev;
         });
       }, 600);
-      
+
       try {
         // Validate document before actually uploading it
-        let validationResult: { isValid: boolean; extractedData?: any; message: string; } = { 
-          isValid: false, 
-          message: 'Document validation not performed' 
+        let validationResult: { isValid: boolean; extractedData?: any; message: string; } = {
+          isValid: false,
+          message: 'Document validation not performed'
         };
 
         if (accountTypeKey === 'individual') {
@@ -550,7 +550,7 @@ const UploadKYCDocumentsPage = () => {
                 [docType]: validationResult.extractedData
               }));
             }
-            
+
             // Update document states based on which side was uploaded
             if (docType === 'idCardFront') {
               console.log('Setting ID Card Front document:', file.name);
@@ -636,7 +636,7 @@ const UploadKYCDocumentsPage = () => {
             }
           }
         }
-        
+
         // Process validation result for non-ID card documents
         // Special case for passport and utility bill which may get marked as invalid by Dojah but should be accepted
         if (docType === 'passport' || docType === 'utilityBill') {
@@ -657,7 +657,7 @@ const UploadKYCDocumentsPage = () => {
           setError(`Document validation failed: ${validationResult?.message || 'Unknown error'}`);
           return;
         }
-        
+
         // Even if validation succeeded, store the file in the appropriate state
         // This ensures we have the file ready for resubmission in case of server errors
 
@@ -675,14 +675,14 @@ const UploadKYCDocumentsPage = () => {
               // For utility bill, ensure the filename is consistent
               const utilityFileName = `Utility_Bill_${Date.now()}${file.name.substr(file.name.lastIndexOf('.'))}`;
               const utilityFile = new File([file], utilityFileName, { type: file.type });
-              
+
               setIndividualDocuments(prev => {
                 const updated = { ...prev, utilityBill: utilityFile };
                 console.log('Updated individual documents with utility bill:', updated);
                 return updated;
               });
               setFileNames(prev => ({ ...prev, utilityBill: utilityFileName }));
-              
+
               // Update the file reference for future use
               file = utilityFile;
             }
@@ -712,7 +712,7 @@ const UploadKYCDocumentsPage = () => {
             setFileNames(prev => ({ ...prev, [docType]: file.name }));
             break;
         }
-        
+
         // Clear the progress simulation interval
         clearInterval(progressInterval);
 
@@ -798,7 +798,7 @@ const UploadKYCDocumentsPage = () => {
           idCardFront: 'Verified',
           idCardBack: 'Verified'
         }));
-        
+
         // Clear any previous errors for these documents
         setDocumentErrors(prev => ({
           ...prev,
@@ -830,7 +830,7 @@ const UploadKYCDocumentsPage = () => {
   const handleTaxInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setTaxInfo(prev => ({ ...prev, [name]: value }));
-    
+
     // If RC number changed, reset validation state
     if (name === 'rcNumber') {
       setRcValidationStatus('idle');
@@ -909,27 +909,24 @@ const UploadKYCDocumentsPage = () => {
     logDocumentStates();
 
     try {
-      // Check if this is a business account with SCUML license
-      const isBusinessAccount = ['partnership', 'enterprise', 'llc'].includes(accountType);
-      const hasValidSCUML = isBusinessAccount && hasSCUMLLicense && scumlNumber && !scumlError;
-
-      if (hasValidSCUML) {
-        // For SCUML submissions, skip document processing and save form data directly
-        console.log('Processing SCUML submission...');
-
-        // Save form data with SCUML information
-        await saveFormData(true);
-
-        // Mark as submitted
-        setIsSubmitted(true);
-        setIsSubmitting(false);
-        return;
+      // For business account types, validate TIN and RC Number
+      if (accountType !== 'individual') {
+        if (!taxInfo.taxNumber?.trim()) {
+          setError('Tax Identification Number (TIN) is required for business accounts.');
+          setIsSubmitting(false);
+          return;
+        }
+        if (!taxInfo.rcNumber?.trim()) {
+          setError('Registration Certificate (RC) Number is required for business accounts.');
+          setIsSubmitting(false);
+          return;
+        }
       }
 
-      // Regular document processing flow for non-SCUML submissions
+      // Regular document processing flow
       const requiredDocuments = getRequiredDocumentsForAccountType(accountType);
       console.log('Required documents for submission:', requiredDocuments);
-      
+
       // Check if all required files are available before proceeding
       for (const docType of requiredDocuments) {
         const file = getFileByType(accountType, docType);
@@ -938,7 +935,7 @@ const UploadKYCDocumentsPage = () => {
           setIsSubmitting(false);
           return;
         }
-        
+
         // Ensure the file has the correct identifier in its name for ID card front/back
         if (docType === 'idCardFront' && !file.name.toLowerCase().includes('front')) {
           console.log(`Renaming ID card front file to ensure proper identification`);
@@ -954,7 +951,7 @@ const UploadKYCDocumentsPage = () => {
           setFileNames(prev => ({ ...prev, idCardBack: newFileName }));
         }
       }
-      
+
       // Log current document states for debugging
       console.log('Individual documents:', individualDocuments);
       console.log('Partnership documents:', partnershipDocuments);
@@ -963,7 +960,7 @@ const UploadKYCDocumentsPage = () => {
 
       // Process all documents with better error handling
       console.log('Starting batch document upload for required documents:', requiredDocuments);
-      
+
       // First, collect all files to upload
       const filesToProcess = requiredDocuments.map(docType => {
         const file = getFileByType(accountType, docType);
@@ -971,49 +968,49 @@ const UploadKYCDocumentsPage = () => {
           console.error(`File missing for ${docType} despite previous check`);
           return null;
         }
-        
+
         setUploadStatus(prev => ({ ...prev, [docType]: 'Uploading' }));
-        
+
         // For individual documents, create appropriate file references
         let fileToUpload = file;
-        
+
         // For passport and utility bill, make sure the file name is distinctive
         if (docType === 'passport' && !file.name.toLowerCase().includes('passport')) {
           const newFileName = `Passport_${Date.now()}${file.name.substr(file.name.lastIndexOf('.'))}`;
           fileToUpload = new File([file], newFileName, { type: file.type });
           console.log(`Renamed passport file to: ${newFileName}`);
-        } 
+        }
         else if (docType === 'utilityBill') {
           // Always rename utility bill files to ensure consistency
           const newFileName = `Utility_Bill_${Date.now()}${file.name.substr(file.name.lastIndexOf('.'))}`;
           fileToUpload = new File([file], newFileName, { type: file.type });
           console.log(`Renamed utility bill file to: ${newFileName}`);
-          
+
           // Update the file in the individualDocuments state to match the renamed file
           setIndividualDocuments(prev => ({ ...prev, utilityBill: fileToUpload }));
           setFileNames(prev => ({ ...prev, utilityBill: newFileName }));
         }
-        
+
         return {
           docType,
           file: fileToUpload,
           documentType: docTypeToEnumMapping(docType)
         };
-      }).filter(item => item !== null) as {docType: string, file: File, documentType: DocumentType}[];
-      
+      }).filter(item => item !== null) as { docType: string, file: File, documentType: DocumentType }[];
+
       if (filesToProcess.length !== requiredDocuments.length) {
         console.error('Some files are missing, cannot proceed with upload');
         setError('Some required files are missing. Please check all uploads and try again.');
         setIsSubmitting(false);
         return;
       }
-      
+
       // Now process validation first - don't upload invalid files
-      for (const {docType, file, documentType} of filesToProcess) {
+      for (const { docType, file, documentType } of filesToProcess) {
         try {
           setUploadStatus(prev => ({ ...prev, [docType]: 'Verifying' }));
           let validationResult: { isValid: boolean; message?: string; extractedData?: any } | undefined;
-          
+
           if (accountType === 'individual') {
             validationResult = await validateIndividualDocument(documentType, file);
           } else if (accountType === 'partnership') {
@@ -1023,7 +1020,7 @@ const UploadKYCDocumentsPage = () => {
           } else if (accountType === 'llc') {
             validationResult = await validateLlcDocument(documentType, file);
           }
-          
+
           // Special handling for passport and utility bill documents
           if (docType === 'passport' || docType === 'utilityBill') {
             // For these document types, allow submission even if validation fails as long as the file meets basic requirements
@@ -1058,14 +1055,14 @@ const UploadKYCDocumentsPage = () => {
           return;
         }
       }
-      
+
       // If all validations pass, upload files
-      const uploadPromises = filesToProcess.map(({docType, file, documentType}) => {
+      const uploadPromises = filesToProcess.map(({ docType, file, documentType }) => {
         console.log(`Uploading ${docType} file:`, file.name);
         setUploadStatus(prev => ({ ...prev, [docType]: 'Uploading' }));
         return uploadKycDocument(
-          documentType, 
-          file, 
+          documentType,
+          file,
           (progress) => setUploadProgress(prev => ({ ...prev, [docType]: progress }))
         ).then(() => {
           console.log(`Upload completed for ${docType}`);
@@ -1080,13 +1077,13 @@ const UploadKYCDocumentsPage = () => {
           throw new Error(errorMessage);
         });
       });
-      
+
       try {
         // Wait for all uploads to complete with retry logic for database connection issues
         const MAX_RETRIES = 3;
         let retryCount = 0;
         let uploadComplete = false;
-        
+
         while (!uploadComplete && retryCount < MAX_RETRIES) {
           try {
             // If this is a retry, inform the user
@@ -1096,14 +1093,14 @@ const UploadKYCDocumentsPage = () => {
               // Wait 2 seconds between retries
               await new Promise(resolve => setTimeout(resolve, 2000));
             }
-            
+
             const results = await Promise.all(uploadPromises);
             console.log('All documents uploaded successfully:', results);
             uploadComplete = true;
           } catch (uploadErr: any) {
             retryCount++;
             console.error(`Upload attempt ${retryCount} failed:`, uploadErr);
-            
+
             // Only retry for database connection issues
             if (uploadErr.message && uploadErr.message.includes("Can't reach database server")) {
               console.log('Database connection error detected, will retry');
@@ -1112,7 +1109,7 @@ const UploadKYCDocumentsPage = () => {
               // For other errors, don't retry
               throw uploadErr;
             }
-            
+
             // If we've reached max retries, throw the last error
             if (retryCount >= MAX_RETRIES) {
               throw new Error(`Failed after ${MAX_RETRIES} attempts: ${uploadErr.message}`);
@@ -1121,14 +1118,14 @@ const UploadKYCDocumentsPage = () => {
         }
       } catch (err: any) {
         console.error('Error during document batch upload:', err);
-        
+
         // Special handling for database connectivity errors
         if (err.message && err.message.includes("Can't reach database server")) {
           setError(`Database connection failed. Please try again later or contact support. Error: ${err.message}`);
         } else {
           setError(err.message || 'Upload failed. Please try again.');
         }
-        
+
         setIsSubmitting(false);
         return;
       }
@@ -1141,7 +1138,7 @@ const UploadKYCDocumentsPage = () => {
         }
         return status;
       });
-      
+
       if (allVerified) {
         console.log('All documents verified, saving form data...');
         // Save form data
@@ -1204,7 +1201,7 @@ const UploadKYCDocumentsPage = () => {
     console.log('Upload status:', uploadStatus);
     console.log('============================');
   };
-  
+
   // File upload component
   const FileUploadBox = ({
     docType,
@@ -1240,17 +1237,17 @@ const UploadKYCDocumentsPage = () => {
     // Check if this document is already in the server documents list
     const documentEnum = docTypeToEnumMapping(docType);
     const docTypeFormatted = documentEnum.toString().replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-    
+
     // For ID Card, we need to distinguish between front and back
     let existingServerDoc;
     if (docType === 'idCardFront') {
-      existingServerDoc = documents?.find(doc => 
-        (doc.type === docTypeFormatted || doc.type === 'Id Card') && 
+      existingServerDoc = documents?.find(doc =>
+        (doc.type === docTypeFormatted || doc.type === 'Id Card') &&
         (doc.fileName?.toLowerCase().includes('front') || doc.id.includes('front'))
       );
     } else if (docType === 'idCardBack') {
-      existingServerDoc = documents?.find(doc => 
-        (doc.type === docTypeFormatted || doc.type === 'Id Card') && 
+      existingServerDoc = documents?.find(doc =>
+        (doc.type === docTypeFormatted || doc.type === 'Id Card') &&
         (doc.fileName?.toLowerCase().includes('back') || doc.id.includes('back'))
       );
     } else {
@@ -1319,7 +1316,7 @@ const UploadKYCDocumentsPage = () => {
         const dt = e.dataTransfer;
         if (dt.files && dt.files.length > 0) {
           console.log(`File dropped for ${docType}:`, dt.files[0].name);
-          
+
           // Create a synthetic event to be used with handleFileChange
           const files = dt.files;
           const newEvent = {
@@ -1332,17 +1329,17 @@ const UploadKYCDocumentsPage = () => {
 
           // Process the file upload
           handleFileChange(newEvent, docType, accountTypeKey);
-          
+
           // Force a UI update for the specific document type
           setTimeout(() => {
             // Check if the file was properly stored
             const storedFile = getFileByType(accountTypeKey, docType);
             console.log(`After drop processing: ${docType} file stored:`, !!storedFile);
-            
+
             // Re-trigger state update to ensure UI reflects the change
             if (storedFile) {
               setUploadStatus(prev => ({ ...prev, [docType]: 'File Selected' }));
-              
+
               // Also make sure the filename is set
               if (!fileNames[docType as keyof typeof fileNames]) {
                 setFileNames(prev => ({ ...prev, [docType]: storedFile.name }));
@@ -1361,8 +1358,8 @@ const UploadKYCDocumentsPage = () => {
         handlePreview(file);
       }
     }, [
-      accountTypeKey, 
-      docType, 
+      accountTypeKey,
+      docType,
       // Include these dependencies to re-trigger preview when document states change
       accountTypeKey === 'individual' ? individualDocuments : null,
       accountTypeKey === 'partnership' ? partnershipDocuments : null,
@@ -1412,9 +1409,9 @@ const UploadKYCDocumentsPage = () => {
           <button type="button" onClick={() => fileRef.current?.click()} className="ml-2 text-blue-600 underline text-xs">Replace File</button>
         )}
         {status === 'File Mismatched' && (
-          <button 
-            type="button" 
-            onClick={() => fileRef.current?.click()} 
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
             className="ml-2 bg-red-100 hover:bg-red-200 text-red-700 font-medium py-1 px-3 rounded-full text-xs flex items-center"
           >
             <Upload className="h-3 w-3 mr-1" /> Re-upload File
@@ -1488,13 +1485,13 @@ const UploadKYCDocumentsPage = () => {
                 <div className="ml-4 flex-grow">
                   <p className="text-sm font-medium text-slate-800">{fileName || 'Upload failed'}</p>
                   <p className="text-xs text-red-600 font-medium mt-0.5">
-                    {documentError || (docType === 'utilityBill' ? 
-                      'Error: Please ensure your file is a recent utility bill (less than 3 months old)' : 
+                    {documentError || (docType === 'utilityBill' ?
+                      'Error: Please ensure your file is a recent utility bill (less than 3 months old)' :
                       'Verification failed')}
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
-                    {docType === 'utilityBill' ? 
-                      'Try a different document format (JPG or PDF)' : 
+                    {docType === 'utilityBill' ?
+                      'Try a different document format (JPG or PDF)' :
                       'Please check the document and try again'}
                   </p>
                 </div>
@@ -1907,7 +1904,7 @@ const UploadKYCDocumentsPage = () => {
               <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
                 <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
                   <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">1</span>
-                  Securities License Information
+                  Company Information
                 </h4>
                 <div className="space-y-4">
                   <SCUMLToggle
@@ -1921,234 +1918,226 @@ const UploadKYCDocumentsPage = () => {
                       error={scumlError}
                     />
                   )}
+
+                  {/* TIN and RC fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    <TextInput
+                      label={<>Tax Identification Number (TIN) <span className="text-red-500">*</span></>}
+                      name="taxNumber"
+                      value={taxInfo.taxNumber}
+                      placeholder="Enter company TIN"
+                      onChange={handleTaxInfoChange}
+                    />
+
+                    <div className="space-y-2">
+                      <TextInput
+                        label={<>Registration Certificate (RC) Number <span className="text-red-500">*</span></>}
+                        name="rcNumber"
+                        value={taxInfo.rcNumber}
+                        placeholder="Enter RC Number"
+                        onChange={handleTaxInfoChange}
+                        onBlur={handleRcNumberBlur}
+                      />
+
+                      {/* RC Number validation status */}
+                      {rcValidationStatus === 'validating' && (
+                        <div className="flex items-center text-sm text-blue-600">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                          Validating RC Number...
+                        </div>
+                      )}
+
+                      {rcValidationStatus === 'valid' && cacCompanyData && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <div className="flex items-center text-sm text-green-800 font-medium mb-2">
+                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            RC Number Validated
+                          </div>
+                          <div className="text-xs text-green-700">
+                            <div><strong>Company:</strong> {cacCompanyData.companyName}</div>
+                            <div><strong>Status:</strong> {cacCompanyData.status}</div>
+                            {cacCompanyData.registrationDate && (
+                              <div><strong>Registered:</strong> {cacCompanyData.registrationDate}</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {rcValidationStatus === 'invalid' && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                          <div className="flex items-center text-sm text-red-800">
+                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                            {rcValidationError}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Show other fields only if no SCUML license or SCUML is valid */}
-              {!hasSCUMLLicense && (
-                <>
-                  <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
-                    <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
-                      <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">2</span>
-                      Required Business Documents
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
-                      <FileUploadBox
-                        docType="certificateOfRegistration"
-                        label="Certificate of Registration (Original to be sighted)"
-                        accountTypeKey="partnership"
-                        fileRef={fileInputRefs.certificateOfRegistration}
-                      />
+              {/* Show other fields - always show regardless of SCUML license */}
+              <>
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
+                  <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
+                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">2</span>
+                    Required Business Documents
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
+                    <FileUploadBox
+                      docType="certificateOfRegistration"
+                      label="Certificate of Registration (Original to be sighted)"
+                      accountTypeKey="partnership"
+                      fileRef={fileInputRefs.certificateOfRegistration}
+                    />
 
-                      <FileUploadBox
-                        docType="validIdOfPartners"
-                        label="Valid Identification of Partners"
-                        accountTypeKey="partnership"
-                        fileRef={fileInputRefs.validIdOfPartners}
-                      />
-                    </div>
+                    <FileUploadBox
+                      docType="validIdOfPartners"
+                      label="Valid Identification of Partners"
+                      accountTypeKey="partnership"
+                      fileRef={fileInputRefs.validIdOfPartners}
+                    />
                   </div>
+                </div>
 
-                  <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
-                    <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
-                      <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">2</span>
-                      Additional Documents
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
-                      <FileUploadBox
-                        docType="formOfApplication"
-                        label="Form of Application for Registration (Certified by CAC)"
-                        accountTypeKey="partnership"
-                        fileRef={fileInputRefs.formOfApplication}
-                      />
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
+                  <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
+                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">2</span>
+                    Additional Documents
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
+                    <FileUploadBox
+                      docType="formOfApplication"
+                      label="Form of Application for Registration (Certified by CAC)"
+                      accountTypeKey="partnership"
+                      fileRef={fileInputRefs.formOfApplication}
+                    />
 
-                      <FileUploadBox
-                        docType="proofOfAddress"
-                        label="Proof of Address (Utility Bill, Bank Statement, etc.)"
-                        accountTypeKey="partnership"
-                        fileRef={fileInputRefs.proofOfAddress}
-                      />
-                    </div>
+                    <FileUploadBox
+                      docType="proofOfAddress"
+                      label="Proof of Address (Utility Bill, Bank Statement, etc.)"
+                      accountTypeKey="partnership"
+                      fileRef={fileInputRefs.proofOfAddress}
+                    />
                   </div>
+                </div>
 
-                  <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
-                    <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
-                      <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">3</span>
-                      Company Information
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                      <TextInput
-                        label="Tax Identification Number (TIN)"
-                        name="taxNumber"
-                        value={taxInfo.taxNumber}
-                        placeholder="Enter company TIN"
-                        onChange={handleTaxInfoChange}
-                      />
-                      
-                      <div className="space-y-2">
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
+                  <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
+                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">4</span>
+                    Corporate References
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
+                    <div className="p-5 border border-slate-200 rounded-lg bg-white shadow-sm">
+                      <div className="flex items-center mb-4">
+                        <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center mr-2">
+                          <span className="font-semibold text-slate-600 text-sm">1</span>
+                        </div>
+                        <h5 className="font-medium text-slate-700">First Reference</h5>
+                      </div>
+                      <div className="space-y-4">
                         <TextInput
-                          label="Registration Certificate (RC) Number"
-                          name="rcNumber"
-                          value={taxInfo.rcNumber}
-                          placeholder="Enter RC Number"
-                          onChange={handleTaxInfoChange}
-                          onBlur={handleRcNumberBlur}
+                          label="Name"
+                          name="ref1Name"
+                          value={references.ref1Name}
+                          placeholder="Company/Individual Name"
+                          onChange={handleReferenceChange}
                         />
-                        
-                        {/* RC Number validation status */}
-                        {rcValidationStatus === 'validating' && (
-                          <div className="flex items-center text-sm text-blue-600">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                            Validating RC Number...
-                          </div>
-                        )}
-                        
-                        {rcValidationStatus === 'valid' && cacCompanyData && (
-                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                            <div className="flex items-center text-sm text-green-800 font-medium mb-2">
-                              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                              </svg>
-                              RC Number Validated
-                            </div>
-                            <div className="text-xs text-green-700">
-                              <div><strong>Company:</strong> {cacCompanyData.companyName}</div>
-                              <div><strong>Status:</strong> {cacCompanyData.status}</div>
-                              {cacCompanyData.registrationDate && (
-                                <div><strong>Registered:</strong> {cacCompanyData.registrationDate}</div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {rcValidationStatus === 'invalid' && (
-                          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                            <div className="flex items-center text-sm text-red-800">
-                              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                              </svg>
-                              {rcValidationError}
-                            </div>
-                          </div>
-                        )}
+                        <TextInput
+                          label="Address"
+                          name="ref1Address"
+                          value={references.ref1Address}
+                          placeholder="Full Address"
+                          onChange={handleReferenceChange}
+                        />
+                        <TextInput
+                          label="Phone Number"
+                          name="ref1Phone"
+                          value={references.ref1Phone}
+                          placeholder="Contact Number"
+                          onChange={handleReferenceChange}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="p-5 border border-slate-200 rounded-lg bg-white shadow-sm">
+                      <div className="flex items-center mb-4">
+                        <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center mr-2">
+                          <span className="font-semibold text-slate-600 text-sm">2</span>
+                        </div>
+                        <h5 className="font-medium text-slate-700">Second Reference</h5>
+                      </div>
+                      <div className="space-y-4">
+                        <TextInput
+                          label="Name"
+                          name="ref2Name"
+                          value={references.ref2Name}
+                          placeholder="Company/Individual Name"
+                          onChange={handleReferenceChange}
+                        />
+                        <TextInput
+                          label="Address"
+                          name="ref2Address"
+                          value={references.ref2Address}
+                          placeholder="Full Address"
+                          onChange={handleReferenceChange}
+                        />
+                        <TextInput
+                          label="Phone Number"
+                          name="ref2Phone"
+                          value={references.ref2Phone}
+                          placeholder="Contact Number"
+                          onChange={handleReferenceChange}
+                        />
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
-                    <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
-                      <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">4</span>
-                      Corporate References
-                      <span className="ml-2 text-xs bg-blue-100 text-blue-800 py-0.5 px-2 rounded-full">Required</span>
-                    </h4>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
-                      <div className="p-5 border border-slate-200 rounded-lg bg-white shadow-sm">
-                        <div className="flex items-center mb-4">
-                          <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center mr-2">
-                            <span className="font-semibold text-slate-600 text-sm">1</span>
-                          </div>
-                          <h5 className="font-medium text-slate-700">First Reference</h5>
-                        </div>
-                        <div className="space-y-4">
-                          <TextInput
-                            label="Name"
-                            name="ref1Name"
-                            value={references.ref1Name}
-                            placeholder="Company/Individual Name"
-                            onChange={handleReferenceChange}
-                          />
-                          <TextInput
-                            label="Address"
-                            name="ref1Address"
-                            value={references.ref1Address}
-                            placeholder="Full Address"
-                            onChange={handleReferenceChange}
-                          />
-                          <TextInput
-                            label="Phone Number"
-                            name="ref1Phone"
-                            value={references.ref1Phone}
-                            placeholder="Contact Number"
-                            onChange={handleReferenceChange}
-                          />
-                        </div>
+                {/* Show auto-filled data notice */}
+                {extractedDocumentData.certificateOfRegistration && (
+                  <div className="p-5 bg-blue-50 border border-blue-200 rounded-lg shadow-sm" style={slideUpAnimation}>
+                    <div className="flex items-start">
+                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mr-3 flex-shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
                       </div>
-
-                      <div className="p-5 border border-slate-200 rounded-lg bg-white shadow-sm">
-                        <div className="flex items-center mb-4">
-                          <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center mr-2">
-                            <span className="font-semibold text-slate-600 text-sm">2</span>
-                          </div>
-                          <h5 className="font-medium text-slate-700">Second Reference</h5>
-                        </div>
-                        <div className="space-y-4">
-                          <TextInput
-                            label="Name"
-                            name="ref2Name"
-                            value={references.ref2Name}
-                            placeholder="Company/Individual Name"
-                            onChange={handleReferenceChange}
-                          />
-                          <TextInput
-                            label="Address"
-                            name="ref2Address"
-                            value={references.ref2Address}
-                            placeholder="Full Address"
-                            onChange={handleReferenceChange}
-                          />
-                          <TextInput
-                            label="Phone Number"
-                            name="ref2Phone"
-                            value={references.ref2Phone}
-                            placeholder="Contact Number"
-                            onChange={handleReferenceChange}
-                          />
+                      <div>
+                        <h4 className="font-medium text-blue-800 mb-2">Data Extracted Successfully</h4>
+                        <p className="text-sm text-blue-700 mb-3">
+                          We've automatically extracted the following information from your uploaded documents:
+                        </p>
+                        <div className="bg-white rounded-md p-3 border border-blue-200">
+                          {extractedDocumentData.certificateOfRegistration.businessName && (
+                            <div className="flex items-center mb-2">
+                              <span className="text-xs text-blue-500 font-medium w-36">Business Name:</span>
+                              <span className="text-sm font-medium">{extractedDocumentData.certificateOfRegistration.businessName}</span>
+                            </div>
+                          )}
+                          {extractedDocumentData.certificateOfRegistration.registrationNumber && (
+                            <div className="flex items-center mb-2">
+                              <span className="text-xs text-blue-500 font-medium w-36">Registration Number:</span>
+                              <span className="text-sm font-medium">{extractedDocumentData.certificateOfRegistration.registrationNumber}</span>
+                            </div>
+                          )}
+                          {extractedDocumentData.certificateOfRegistration.registrationDate && (
+                            <div className="flex items-center">
+                              <span className="text-xs text-blue-500 font-medium w-36">Registration Date:</span>
+                              <span className="text-sm font-medium">{extractedDocumentData.certificateOfRegistration.registrationDate}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
                   </div>
-
-                  {/* Show auto-filled data notice */}
-                  {extractedDocumentData.certificateOfRegistration && (
-                    <div className="p-5 bg-blue-50 border border-blue-200 rounded-lg shadow-sm" style={slideUpAnimation}>
-                      <div className="flex items-start">
-                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mr-3 flex-shrink-0">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                          </svg>
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-blue-800 mb-2">Data Extracted Successfully</h4>
-                          <p className="text-sm text-blue-700 mb-3">
-                            We've automatically extracted the following information from your uploaded documents:
-                          </p>
-                          <div className="bg-white rounded-md p-3 border border-blue-200">
-                            {extractedDocumentData.certificateOfRegistration.businessName && (
-                              <div className="flex items-center mb-2">
-                                <span className="text-xs text-blue-500 font-medium w-36">Business Name:</span>
-                                <span className="text-sm font-medium">{extractedDocumentData.certificateOfRegistration.businessName}</span>
-                              </div>
-                            )}
-                            {extractedDocumentData.certificateOfRegistration.registrationNumber && (
-                              <div className="flex items-center mb-2">
-                                <span className="text-xs text-blue-500 font-medium w-36">Registration Number:</span>
-                                <span className="text-sm font-medium">{extractedDocumentData.certificateOfRegistration.registrationNumber}</span>
-                              </div>
-                            )}
-                            {extractedDocumentData.certificateOfRegistration.registrationDate && (
-                              <div className="flex items-center">
-                                <span className="text-xs text-blue-500 font-medium w-36">Registration Date:</span>
-                                <span className="text-sm font-medium">{extractedDocumentData.certificateOfRegistration.registrationDate}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
+                )}
+              </>
             </div>
           )}
 
@@ -2164,7 +2153,7 @@ const UploadKYCDocumentsPage = () => {
               <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
                 <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
                   <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">1</span>
-                  Securities License Information
+                  Company Information
                 </h4>
                 <div className="space-y-4">
                   <SCUMLToggle
@@ -2178,14 +2167,87 @@ const UploadKYCDocumentsPage = () => {
                       error={scumlError}
                     />
                   )}
+
+                  {/* TIN and RC fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    <TextInput
+                      label={<>Tax Identification Number (TIN) <span className="text-red-500">*</span></>}
+                      name="taxNumber"
+                      value={taxInfo.taxNumber}
+                      placeholder="Enter company TIN"
+                      onChange={handleTaxInfoChange}
+                    />
+
+                    <div className="space-y-2">
+                      <TextInput
+                        label={<>Registration Certificate (RC) Number <span className="text-red-500">*</span></>}
+                        name="rcNumber"
+                        value={taxInfo.rcNumber}
+                        placeholder="Enter RC Number"
+                        onChange={handleTaxInfoChange}
+                        onBlur={handleRcNumberBlur}
+                      />
+
+                      {/* RC Number validation status */}
+                      {rcValidationStatus === 'validating' && (
+                        <div className="flex items-center text-sm text-blue-600">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                          Validating RC Number...
+                        </div>
+                      )}
+
+                      {rcValidationStatus === 'valid' && cacCompanyData && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <div className="flex items-center text-sm text-green-800 font-medium mb-2">
+                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            RC Number Validated
+                          </div>
+                          <div className="text-xs text-green-700">
+                            <div><strong>Company:</strong> {cacCompanyData.companyName}</div>
+                            <div><strong>Status:</strong> {cacCompanyData.status}</div>
+                            {cacCompanyData.registrationDate && (
+                              <div><strong>Registered:</strong> {cacCompanyData.registrationDate}</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {rcValidationStatus === 'invalid' && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                          <div className="flex items-center text-sm text-red-800">
+                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                            {rcValidationError}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Business Address */}
+                  <div className="grid grid-cols-1 gap-6 mt-6">
+                    <TextInput
+                      label="Company's Operating Business Address"
+                      name="businessAddress"
+                      value={businessAddress}
+                      placeholder="Full business address"
+                      onChange={(e) => setBusinessAddress(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Show other fields only if no SCUML license */}
-              {!hasSCUMLLicense && (
-                <>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
+              {/* Show other fields - always show regardless of SCUML license */}
+              <>
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
+                  <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
+                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">2</span>
+                    Required Business Documents
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
                     <FileUploadBox
                       docType="certificateOfRegistration"
                       label="Certificate of Registration (Original to be sighted)"
@@ -2193,6 +2255,21 @@ const UploadKYCDocumentsPage = () => {
                       fileRef={fileInputRefs.certificateOfRegistration}
                     />
 
+                    <FileUploadBox
+                      docType="businessOwnerID"
+                      label="Valid Identification of Business Owner"
+                      accountTypeKey="enterprise"
+                      fileRef={fileInputRefs.businessOwnerID}
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
+                  <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
+                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">3</span>
+                    Additional Documents
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
                     <FileUploadBox
                       docType="formOfApplication"
                       label="Form of Application for Registration (Certified by CAC)"
@@ -2213,146 +2290,82 @@ const UploadKYCDocumentsPage = () => {
                       accountTypeKey="enterprise"
                       fileRef={fileInputRefs.utilityReceipt}
                     />
-
-                    <div className="md:col-span-2">
-                      <FileUploadBox
-                        docType="businessOwnerID"
-                        label="Valid Identification of Business Owner"
-                        accountTypeKey="enterprise"
-                        fileRef={fileInputRefs.businessOwnerID}
-                      />
-                    </div>
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                    <TextInput
-                      label="Company's Operating Business Address"
-                      name="businessAddress"
-                      value={businessAddress}
-                      placeholder="Full business address"
-                      onChange={(e) => setBusinessAddress(e.target.value)}
-                    />
-                  </div>
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
+                  <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
+                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">4</span>
+                    Corporate References
+                  </h4>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                    <TextInput
-                      label="Tax Identification Number (TIN)"
-                      name="taxNumber"
-                      value={taxInfo.taxNumber}
-                      placeholder="Enter company TIN"
-                      onChange={handleTaxInfoChange}
-                    />
-                    
-                    <div className="space-y-2">
-                      <TextInput
-                        label="Registration Certificate (RC) Number"
-                        name="rcNumber"
-                        value={taxInfo.rcNumber}
-                        placeholder="Enter RC Number"
-                        onChange={handleTaxInfoChange}
-                        onBlur={handleRcNumberBlur}
-                      />
-                      
-                      {/* RC Number validation status */}
-                      {rcValidationStatus === 'validating' && (
-                        <div className="flex items-center text-sm text-blue-600">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                          Validating RC Number...
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
+                    <div className="p-5 border border-slate-200 rounded-lg bg-white shadow-sm">
+                      <div className="flex items-center mb-4">
+                        <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center mr-2">
+                          <span className="font-semibold text-slate-600 text-sm">1</span>
                         </div>
-                      )}
-                      
-                      {rcValidationStatus === 'valid' && cacCompanyData && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                          <div className="flex items-center text-sm text-green-800 font-medium mb-2">
-                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                            RC Number Validated
-                          </div>
-                          <div className="text-xs text-green-700">
-                            <div><strong>Company:</strong> {cacCompanyData.companyName}</div>
-                            <div><strong>Status:</strong> {cacCompanyData.status}</div>
-                            {cacCompanyData.registrationDate && (
-                              <div><strong>Registered:</strong> {cacCompanyData.registrationDate}</div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {rcValidationStatus === 'invalid' && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                          <div className="flex items-center text-sm text-red-800">
-                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                            {rcValidationError}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-8">
-                    <h4 className="text-lg font-medium mb-4">Corporate References (Two independent references required)</h4>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
-                      <div className="p-6 border border-slate-200 rounded-lg">
-                        <h5 className="font-medium mb-4">Reference 1</h5>
-                        <div className="space-y-4">
-                          <TextInput
-                            label="Name"
-                            name="ref1Name"
-                            value={references.ref1Name}
-                            placeholder="Company/Individual Name"
-                            onChange={handleReferenceChange}
-                          />
-                          <TextInput
-                            label="Address"
-                            name="ref1Address"
-                            value={references.ref1Address}
-                            placeholder="Full Address"
-                            onChange={handleReferenceChange}
-                          />
-                          <TextInput
-                            label="Phone Number"
-                            name="ref1Phone"
-                            value={references.ref1Phone}
-                            placeholder="Contact Number"
-                            onChange={handleReferenceChange}
-                          />
-                        </div>
+                        <h5 className="font-medium text-slate-700">First Reference</h5>
                       </div>
+                      <div className="space-y-4">
+                        <TextInput
+                          label="Name"
+                          name="ref1Name"
+                          value={references.ref1Name}
+                          placeholder="Company/Individual Name"
+                          onChange={handleReferenceChange}
+                        />
+                        <TextInput
+                          label="Address"
+                          name="ref1Address"
+                          value={references.ref1Address}
+                          placeholder="Full Address"
+                          onChange={handleReferenceChange}
+                        />
+                        <TextInput
+                          label="Phone Number"
+                          name="ref1Phone"
+                          value={references.ref1Phone}
+                          placeholder="Contact Number"
+                          onChange={handleReferenceChange}
+                        />
+                      </div>
+                    </div>
 
-                      <div className="p-6 border border-slate-200 rounded-lg">
-                        <h5 className="font-medium mb-4">Reference 2</h5>
-                        <div className="space-y-4">
-                          <TextInput
-                            label="Name"
-                            name="ref2Name"
-                            value={references.ref2Name}
-                            placeholder="Company/Individual Name"
-                            onChange={handleReferenceChange}
-                          />
-                          <TextInput
-                            label="Address"
-                            name="ref2Address"
-                            value={references.ref2Address}
-                            placeholder="Full Address"
-                            onChange={handleReferenceChange}
-                          />
-                          <TextInput
-                            label="Phone Number"
-                            name="ref2Phone"
-                            value={references.ref2Phone}
-                            placeholder="Contact Number"
-                            onChange={handleReferenceChange}
-                          />
+                    <div className="p-5 border border-slate-200 rounded-lg bg-white shadow-sm">
+                      <div className="flex items-center mb-4">
+                        <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center mr-2">
+                          <span className="font-semibold text-slate-600 text-sm">2</span>
                         </div>
+                        <h5 className="font-medium text-slate-700">Second Reference</h5>
+                      </div>
+                      <div className="space-y-4">
+                        <TextInput
+                          label="Name"
+                          name="ref2Name"
+                          value={references.ref2Name}
+                          placeholder="Company/Individual Name"
+                          onChange={handleReferenceChange}
+                        />
+                        <TextInput
+                          label="Address"
+                          name="ref2Address"
+                          value={references.ref2Address}
+                          placeholder="Full Address"
+                          onChange={handleReferenceChange}
+                        />
+                        <TextInput
+                          label="Phone Number"
+                          name="ref2Phone"
+                          value={references.ref2Phone}
+                          placeholder="Contact Number"
+                          onChange={handleReferenceChange}
+                        />
                       </div>
                     </div>
                   </div>
-                </>
-              )}
+                </div>
+              </>
             </div>
           )}
 
@@ -2368,7 +2381,7 @@ const UploadKYCDocumentsPage = () => {
               <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
                 <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
                   <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">1</span>
-                  Securities License Information
+                  Company Information
                 </h4>
                 <div className="space-y-4">
                   <SCUMLToggle
@@ -2382,14 +2395,82 @@ const UploadKYCDocumentsPage = () => {
                       error={scumlError}
                     />
                   )}
+
+                  {/* TIN and RC fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    <TextInput
+                      label={<>Tax Identification Number (TIN) <span className="text-red-500">*</span></>}
+                      name="taxNumber"
+                      value={taxInfo.taxNumber}
+                      placeholder="Enter TIN"
+                      onChange={handleTaxInfoChange}
+                    />
+
+                    <div className="space-y-2">
+                      <TextInput
+                        label={<>Registration Certificate (RC) Number <span className="text-red-500">*</span></>}
+                        name="rcNumber"
+                        value={taxInfo.rcNumber}
+                        placeholder="Enter RC Number"
+                        onChange={handleTaxInfoChange}
+                        onBlur={handleRcNumberBlur}
+                      />
+
+                      {/* RC Number validation status for LLC */}
+                      {rcValidationStatus === 'validating' && (
+                        <div className="flex items-center text-sm text-blue-600">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                          Validating...
+                        </div>
+                      )}
+
+                      {rcValidationStatus === 'valid' && cacCompanyData && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-2">
+                          <div className="flex items-center text-xs text-green-800 font-medium mb-1">
+                            <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            RC Validated
+                          </div>
+                          <div className="text-xs text-green-700">
+                            <div><strong>Company:</strong> {cacCompanyData.companyName}</div>
+                            <div><strong>Status:</strong> {cacCompanyData.status}</div>
+                            {cacCompanyData.registrationDate && (
+                              <div><strong>Registered:</strong> {cacCompanyData.registrationDate}</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {rcValidationStatus === 'invalid' && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-2">
+                          <div className="text-xs text-red-800">{rcValidationError}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Business Address */}
+                  <div className="grid grid-cols-1 gap-6 mt-6">
+                    <TextInput
+                      label="Company's Operating Business Address"
+                      name="businessAddress"
+                      value={businessAddress}
+                      placeholder="Full business address"
+                      onChange={(e) => setBusinessAddress(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Show other fields only if no SCUML license */}
-              {!hasSCUMLLicense && (
-                <>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
+              {/* Show other fields - always show regardless of SCUML license */}
+              <>
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
+                  <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
+                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">2</span>
+                    Required Business Documents
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
                     <FileUploadBox
                       docType="certificateOfIncorporation"
                       label="Certificate of Incorporation / Registration Number"
@@ -2398,68 +2479,26 @@ const UploadKYCDocumentsPage = () => {
                     />
 
                     <FileUploadBox
+                      docType="directorsID"
+                      label="Valid Identification of Directors and Signatories"
+                      accountTypeKey="llc"
+                      fileRef={fileInputRefs.directorsID}
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
+                  <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
+                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">3</span>
+                    Additional Documents
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
+                    <FileUploadBox
                       docType="memorandumArticles"
                       label="Memorandum and Articles of Association"
                       accountTypeKey="llc"
                       fileRef={fileInputRefs.memorandumArticles}
                     />
-
-                    <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6 pb-6">
-                      <TextInput
-                        label="Tax Identification Number (TIN)"
-                        name="taxNumber"
-                        value={taxInfo.taxNumber}
-                        placeholder="Enter TIN"
-                        onChange={handleTaxInfoChange}
-                      />
-
-                      <div className="space-y-2">
-                        <TextInput
-                          label="Registration Certificate (RC) Number"
-                          name="rcNumber"
-                          value={taxInfo.rcNumber}
-                          placeholder="Enter RC Number"
-                          onChange={handleTaxInfoChange}
-                          onBlur={handleRcNumberBlur}
-                        />
-                        
-                        {/* RC Number validation status for LLC */}
-                        {rcValidationStatus === 'validating' && (
-                          <div className="flex items-center text-sm text-blue-600">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                            Validating...
-                          </div>
-                        )}
-                        
-                        {rcValidationStatus === 'valid' && cacCompanyData && (
-                          <div className="bg-green-50 border border-green-200 rounded-lg p-2">
-                            <div className="flex items-center text-xs text-green-800 font-medium mb-1">
-                              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                              </svg>
-                              RC Validated
-                            </div>
-                            <div className="text-xs text-green-700">
-                              <div>{cacCompanyData.companyName}</div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {rcValidationStatus === 'invalid' && (
-                          <div className="bg-red-50 border border-red-200 rounded-lg p-2">
-                            <div className="text-xs text-red-800">{rcValidationError}</div>
-                          </div>
-                        )}
-                      </div>
-
-                      <TextInput
-                        label="SCUML Registration Number (if applicable)"
-                        name="scumlNumber"
-                        value={taxInfo.scumlNumber}
-                        placeholder="Enter SCUML Number"
-                        onChange={handleTaxInfoChange}
-                      />
-                    </div>
 
                     <FileUploadBox
                       docType="boardResolution"
@@ -2467,14 +2506,6 @@ const UploadKYCDocumentsPage = () => {
                       accountTypeKey="llc"
                       fileRef={fileInputRefs.boardResolution}
                     />
-
-                    <FileUploadBox
-                      docType="directorsID"
-                      label="Valid Identification of Directors and Signatories"
-                      accountTypeKey="llc"
-                      fileRef={fileInputRefs.directorsID}
-                    />
-
 
                     <div className="md:col-span-2">
                       <FileUploadBox
@@ -2484,79 +2515,82 @@ const UploadKYCDocumentsPage = () => {
                         fileRef={fileInputRefs.proofOfAddress}
                       />
                     </div>
-
                   </div>
-                  <div className="mt-6">
-                    <TextInput
-                      label="Company's Operating Business Address"
-                      name="businessAddress"
-                      value={businessAddress}
-                      placeholder="Full business address"
-                      onChange={(e) => setBusinessAddress(e.target.value)}
-                    />
-                  </div>
+                </div>
 
-                  <div className="mt-8">
-                    <h4 className="text-lg font-medium mb-4">Corporate References (Two independent references required)</h4>
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
+                  <h4 className="text-sm font-medium text-slate-700 mb-4 flex items-center">
+                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mr-2">4</span>
+                    Corporate References
+                  </h4>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
-                      <div className="p-6 border border-slate-200 rounded-lg">
-                        <h5 className="font-medium mb-4">Reference 1</h5>
-                        <div className="space-y-4">
-                          <TextInput
-                            label="Name"
-                            name="ref1Name"
-                            value={references.ref1Name}
-                            placeholder="Company/Individual Name"
-                            onChange={handleReferenceChange}
-                          />
-                          <TextInput
-                            label="Address"
-                            name="ref1Address"
-                            value={references.ref1Address}
-                            placeholder="Full Address"
-                            onChange={handleReferenceChange}
-                          />
-                          <TextInput
-                            label="Phone Number"
-                            name="ref1Phone"
-                            value={references.ref1Phone}
-                            placeholder="Contact Number"
-                            onChange={handleReferenceChange}
-                          />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6" style={slideUpAnimation}>
+                    <div className="p-5 border border-slate-200 rounded-lg bg-white shadow-sm">
+                      <div className="flex items-center mb-4">
+                        <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center mr-2">
+                          <span className="font-semibold text-slate-600 text-sm">1</span>
                         </div>
+                        <h5 className="font-medium text-slate-700">First Reference</h5>
                       </div>
+                      <div className="space-y-4">
+                        <TextInput
+                          label="Name"
+                          name="ref1Name"
+                          value={references.ref1Name}
+                          placeholder="Company/Individual Name"
+                          onChange={handleReferenceChange}
+                        />
+                        <TextInput
+                          label="Address"
+                          name="ref1Address"
+                          value={references.ref1Address}
+                          placeholder="Full Address"
+                          onChange={handleReferenceChange}
+                        />
+                        <TextInput
+                          label="Phone Number"
+                          name="ref1Phone"
+                          value={references.ref1Phone}
+                          placeholder="Contact Number"
+                          onChange={handleReferenceChange}
+                        />
+                      </div>
+                    </div>
 
-                      <div className="p-6 border border-slate-200 rounded-lg">
-                        <h5 className="font-medium mb-4">Reference 2</h5>
-                        <div className="space-y-4">
-                          <TextInput
-                            label="Name"
-                            name="ref2Name"
-                            value={references.ref2Name}
-                            placeholder="Company/Individual Name"
-                            onChange={handleReferenceChange}
-                          />
-                          <TextInput
-                            label="Address"
-                            name="ref2Address"
-                            value={references.ref2Address}
-                            placeholder="Full Address"
-                            onChange={handleReferenceChange}
-                          />
-                          <TextInput
-                            label="Phone Number"
-                            name="ref2Phone"
-                            value={references.ref2Phone}
-                            placeholder="Contact Number"
-                            onChange={handleReferenceChange}
-                          />
+                    <div className="p-5 border border-slate-200 rounded-lg bg-white shadow-sm">
+                      <div className="flex items-center mb-4">
+                        <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center mr-2">
+                          <span className="font-semibold text-slate-600 text-sm">2</span>
                         </div>
+                        <h5 className="font-medium text-slate-700">Second Reference</h5>
+                      </div>
+                      <div className="space-y-4">
+                        <TextInput
+                          label="Name"
+                          name="ref2Name"
+                          value={references.ref2Name}
+                          placeholder="Company/Individual Name"
+                          onChange={handleReferenceChange}
+                        />
+                        <TextInput
+                          label="Address"
+                          name="ref2Address"
+                          value={references.ref2Address}
+                          placeholder="Full Address"
+                          onChange={handleReferenceChange}
+                        />
+                        <TextInput
+                          label="Phone Number"
+                          name="ref2Phone"
+                          value={references.ref2Phone}
+                          placeholder="Contact Number"
+                          onChange={handleReferenceChange}
+                        />
                       </div>
                     </div>
                   </div>
-                </>
-              )}
+                </div>
+              </>
             </div>
           )}
           {/* {error && (
@@ -2576,26 +2610,17 @@ const UploadKYCDocumentsPage = () => {
               type="submit"
               disabled={
                 isSubmitting ||
-                (
-                  (['partnership', 'enterprise', 'llc'].includes(accountType) && hasSCUMLLicense)
-                    ? (!scumlNumber || !!scumlError)
-                    : !getRequiredDocumentsForAccountType(accountType).every(docType => getFileByType(accountType, docType) !== null)
-                )
+                !getRequiredDocumentsForAccountType(accountType).every(docType => getFileByType(accountType, docType) !== null) ||
+                (accountType !== 'individual' && (!taxInfo.taxNumber?.trim() || !taxInfo.rcNumber?.trim()))
               }
               className={`w-full max-w-md py-4 px-6 ${isSubmitting ||
-                  (
-                    (['partnership', 'enterprise', 'llc'].includes(accountType) && hasSCUMLLicense)
-                      ? (!scumlNumber || !!scumlError)
-                      : !getRequiredDocumentsForAccountType(accountType).every(docType => getFileByType(accountType, docType) !== null)
-                  )
-                  ? 'bg-blue-400 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700'
+                !getRequiredDocumentsForAccountType(accountType).every(docType => getFileByType(accountType, docType) !== null) ||
+                (accountType !== 'individual' && (!taxInfo.taxNumber?.trim() || !taxInfo.rcNumber?.trim()))
+                ? 'bg-blue-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700'
                 } text-white font-semibold rounded-xl transition-all duration-300 flex items-center justify-center shadow-lg shadow-blue-500/20 ${!isSubmitting &&
-                  (
-                    (['partnership', 'enterprise', 'llc'].includes(accountType) && hasSCUMLLicense)
-                      ? (scumlNumber && !scumlError)
-                      : getRequiredDocumentsForAccountType(accountType).every(docType => getFileByType(accountType, docType) !== null)
-                  )
+                  getRequiredDocumentsForAccountType(accountType).every(docType => getFileByType(accountType, docType) !== null) &&
+                  (accountType === 'individual' || (taxInfo.taxNumber?.trim() && taxInfo.rcNumber?.trim()))
                   ? 'hover:shadow-blue-500/30 hover:scale-[1.01] hover:-translate-y-0.5'
                   : ''
                 }`}
@@ -2609,7 +2634,8 @@ const UploadKYCDocumentsPage = () => {
             </button>
 
             <p className="text-xs text-slate-500 mt-4 text-center">
-              By submitting, you confirm that all documents provided are authentic and valid.
+              By submitting, you confirm that all documents provided are authentic and valid.<br />
+              <span className="text-slate-600 font-medium"><span className="text-red-500">*</span> Required fields must be completed for business account types.</span>
             </p>
           </div>
         </form>

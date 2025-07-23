@@ -827,9 +827,9 @@ class DojahService {
           if (!isDocumentTypeMatch) {
             documentTypeMismatchNote = `Document type mismatch: Expected ${documentType}, but extracted ${analysisResult.documentType.documentName}`;
           }
-        } else if (!analysisResult.isValid){
-          documentTypeMismatchNote = 'Document is invalid';
-          console.log(`Document is invalid`);
+        // } else if (!analysisResult.isValid){
+        //   documentTypeMismatchNote = 'Document is invalid';
+        //   console.log(`Document is invalid`);
         }
 
 

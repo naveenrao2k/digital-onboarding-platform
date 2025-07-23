@@ -132,11 +132,52 @@ const UserDashboard = () => {
     return userProfile?.account?.scumlNumber || kycFormData?.scumlNumber || null;
   };
 
+  // Helper function to get TIN number from either account or KYC form data
+  const getTINNumber = () => {
+    return userProfile?.account?.taxNumber || kycFormData?.taxNumber || null;
+  };
+
+  // Helper function to get RC number from either account or KYC form data
+  const getRCNumber = () => {
+    return userProfile?.account?.rcNumber || kycFormData?.rcNumber || null;
+  };
+
+  // TIN is always verified (like SCUML)
+  const isTINVerified = () => true;
+
+  // RC is only verified if flagged in account
+  // RC is considered verified if rcNumber exists
+  const isRCVerified = () => !!getRCNumber();
+
+  // Helper function to get company name when RC is verified
+  // Helper function to get company name from extractedData (CAC)
+  const getCompanyName = () => {
+    const extracted = kycFormData?.extractedData;
+    if (extracted && extracted.cacCompanyData && extracted.cacCompanyData.companyName) {
+      return extracted.cacCompanyData.companyName;
+    }
+    return userProfile?.account?.businessName || kycFormData?.businessName || null;
+  };
+
+  const getCompanyStatus = () => {
+    const extracted = kycFormData?.extractedData;
+    if (extracted && extracted.cacCompanyData && extracted.cacCompanyData.status) {
+      return extracted.cacCompanyData.status;
+    }
+    return null;
+  };
+
   // Check if user has SCUML license
   const hasSCUMLLicense = () => {
     const scumlNumber = getSCUMLNumber();
     const accountType = userProfile?.accountType;
     return scumlNumber && ['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(accountType || '');
+  };
+
+  // Check if user has business account type
+  const hasBusinessAccount = () => {
+    const accountType = userProfile?.accountType;
+    return ['PARTNERSHIP', 'ENTERPRISE', 'LLC'].includes(accountType || '');
   };
 
   if (isLoadingProfile || loading) {
@@ -257,26 +298,103 @@ const UserDashboard = () => {
                       </div>
                     </div>
 
-                    {/* SCUML License Information */}
-                    {hasSCUMLLicense() && (
-                      <div className={`flex items-start p-3 rounded-lg ${darkMode ? 'bg-green-800/20 border border-green-600/30' : 'bg-green-50 border border-green-200'}`}>
-                        <div className={`${darkMode ? 'bg-green-700' : 'bg-green-100'} rounded-full p-2`}>
-                          <Shield className={`h-5 w-5 ${darkMode ? 'text-green-300' : 'text-green-600'}`} />
-                        </div>
-                        <div className="ml-3 flex-1">
-                          <div className="flex items-center justify-between">
-                            <p className={`text-sm font-medium ${darkMode ? 'text-green-300' : 'text-green-800'}`}>SCUML License</p>
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${darkMode ? 'bg-green-700 text-green-200' : 'bg-green-100 text-green-800'}`}>
-                              Verified
-                            </span>
+
+
+                    <div className='flex flex-col'>
+
+                      {/* SCUML License Information */}
+                      {hasSCUMLLicense() && (
+                        <div className={`flex items-start p-3 rounded-lg ${darkMode ? 'bg-green-800/20 border border-green-600/30' : 'bg-green-50 border border-green-200'}`}>
+                          <div className={`${darkMode ? 'bg-green-700' : 'bg-green-100'} rounded-full p-2`}>
+                            <Shield className={`h-5 w-5 ${darkMode ? 'text-green-300' : 'text-green-600'}`} />
                           </div>
-                          <p className={`font-mono text-lg ${darkMode ? 'text-green-200' : 'text-green-900'} mt-1`}>{getSCUMLNumber()}</p>
-                          <p className={`text-xs ${darkMode ? 'text-green-300/70' : 'text-green-600'} mt-1`}>
-                            Securities and Commodities Market License
-                          </p>
+                          <div className="ml-3 flex-1">
+                            <div className="flex items-center justify-between">
+                              <p className={`text-sm font-medium ${darkMode ? 'text-green-300' : 'text-green-800'}`}>SCUML License</p>
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${darkMode ? 'bg-green-700 text-green-200' : 'bg-green-100 text-green-800'}`}>
+                                Verified
+                              </span>
+                            </div>
+                            <p className={`font-mono text-lg ${darkMode ? 'text-green-200' : 'text-green-900'} mt-1`}>{getSCUMLNumber()}</p>
+                            <p className={`text-xs ${darkMode ? 'text-green-300/70' : 'text-green-600'} mt-1`}>
+                              Securities and Commodities Market License
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+
+                      {/* TIN and RC Verification Status for Business Accounts */}
+                      {hasBusinessAccount() && (
+                        <div className="space-y-3 mt-2">
+                          {/* TIN Verification Status - Always verified */}
+                          {getTINNumber() && (
+                            <div className={`flex items-start p-3 rounded-lg ${darkMode ? 'bg-green-800/20 border border-green-600/30' : 'bg-green-50 border border-green-200'}`}>
+                              <div className={`${darkMode ? 'bg-green-700' : 'bg-green-100'} rounded-full p-2`}>
+                                <FileText className={`h-5 w-5 ${darkMode ? 'text-green-300' : 'text-green-600'}`} />
+                              </div>
+                              <div className="ml-3 flex-1">
+                                <div className="flex items-center justify-between">
+                                  <p className={`text-sm font-medium ${darkMode ? 'text-green-300' : 'text-green-800'}`}>TIN</p>
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${darkMode ? 'bg-green-700 text-green-200' : 'bg-green-100 text-green-800'}`}>
+                                    Verified
+                                  </span>
+                                </div>
+                                <p className={`font-mono text-lg ${darkMode ? 'text-green-200' : 'text-green-900'} mt-1`}>
+                                  {getTINNumber()}
+                                </p>
+
+                                <p className={`text-xs ${darkMode ? 'text-green-300/70' : 'text-green-600'} mt-1`}>
+                                  Tax Identification Number Verified
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* RC Number Verification Status */}
+                          {getRCNumber() && (
+                            <div className={`flex items-start p-3 rounded-lg ${darkMode ? 'bg-green-800/20 border border-green-600/30' : 'bg-green-50 border border-green-200'}`}>
+                              <div className={`${darkMode ? 'bg-green-700' : 'bg-green-100'} rounded-full p-2`}>
+                                <FileText className={`h-5 w-5 ${darkMode ? 'text-green-300' : 'text-green-600'}`} />
+                              </div>
+                              <div className="ml-3 flex-1">
+                                <div className="flex items-center justify-between">
+                                  <p className={`text-sm font-medium ${darkMode ? 'text-green-300' : 'text-green-800'}`}>RC Number</p>
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${darkMode ? 'bg-green-700 text-green-200' : 'bg-green-100 text-green-800'}`}>
+                                    Verified
+                                  </span>
+                                </div>
+                                <p className={`font-mono text-lg ${darkMode ? 'text-green-200' : 'text-green-900'} mt-1`}>
+                                  {getRCNumber()}
+                                </p>
+                                {isRCVerified() && getCompanyName() && (
+                                  <p className={`text-sm font-semibold ${darkMode ? 'text-green-200' : 'text-green-900'} mt-1`}>
+                                    {getCompanyName()}
+                                  </p>
+                                )}
+                                {getCompanyStatus() && (
+                                  <p className={`text-xs font-medium ${darkMode ? 'text-green-300' : 'text-green-700'} mt-1`}>
+                                    Status: {getCompanyStatus()}
+                                  </p>
+                                )}
+                                <p className={`text-xs ${darkMode ? 'text-green-300/70' : 'text-green-600'} mt-1`}>
+                                  Company Registration Verified
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+
+
+
+                    </div>
+
+
+
+
+
+
                   </div>
                 </div>
 

@@ -902,12 +902,44 @@ const UploadKYCDocumentsPage = () => {
     }
   };
 
+  // Helper function to get all (required + additional) documents for each account type
+  const getAllDocumentsForAccountType = (type: string): string[] => {
+    switch (type) {
+      case 'individual':
+        return ['idCardFront', 'idCardBack', 'passport', 'utilityBill'];
+      case 'partnership':
+        return [
+          'certificateOfRegistration',
+          'validIdOfPartners',
+          'formOfApplication',
+          'proofOfAddress'
+        ];
+      case 'enterprise':
+        return [
+          'certificateOfRegistration',
+          'businessOwnerID',
+          'formOfApplication',
+          'passportPhotos',
+          'utilityReceipt'
+        ];
+      case 'llc':
+        return [
+          'certificateOfIncorporation',
+          'directorsID',
+          'memorandumArticles',
+          'boardResolution',
+          'proofOfAddress'
+        ];
+      default:
+        return getRequiredDocumentsForAccountType(type);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
     console.log('Starting submission process...');
-    // Log document states to help debug any issues
     logDocumentStates();
 
     try {
@@ -925,32 +957,19 @@ const UploadKYCDocumentsPage = () => {
         }
       }
 
-      // Regular document processing flow
-      const requiredDocuments = getRequiredDocumentsForAccountType(accountType);
-      console.log('Required documents for submission:', requiredDocuments);
+      // Use all documents for business accounts
+      const documentList = accountType === 'individual'
+        ? getRequiredDocumentsForAccountType(accountType)
+        : getAllDocumentsForAccountType(accountType);
+      console.log('Documents for submission:', documentList);
 
       // Check if all required files are available before proceeding
-      for (const docType of requiredDocuments) {
+      for (const docType of getRequiredDocumentsForAccountType(accountType)) {
         const file = getFileByType(accountType, docType);
         if (!file) {
           setError(`Required document missing: ${formatDocumentName(docType)}. Please upload all required documents.`);
           setIsSubmitting(false);
           return;
-        }
-
-        // Ensure the file has the correct identifier in its name for ID card front/back
-        if (docType === 'idCardFront' && !file.name.toLowerCase().includes('front')) {
-          console.log(`Renaming ID card front file to ensure proper identification`);
-          const newFileName = `ID_Card_Front_${Date.now()}${file.name.substr(file.name.lastIndexOf('.'))}`;
-          const newFile = new File([file], newFileName, { type: file.type });
-          setIndividualDocuments(prev => ({ ...prev, idCardFront: newFile }));
-          setFileNames(prev => ({ ...prev, idCardFront: newFileName }));
-        } else if (docType === 'idCardBack' && !file.name.toLowerCase().includes('back')) {
-          console.log(`Renaming ID card back file to ensure proper identification`);
-          const newFileName = `ID_Card_Back_${Date.now()}${file.name.substr(file.name.lastIndexOf('.'))}`;
-          const newFile = new File([file], newFileName, { type: file.type });
-          setIndividualDocuments(prev => ({ ...prev, idCardBack: newFile }));
-          setFileNames(prev => ({ ...prev, idCardBack: newFileName }));
         }
       }
 
@@ -960,22 +979,16 @@ const UploadKYCDocumentsPage = () => {
       console.log('Enterprise documents:', enterpriseDocuments);
       console.log('LLC documents:', llcDocuments);
 
-      // Process all documents with better error handling
-      console.log('Starting batch document upload for required documents:', requiredDocuments);
-
-      // First, collect all files to upload
-      const filesToProcess = requiredDocuments.map(docType => {
+      // Collect all files to upload (required + additional)
+      const filesToProcess = documentList.map(docType => {
         const file = getFileByType(accountType, docType);
         if (!file) {
-          console.error(`File missing for ${docType} despite previous check`);
+          // Only warn for missing additional files, do not block submission
+          console.warn(`File missing for ${docType}`);
           return null;
         }
-
         setUploadStatus(prev => ({ ...prev, [docType]: 'Uploading' }));
-
-        // For individual documents, create appropriate file references
         let fileToUpload = file;
-
         // For passport and utility bill, make sure the file name is distinctive
         if (docType === 'passport' && !file.name.toLowerCase().includes('passport')) {
           const newFileName = `Passport_${Date.now()}${file.name.substr(file.name.lastIndexOf('.'))}`;
@@ -983,16 +996,11 @@ const UploadKYCDocumentsPage = () => {
           console.log(`Renamed passport file to: ${newFileName}`);
         }
         else if (docType === 'utilityBill') {
-          // Always rename utility bill files to ensure consistency
           const newFileName = `Utility_Bill_${Date.now()}${file.name.substr(file.name.lastIndexOf('.'))}`;
           fileToUpload = new File([file], newFileName, { type: file.type });
-          console.log(`Renamed utility bill file to: ${newFileName}`);
-
-          // Update the file in the individualDocuments state to match the renamed file
           setIndividualDocuments(prev => ({ ...prev, utilityBill: fileToUpload }));
           setFileNames(prev => ({ ...prev, utilityBill: newFileName }));
         }
-
         return {
           docType,
           file: fileToUpload,
@@ -1000,65 +1008,7 @@ const UploadKYCDocumentsPage = () => {
         };
       }).filter(item => item !== null) as { docType: string, file: File, documentType: DocumentType }[];
 
-      if (filesToProcess.length !== requiredDocuments.length) {
-        console.error('Some files are missing, cannot proceed with upload');
-        setError('Some required files are missing. Please check all uploads and try again.');
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Now process validation first - don't upload invalid files
-      for (const { docType, file, documentType } of filesToProcess) {
-        try {
-          setUploadStatus(prev => ({ ...prev, [docType]: 'Verifying' }));
-          let validationResult: { isValid: boolean; message?: string; extractedData?: any } | undefined;
-
-          if (accountType === 'individual') {
-            validationResult = await validateIndividualDocument(documentType, file);
-          } else if (accountType === 'partnership') {
-            validationResult = await validatePartnershipDocument(documentType, file);
-          } else if (accountType === 'enterprise') {
-            validationResult = await validateEnterpriseDocument(documentType, file);
-          } else if (accountType === 'llc') {
-            validationResult = await validateLlcDocument(documentType, file);
-          }
-
-          // Special handling for passport and utility bill documents
-          if (docType === 'passport' || docType === 'utilityBill') {
-            // For these document types, allow submission even if validation fails as long as the file meets basic requirements
-            const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
-            if (!allowedTypes.includes(file.type) || file.size > 10 * 1024 * 1024) {
-              console.error(`Basic validation failed for ${docType}: invalid file type or size`);
-              setUploadStatus(prev => ({ ...prev, [docType]: 'File Mismatched' }));
-              setError(`File mismatch for ${formatDocumentName(docType)}: Invalid file format or size. Please upload a valid JPEG, PNG or PDF file under 10MB.`);
-              setIsSubmitting(false);
-              return;
-            }
-            console.log(`Special handling applied for ${docType} - allowing despite validation status`);
-            // Continue with submission even if Dojah validation failed
-          } else if (!validationResult?.isValid) {
-            // For other document types, enforce validation
-            console.error(`Validation failed for ${docType}:`, validationResult?.message);
-            setUploadStatus(prev => ({ ...prev, [docType]: 'File Mismatched' }));
-            const errorMessage = `File mismatch for ${formatDocumentName(docType)}: ${validationResult?.message || 'Unknown error'}. Please re-upload.`;
-            setError(errorMessage);
-            setDocumentErrors(prev => ({ ...prev, [docType]: validationResult?.message || 'Validation failed' }));
-            setIsSubmitting(false);
-            return;
-          }
-          console.log(`Validation successful for ${docType}`);
-        } catch (err) {
-          console.error(`Error validating ${docType}:`, err);
-          setUploadStatus(prev => ({ ...prev, [docType]: 'File Mismatched' }));
-          const errorMessage = `Validation failed for ${formatDocumentName(docType)}. Please try again.`;
-          setError(errorMessage);
-          setDocumentErrors(prev => ({ ...prev, [docType]: err instanceof Error ? err.message : 'Validation failed' }));
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
-      // If all validations pass, upload files
+      // Upload all files (required + additional)
       const uploadPromises = filesToProcess.map(({ docType, file, documentType }) => {
         console.log(`Uploading ${docType} file:`, file.name);
         setUploadStatus(prev => ({ ...prev, [docType]: 'Uploading' }));
@@ -1070,7 +1020,7 @@ const UploadKYCDocumentsPage = () => {
         ).then(() => {
           console.log(`Upload completed for ${docType}`);
           setUploadStatus(prev => ({ ...prev, [docType]: 'Verified' }));
-          setDocumentErrors(prev => ({ ...prev, [docType]: '' })); // Clear any previous errors
+          setDocumentErrors(prev => ({ ...prev, [docType]: '' }));
           return docType;
         }).catch(err => {
           console.error(`Upload failed for ${docType}:`, err);
@@ -1082,82 +1032,22 @@ const UploadKYCDocumentsPage = () => {
       });
 
       try {
-        // Wait for all uploads to complete with retry logic for database connection issues
-        const MAX_RETRIES = 3;
-        let retryCount = 0;
-        let uploadComplete = false;
-
-        while (!uploadComplete && retryCount < MAX_RETRIES) {
-          try {
-            // If this is a retry, inform the user
-            if (retryCount > 0) {
-              console.log(`Retrying uploads (attempt ${retryCount + 1} of ${MAX_RETRIES})...`);
-              setError(`Retrying connection (attempt ${retryCount + 1})... Please wait.`);
-              // Wait 2 seconds between retries
-              await new Promise(resolve => setTimeout(resolve, 2000));
-            }
-
-            const results = await Promise.all(uploadPromises);
-            console.log('All documents uploaded successfully:', results);
-            uploadComplete = true;
-          } catch (uploadErr: any) {
-            retryCount++;
-            console.error(`Upload attempt ${retryCount} failed:`, uploadErr);
-
-            // Only retry for database connection issues
-            if (uploadErr.message && uploadErr.message.includes("Can't reach database server")) {
-              console.log('Database connection error detected, will retry');
-              // Continue to next retry
-            } else {
-              // For other errors, don't retry
-              throw uploadErr;
-            }
-
-            // If we've reached max retries, throw the last error
-            if (retryCount >= MAX_RETRIES) {
-              throw new Error(`Failed after ${MAX_RETRIES} attempts: ${uploadErr.message}`);
-            }
-          }
-        }
-      } catch (err: any) {
-        console.error('Error during document batch upload:', err);
-
-        // Special handling for database connectivity errors
-        if (err.message && err.message.includes("Can't reach database server")) {
-          setError(`Database connection failed. Please try again later or contact support. Error: ${err.message}`);
-        } else {
-          setError(err.message || 'Upload failed. Please try again.');
-        }
-
+        await Promise.all(uploadPromises);
+        console.log('All documents uploaded successfully');
+      } catch (err) {
+        setError('One or more files failed to upload. Please check and try again.');
         setIsSubmitting(false);
         return;
       }
 
-      // 3. Final verification if all files are verified
-      const allVerified = requiredDocuments.every(docType => {
-        const status = uploadStatus[docType] === 'Verified';
-        if (!status) {
-          console.warn(`Document ${docType} is not verified. Status: ${uploadStatus[docType]}`);
-        }
-        return status;
-      });
-
-      if (allVerified) {
-        console.log('All documents verified, saving form data...');
-        // Save form data
-        await saveFormData(true);
-        // All documents are verified, mark as submitted
-        setIsSubmitted(true);
-        console.log('Submission completed successfully');
-      } else {
-        console.warn('Not all documents are verified, cannot complete submission');
-        setError('Not all documents are verified. Please check all uploads and try again.');
-      }
+      // Save all input fields as before
+      await saveFormData(true);
+      setIsSubmitted(true);
+      console.log('Submission completed successfully');
     } catch (error) {
       console.error('Error during form submission:', error);
       setError('An error occurred during submission. Please try again.');
     }
-
     setIsSubmitting(false);
   };
 

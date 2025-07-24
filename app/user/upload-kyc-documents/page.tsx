@@ -1299,12 +1299,60 @@ const UploadKYCDocumentsPage = () => {
           </span>
         </div>
         {status === 'File Selected' && (
-          <button type="button" onClick={() => fileRef.current?.click()} className="ml-2 text-blue-600 underline text-xs">Replace File</button>
+          <button type="button" onClick={() => {
+            // Clear the file from state before opening file picker
+            switch (accountTypeKey) {
+              case 'individual':
+                setIndividualDocuments(prev => ({ ...prev, [docType]: null }));
+                break;
+              case 'partnership':
+                setPartnershipDocuments(prev => ({ ...prev, [docType]: null }));
+                break;
+              case 'enterprise':
+                setEnterpriseDocuments(prev => ({ ...prev, [docType]: null }));
+                break;
+              case 'llc':
+                setLlcDocuments(prev => ({ ...prev, [docType]: null }));
+                break;
+            }
+            setFileNames(prev => ({ ...prev, [docType]: '' }));
+            setUploadStatus(prev => ({ ...prev, [docType]: 'Choose File' }));
+            setUploadProgress(prev => ({ ...prev, [docType]: 0 }));
+            setDocumentErrors(prev => ({ ...prev, [docType]: '' }));
+            if (fileRef.current) {
+              fileRef.current.value = '';
+              fileRef.current.click();
+            }
+          }} className="ml-2 text-blue-600 underline text-xs">Replace File</button>
         )}
         {status === 'File Mismatched' && (
           <button
             type="button"
-            onClick={() => fileRef.current?.click()}
+            onClick={() => {
+              // Clear the file from state before opening file picker
+              switch (accountTypeKey) {
+                case 'individual':
+                  setIndividualDocuments(prev => ({ ...prev, [docType]: null }));
+                  break;
+                case 'partnership':
+                  setPartnershipDocuments(prev => ({ ...prev, [docType]: null }));
+                  break;
+                case 'enterprise':
+                  setEnterpriseDocuments(prev => ({ ...prev, [docType]: null }));
+                  break;
+                case 'llc':
+                  setLlcDocuments(prev => ({ ...prev, [docType]: null }));
+                  break;
+              }
+              setFileNames(prev => ({ ...prev, [docType]: '' }));
+              setUploadStatus(prev => ({ ...prev, [docType]: 'Choose File' }));
+              setUploadProgress(prev => ({ ...prev, [docType]: 0 }));
+              setDocumentErrors(prev => ({ ...prev, [docType]: '' }));
+              if (fileRef.current) {
+                fileRef.current.value = '';
+                fileRef.current.click();
+              }
+            }}
             className="ml-2 bg-red-100 hover:bg-red-200 text-red-700 font-medium py-1 px-3 rounded-full text-xs flex items-center"
           >
             <Upload className="h-3 w-3 mr-1" /> Re-upload File

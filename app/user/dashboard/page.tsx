@@ -652,6 +652,7 @@ const UserDashboard = () => {
         onClose={() => setIsReuploadModalOpen(false)}
         documentId={selectedDocumentId}
         documentType={selectedDocumentType}
+        accountType={userProfile?.accountType || 'INDIVIDUAL'}
         onSuccess={handleReuploadSuccess}
       />
     </div>

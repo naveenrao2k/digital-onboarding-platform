@@ -10,6 +10,7 @@ interface DocumentReuploadModalProps {
     onClose: () => void;
     documentId: string;
     documentType: string;
+    accountType: string;
     onSuccess: () => void;
 }
 
@@ -18,6 +19,7 @@ const DocumentReuploadModal: React.FC<DocumentReuploadModalProps> = ({
     onClose,
     documentId,
     documentType,
+    accountType,
     onSuccess
 }) => {
     const [file, setFile] = useState<File | null>(null);
@@ -76,6 +78,7 @@ const DocumentReuploadModal: React.FC<DocumentReuploadModalProps> = ({
             const response = await uploadKycDocument(
                 documentType as DocumentType,
                 file,
+                accountType,
                 (progress) => setUploadProgress(progress)
             );
 

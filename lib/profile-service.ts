@@ -16,6 +16,7 @@ export interface UserProfile {
     businessType?: BusinessType | null;
     businessAddress?: string | null;
     taxNumber?: string | null;
+    rcNumber?: string | null;
     scumlNumber?: string | null;
     occupation?: string | null;
     sourceOfIncome?: string | null;

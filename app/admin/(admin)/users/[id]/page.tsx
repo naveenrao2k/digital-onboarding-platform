@@ -495,6 +495,19 @@ export default function UserDetailsPage() {
                             <p className="text-sm text-green-800">{userDetails.cacCompanyData.address}</p>
                           </div>
                         )}
+                        {userDetails.cacCompanyData && (
+                          <div className="md:col-span-2">
+                            <p className="text-xs text-green-600 font-medium">Company Data (RAW)</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                              {Object.entries(userDetails.cacCompanyData).map(([key, value]) => (
+                                <div key={key} className="flex">
+                                  <span className="text-xs font-semibold text-gray-700 mr-2">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</span>
+                                  <span className="text-xs text-gray-800">{String(value)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="mt-3 flex items-center">
                         <CheckCircle className="h-4 w-4 text-green-500 mr-2" />

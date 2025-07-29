@@ -100,7 +100,8 @@ export async function GET(request: NextRequest) {
         fileSize: user.selfieVerification.fileSize,
         capturedAt: user.selfieVerification.capturedAt ? user.selfieVerification.capturedAt.toISOString() : null,
       } : null,
-      documentDetails: user.kycDocuments, documents: user.kycDocuments.map(doc => ({
+      documentDetails: user.kycDocuments, 
+      documents: user.kycDocuments.map(doc => ({
         id: doc.id,
         type: doc.type,
         fileName: doc.fileName,
@@ -108,6 +109,7 @@ export async function GET(request: NextRequest) {
         status: doc.status,
         fileSize: doc.fileSize,
         mimeType: doc.mimeType,
+        notes: doc.notes, // Ensure notes are included
         // Removed documentAnalysis and dojahVerification as they do not exist on doc
       })), dojahVerifications: {
         total: user.dojahVerifications?.length || 0,

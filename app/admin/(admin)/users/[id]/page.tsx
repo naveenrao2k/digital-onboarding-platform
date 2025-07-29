@@ -61,6 +61,7 @@ interface UserDetails {
     status: string;
     fileSize: number;
     mimeType: string;
+    notes?: string;
     documentAnalysis?: any;
     dojahVerification?: any;
   }>;
@@ -752,22 +753,22 @@ export default function UserDetailsPage() {
                     name: "Document Upload",
                     status: "SUCCESS",
                   },
-                  {
-                    name: "Quality Check",
-                    status: doc.documentAnalysis?.isReadable ? "SUCCESS" : doc.documentAnalysis ? "FAILED" : "PENDING",
-                  },
-                  {
-                    name: "Data Extraction",
-                    status: doc.dojahVerification?.extractedData ? "SUCCESS" : doc.dojahVerification ? "FAILED" : "PENDING",
-                  },
-                  {
-                    name: "Government Database Match",
-                    status: userDetails.dojahVerifications?.governmentVerifications?.some(v => v.isMatch)
-                      ? "SUCCESS"
-                      : userDetails.dojahVerifications?.governmentVerifications?.length > 0
-                        ? "FAILED"
-                        : "PENDING",
-                  }
+                  // {
+                  //   name: "Quality Check",
+                  //   status: doc.documentAnalysis?.isReadable ? "SUCCESS" : doc.documentAnalysis ? "FAILED" : "PENDING",
+                  // },
+                  // {
+                  //   name: "Data Extraction",
+                  //   status: doc.dojahVerification?.extractedData ? "SUCCESS" : doc.dojahVerification ? "FAILED" : "PENDING",
+                  // },
+                  // {
+                  //   name: "Government Database Match",
+                  //   status: userDetails.dojahVerifications?.governmentVerifications?.some(v => v.isMatch)
+                  //     ? "SUCCESS"
+                  //     : userDetails.dojahVerifications?.governmentVerifications?.length > 0
+                  //       ? "FAILED"
+                  //       : "PENDING",
+                  // }
                 ];
 
                 return (
@@ -980,6 +981,14 @@ export default function UserDetailsPage() {
                                   <p className="font-medium text-sm">{doc.type.replace(/_/g, ' ')}</p>
                                 </div>
                               </div>
+                                 <div>
+                                  <p className="text-sm text-gray-600 mb-1">Reason</p>
+                                  <div className="flex items-center">
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${doc.status === "APPROVED" ? "bg-green-100 text-green-800" : doc.status === "REJECTED" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>
+                                      {doc.notes && doc.notes.trim() !== '' ? doc.notes : 'N/A'}
+                                    </span>
+                                  </div>
+                                </div>
                               <div className="mt-4">
                                 <p className="text-sm text-gray-600 mb-2">Doc Preview</p>
                                 <div className="bg-white border border-gray-200 rounded-md p-3">

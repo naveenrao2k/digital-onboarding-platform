@@ -812,10 +812,7 @@ class DojahService {
       let documentTypeMismatchNote = '';
       try {
 
-        const documentStatus = VerificationStatusEnum.IN_PROGRESS;
-
-
-
+        let documentStatus;
         let isDocumentTypeMatch;
 
         console.log(`Vishal : ${accountType} - ${documentType}`);
@@ -826,13 +823,17 @@ class DojahService {
             console.log(`Document type match for ${documentType} against ${analysisResult.documentType.documentName}: ${isDocumentTypeMatch}`);
             if (!isDocumentTypeMatch) {
               documentTypeMismatchNote = `Document type mismatch: Expected ${documentType}, but extracted ${analysisResult.documentType.documentName}`;
+              documentStatus = VerificationStatusEnum.REQUIRES_REUPLOAD;
             }
           } else if (!analysisResult.isValid) {
             documentTypeMismatchNote = 'Document is invalid';
             console.log(`Document is invalid`);
+            documentStatus = VerificationStatusEnum.REQUIRES_REUPLOAD;
           }
+        } else {
+          // Skip document type match check for non-individual accounts
+          documentStatus = VerificationStatusEnum.IN_PROGRESS;
         }
-
 
         await prisma.kYCDocument.update({
           where: { id: documentId },

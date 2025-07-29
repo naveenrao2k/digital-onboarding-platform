@@ -376,7 +376,7 @@ const UploadKYCDocumentsPage = () => {
   const [scumlNumber, setSCUMLNumber] = useState('');
   const [scumlError, setSCUMLError] = useState('');
 
-  // RC Number validation states
+  // CAC Number validation states
   const [rcValidationStatus, setRcValidationStatus] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle');
   const [rcValidationError, setRcValidationError] = useState('');
   const [cacCompanyData, setCacCompanyData] = useState<any>(null);
@@ -833,7 +833,7 @@ const UploadKYCDocumentsPage = () => {
     const { name, value } = e.target;
     setTaxInfo(prev => ({ ...prev, [name]: value }));
 
-    // If RC number changed, reset validation state
+    // If CAC number changed, reset validation state
     if (name === 'rcNumber') {
       setRcValidationStatus('idle');
       setRcValidationError('');
@@ -841,7 +841,7 @@ const UploadKYCDocumentsPage = () => {
     }
   };
 
-  // RC Number validation function
+  // CAC Number validation function
   const validateRCNumber = async (rcNumber: string): Promise<{ isValid: boolean; companyData?: any; error?: string }> => {
     try {
       setRcValidationStatus('validating');
@@ -863,9 +863,9 @@ const UploadKYCDocumentsPage = () => {
         return { isValid: true, companyData: result.companyData };
       } else {
         setRcValidationStatus('invalid');
-        setRcValidationError(result.error || 'RC Number validation failed');
+        setRcValidationError(result.error || 'CAC Number validation failed');
         setCacCompanyData(null);
-        return { isValid: false, error: result.error || 'RC Number validation failed' };
+        return { isValid: false, error: result.error || 'CAC Number validation failed' };
       }
     } catch (error) {
       setRcValidationStatus('invalid');
@@ -875,7 +875,7 @@ const UploadKYCDocumentsPage = () => {
     }
   };
 
-  // Handle RC Number blur (validate when user finishes typing)
+  // Handle CAC Number blur (validate when user finishes typing)
   const handleRcNumberBlur = () => {
     if (taxInfo.rcNumber && taxInfo.rcNumber.length > 0 && rcValidationStatus === 'idle') {
       validateRCNumber(taxInfo.rcNumber);
@@ -943,7 +943,7 @@ const UploadKYCDocumentsPage = () => {
     logDocumentStates();
 
     try {
-      // For business account types, validate TIN and RC Number
+      // For business account types, validate TIN and CAC Number
       if (accountType !== 'individual') {
         if (!taxInfo.taxNumber?.trim()) {
           setError('Tax Identification Number (TIN) is required for business accounts.');
@@ -951,7 +951,7 @@ const UploadKYCDocumentsPage = () => {
           return;
         }
         if (!taxInfo.rcNumber?.trim()) {
-          setError('Registration Certificate (RC) Number is required for business accounts.');
+          setError('Registration Certificate (CAC) Number is required for business accounts.');
           setIsSubmitting(false);
           return;
         }
@@ -1872,19 +1872,19 @@ const UploadKYCDocumentsPage = () => {
 
                     <div className="space-y-2">
                       <TextInput
-                        label={<>Registration Certificate (RC) Number <span className="text-red-500">*</span></>}
+                        label={<>Registration Certificate (CAC) Number <span className="text-red-500">*</span></>}
                         name="rcNumber"
                         value={taxInfo.rcNumber}
-                        placeholder="Enter RC Number"
+                        placeholder="Enter CAC Number"
                         onChange={handleTaxInfoChange}
                         onBlur={handleRcNumberBlur}
                       />
 
-                      {/* RC Number validation status */}
+                      {/* CAC Number validation status */}
                       {rcValidationStatus === 'validating' && (
                         <div className="flex items-center text-sm text-blue-600">
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                          Validating RC Number...
+                          Validating CAC Number...
                         </div>
                       )}
 
@@ -1894,7 +1894,7 @@ const UploadKYCDocumentsPage = () => {
                             <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
-                            RC Number Validated
+                            CAC Number Validated
                           </div>
                           <div className="text-xs text-green-700">
                             <div><strong>Company:</strong> {cacCompanyData.companyName}</div>
@@ -2121,19 +2121,19 @@ const UploadKYCDocumentsPage = () => {
 
                     <div className="space-y-2">
                       <TextInput
-                        label={<>Registration Certificate (RC) Number <span className="text-red-500">*</span></>}
+                        label={<>Registration Certificate (CAC) Number <span className="text-red-500">*</span></>}
                         name="rcNumber"
                         value={taxInfo.rcNumber}
-                        placeholder="Enter RC Number"
+                        placeholder="Enter CAC Number"
                         onChange={handleTaxInfoChange}
                         onBlur={handleRcNumberBlur}
                       />
 
-                      {/* RC Number validation status */}
+                      {/* CAC Number validation status */}
                       {rcValidationStatus === 'validating' && (
                         <div className="flex items-center text-sm text-blue-600">
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                          Validating RC Number...
+                          Validating CAC Number...
                         </div>
                       )}
 
@@ -2143,7 +2143,7 @@ const UploadKYCDocumentsPage = () => {
                             <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
-                            RC Number Validated
+                            CAC Number Validated
                           </div>
                           <div className="text-xs text-green-700">
                             <div><strong>Company:</strong> {cacCompanyData.companyName}</div>
@@ -2349,15 +2349,15 @@ const UploadKYCDocumentsPage = () => {
 
                     <div className="space-y-2">
                       <TextInput
-                        label={<>Registration Certificate (RC) Number <span className="text-red-500">*</span></>}
+                        label={<>Registration Certificate (CAC) Number <span className="text-red-500">*</span></>}
                         name="rcNumber"
                         value={taxInfo.rcNumber}
-                        placeholder="Enter RC Number"
+                        placeholder="Enter CAC Number"
                         onChange={handleTaxInfoChange}
                         onBlur={handleRcNumberBlur}
                       />
 
-                      {/* RC Number validation status for LLC */}
+                      {/* CAC Number validation status for LLC */}
                       {rcValidationStatus === 'validating' && (
                         <div className="flex items-center text-sm text-blue-600">
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>

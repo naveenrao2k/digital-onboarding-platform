@@ -1286,7 +1286,10 @@ class DojahService {
     const documentTypeMappings: Record<string, string[]> = {
       'ID_CARD': [
         'idcard', 'identitycard', 'nationalid', 'nationalidcard', 'identity', 'id',
-        'voterscard', 'voterid', 'nationalidentitycard', 'identitydocument'
+        'voterscard', 'voterid', 'nationalidentitycard', 'identitydocument','passport', 'internationalpassport', 'traveldocument', 'travelpassport',
+        'diplomaticpassport', 'officialpassport', 'servicepassport','driverslicense', 'drivinglicense', 'driverlicense', 'driverslicence',
+        'drivinglicence', 'driverlicence', 'license', 'licence','voterscard', 'voterid', 'voteridentitycard', 'voteridentification',
+        'voteridcard', 'votersidentitycard'
       ],
       'PASSPORT': [
         'passport', 'internationalpassport', 'traveldocument', 'travelpassport',

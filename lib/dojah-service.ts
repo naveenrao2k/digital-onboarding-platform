@@ -812,9 +812,7 @@ class DojahService {
       let documentTypeMismatchNote = '';
       try {
 
-        const documentStatus = analysisResult.isValid ?
-          VerificationStatusEnum.IN_PROGRESS :
-          VerificationStatusEnum.REJECTED;
+        const documentStatus = VerificationStatusEnum.IN_PROGRESS;
 
 
 

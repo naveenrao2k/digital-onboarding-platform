@@ -100,34 +100,57 @@ export async function GET(request: NextRequest) {
           };
           break;
       }
-    }    // Get the total count of documents matching the criteria
-    const totalCount = await prisma.kYCDocument.count({ where });
-
-    // Get rejected documents
-    const rejectedDocuments = await prisma.kYCDocument.findMany({
-      where,
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+    }    // Get users with rejected documents (unique to user)
+    const usersWithRejectedDocuments = await prisma.user.findMany({
+      where: {
+        AND: [
+          {
+            role: {
+              not: {
+                in: ['ADMIN', 'SUPER_ADMIN'],
+              },
+            },
+          },
+          {
+            kycDocuments: {
+              some: where,
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        createdAt: true,
+        kycDocuments: {
+          where,
+          orderBy: {
+            verifiedAt: 'desc',
           },
         },
       },
       orderBy: {
-        verifiedAt: 'desc',
+        createdAt: 'desc',
       },
-      skip,
-      take: limit,
     });
 
-    // Find the audit logs for these documents to get rejection information
-    const documentIds = rejectedDocuments.map(doc => doc.id);
+    // Get the total count of users that match the criteria for pagination
+    const totalCount = usersWithRejectedDocuments.length;
+
+    // Apply pagination to the users array
+    const paginatedUsers = usersWithRejectedDocuments.slice(skip, skip + limit);
+
+    // Get all document IDs for audit logs
+    const allDocumentIds = paginatedUsers.flatMap(user => 
+      user.kycDocuments.map(doc => doc.id)
+    );
+
+    // Get audit logs for all rejected documents
     const auditLogs = await prisma.auditLog.findMany({
       where: {
-        targetId: { in: documentIds },
+        targetId: { in: allDocumentIds },
         action: { contains: 'REJECT', mode: 'insensitive' },
       },
       orderBy: {
@@ -135,29 +158,35 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Format the response for the UI
-    const formattedRejectedSubmissions = rejectedDocuments.map(doc => {
-      // Find the most recent audit log entry for this document's rejection
-      const rejectionLog = auditLogs.find(log => log.targetId === doc.id);
-      // Check if document status is REQUIRES_REUPLOAD and mark it accordingly
-      const isReuploadStatus = doc.status === VerificationStatusEnum.REQUIRES_REUPLOAD;
+    // Format the response for the UI - one entry per user with their most recent rejected document
+    const formattedRejectedSubmissions = paginatedUsers.map(user => {
+      // Get the most recent rejected document
+      const mostRecentDoc = user.kycDocuments[0];
+      if (!mostRecentDoc) return null;
+      
+      // Find the audit log for this document
+      const rejectionLog = auditLogs.find(log => log.targetId === mostRecentDoc.id);
+      // Check if document status is REQUIRES_REUPLOAD
+      const isReuploadStatus = mostRecentDoc.status === VerificationStatusEnum.REQUIRES_REUPLOAD;
 
       return {
-        id: doc.id,
-        userId: doc.userId,
-        userName: `${doc.user.firstName} ${doc.user.lastName}`,
-        userEmail: doc.user.email,
-        documentType: doc.type,
-        dateSubmitted: doc.uploadedAt.toISOString(),
-        dateRejected: doc.verifiedAt?.toISOString() || null,
-        status: doc.status,
+        id: mostRecentDoc.id,
+        userId: user.id,
+        userName: `${user.firstName} ${user.lastName}`,
+        userEmail: user.email,
+        documentType: `${user.kycDocuments.length} Rejected Document${user.kycDocuments.length !== 1 ? 's' : ''}`,
+        dateSubmitted: mostRecentDoc.uploadedAt.toISOString(),
+        dateRejected: mostRecentDoc.verifiedAt?.toISOString() || null,
+        status: mostRecentDoc.status,
         statusFormatted: isReuploadStatus ? 'REQUIRES REUPLOAD' : 'REJECTED',
-        fileName: doc.fileName,
-        rejectedBy: doc.verifiedBy || rejectionLog?.userId || 'Admin User',
-        rejectionReason: doc.notes || 'Document rejected',
-        allowReupload: isReuploadStatus
+        fileName: mostRecentDoc.fileName,
+        rejectedBy: mostRecentDoc.verifiedBy || rejectionLog?.userId || 'Admin User',
+        rejectionReason: mostRecentDoc.notes || 'Document rejected',
+        allowReupload: isReuploadStatus,
+        totalRejectedDocuments: user.kycDocuments.length,
+        submissionType: 'rejected-documents'
       };
-    });
+    }).filter(Boolean);
 
     return NextResponse.json({
       data: formattedRejectedSubmissions,

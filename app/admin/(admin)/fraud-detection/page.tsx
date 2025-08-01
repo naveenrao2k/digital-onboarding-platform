@@ -2,7 +2,7 @@
 
 import FraudDetectionDashboard from '@/components/admin/FraudDetectionDashboard';
 import CreditBureauCheck from '@/components/admin/CreditBureauCheck';
-import TransactionAnalysis from '@/components/admin/TransactionAnalysis';
+import CreditRiskAnalysis from '@/components/admin/CreditRiskAnalysis';
 import { useHeader } from '../hooks';
 import { useEffect, useState } from 'react';
 import { Shield } from 'lucide-react';
@@ -46,18 +46,19 @@ export default function FraudDetectionPage() {
                                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
                             >
-                                Transaction Analysis
+                                Credit Risk Analysis
                             </button>
                         </nav>
                     </div>
                 </div>                {/* Show the actual dashboard based on the active tab */}
+
                 {activeTab === 'general' && (
                     <div className="bg-white shadow rounded-lg">
                         <FraudDetectionDashboard />
                     </div>
                 )}
                 {activeTab === 'credit' && <CreditBureauCheck />}
-                {activeTab === 'transactions' && <TransactionAnalysis />}
+                {activeTab === 'transactions' && <CreditRiskAnalysis />}
 
                 {/* Uncomment this section and comment out the line above if you want to see example data */}
                 {/*

@@ -3,6 +3,7 @@
 import FraudDetectionDashboard from '@/components/admin/FraudDetectionDashboard';
 import CreditBureauCheck from '@/components/admin/CreditBureauCheck';
 import CreditRiskAnalysis from '@/components/admin/CreditRiskAnalysis';
+import TransactionAnalysis from '@/components/admin/TransactionAnalysis';
 import { useHeader } from '../hooks';
 import { useEffect, useState } from 'react';
 import { Shield } from 'lucide-react';
@@ -46,6 +47,15 @@ export default function FraudDetectionPage() {
                                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
                             >
+                                Transaction Analysis
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('creditRisk')}
+                                className={`${activeTab === 'creditRisk'
+                                        ? 'border-indigo-500 text-indigo-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                            >
                                 Credit Risk Analysis
                             </button>
                         </nav>
@@ -58,7 +68,8 @@ export default function FraudDetectionPage() {
                     </div>
                 )}
                 {activeTab === 'credit' && <CreditBureauCheck />}
-                {activeTab === 'transactions' && <CreditRiskAnalysis />}
+                {activeTab === 'transactions' && <TransactionAnalysis />}
+                {activeTab === 'creditRisk' && <CreditRiskAnalysis />}
 
                 {/* Uncomment this section and comment out the line above if you want to see example data */}
                 {/*

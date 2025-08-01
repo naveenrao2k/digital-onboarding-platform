@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
     const adminSession = await getAdminSession();
     const adminUser = adminSession?.user;
 
-    if (!adminUser || adminUser.role !== 'ADMIN') {
+    if (!adminUser || (adminUser.role !== 'ADMIN' && adminUser.role !== 'SUPER_ADMIN')) {
       return new NextResponse(JSON.stringify({ error: 'Unauthorized: Admin access required' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },

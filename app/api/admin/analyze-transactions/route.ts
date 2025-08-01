@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   try {
     // Check admin authentication
     const session = await getAdminSession();
-    if (!session || !session.user || session.user.role !== 'ADMIN') {
+    if (!session || !session.user || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
       return NextResponse.json(
         { error: 'Unauthorized access' },
         { status: 401 }

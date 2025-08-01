@@ -317,18 +317,18 @@ const AdminRejectedSubmissionsPage = () => {
                       <div className="flex items-center">
                         <Calendar className="h-4 w-4 text-gray-500 mr-2" />
                         <div>
-                          {new Date(submission.rejectedAt).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          })}
-                          <div className="text-xs text-gray-500">
-                            {new Date(submission.rejectedAt).toLocaleTimeString('en-US', {
-                              hour: '2-digit',
-                              minute: '2-digit'
+                            {new Date(submission.dateSubmitted).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
                             })}
+                            <div className="text-xs text-gray-500">
+                              {new Date(submission.dateSubmitted).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
                           </div>
-                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

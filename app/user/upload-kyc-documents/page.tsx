@@ -67,7 +67,7 @@ const TextInput = ({
 const getRequiredDocumentsForAccountType = (type: string): string[] => {
   switch (type) {
     case 'individual':
-      return ['idCardFront', 'idCardBack', 'passport', 'utilityBill']; // All four documents are required now
+      return ['idCardFront', 'passport', 'utilityBill']; // idCardBack is now optional
     case 'partnership':
       return ['certificateOfRegistration', 'validIdOfPartners'];
     case 'enterprise':
@@ -1103,7 +1103,7 @@ const UploadKYCDocumentsPage = () => {
     fileRef
   }: {
     docType: string,
-    label: string,
+    label: React.ReactNode,
     accountTypeKey: 'individual' | 'partnership' | 'enterprise' | 'llc',
     fileRef: React.RefObject<HTMLInputElement>
   }) => {    // Determine if file is uploaded based on account type and document type
@@ -1797,7 +1797,7 @@ const UploadKYCDocumentsPage = () => {
 
                   <FileUploadBox
                     docType="idCardBack"
-                    label="ID Card (Back Side)"
+                    label={<>ID Card (Back Side) <span className="text-slate-400">(Optional)</span></>}
                     accountTypeKey="individual"
                     fileRef={fileInputRefs.idCardBack}
                   />

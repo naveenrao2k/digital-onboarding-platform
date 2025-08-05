@@ -55,6 +55,8 @@ export async function GET() {
       orderBy: { createdAt: 'desc' }
     });
 
+    console.log('Existing CIBIL score:', creditFactors);
+
     // Convert credit factors to the expected format
     const factors = {
       paymentHistory: { score: 0 },
@@ -66,15 +68,15 @@ export async function GET() {
 
     // Map the credit factors to the expected structure
     creditFactors.forEach(factor => {
-      if (factor.factorType === 'paymentHistory') {
+      if (factor.factorType === 'Payment History') {
         factors.paymentHistory.score = factor.factorValue;
-      } else if (factor.factorType === 'creditUtilization') {
+      } else if (factor.factorType === 'Credit Utilization') {
         factors.creditUtilization.score = factor.factorValue;
-      } else if (factor.factorType === 'creditHistoryLength') {
+      } else if (factor.factorType === 'Credit History Length') {
         factors.creditHistoryLength.score = factor.factorValue;
-      } else if (factor.factorType === 'creditMix') {
+      } else if (factor.factorType === 'Credit Mix') {
         factors.creditMix.score = factor.factorValue;
-      } else if (factor.factorType === 'newCredit') {
+      } else if (factor.factorType === 'New Credit') {
         factors.newCredit.score = factor.factorValue;
       }
     });

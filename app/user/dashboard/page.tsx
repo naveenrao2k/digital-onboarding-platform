@@ -517,40 +517,88 @@ const UserDashboard = () => {
               <section className='mt-8'>
                 <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-lg border p-6 shadow-sm mb-8`}>
                   <h3 className="text-lg font-bold mb-4">Quick Actions</h3>
-                  <div className="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <Link
                       href="/user/verification-status"
-                      className={`flex items-center p-3 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
-                        } transition-colors`}
+                      className={`flex items-center p-4 rounded-lg ${darkMode ? 'hover:bg-gray-700 border-gray-600' : 'hover:bg-gray-50 border-gray-200'
+                        } border transition-colors`}
                     >
-                      <Shield className={`h-5 w-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-3`} />
+                      <Shield className={`h-5 w-5 ${darkMode ? 'text-blue-400' : 'text-blue-600'} mr-3`} />
                       <div>
-                        <p className="font-medium">View Verification Status</p>
-                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Check your document verification progress</p>
+                        <p className="font-medium">Verification Status</p>
+                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Check your progress</p>
                       </div>
                     </Link>
 
                     <Link
-                      href="#support"
-                      className={`flex items-center p-3 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
-                        } transition-colors`}
+                      href="https://faq.valtara.ai/contact"
+                      className={`flex items-center p-4 rounded-lg ${darkMode ? 'hover:bg-gray-700 border-gray-600' : 'hover:bg-gray-50 border-gray-200'
+                        } border transition-colors`}
                     >
-                      <Headphones className={`h-5 w-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-3`} />
+                      <Headphones className={`h-5 w-5 ${darkMode ? 'text-green-400' : 'text-green-600'} mr-3`} />
                       <div>
                         <p className="font-medium">Contact Support</p>
-                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Get help with your verification</p>
+                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Get help</p>
                       </div>
                     </Link>
 
                     <Link
-                      href="#faq"
-                      className={`flex items-center p-3 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
-                        } transition-colors`}
+                      href="https://faq.valtara.ai"
+                      className={`flex items-center p-4 rounded-lg ${darkMode ? 'hover:bg-gray-700 border-gray-600' : 'hover:bg-gray-50 border-gray-200'
+                        } border transition-colors`}
                     >
-                      <FileQuestion className={`h-5 w-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} mr-3`} />
+                      <FileQuestion className={`h-5 w-5 ${darkMode ? 'text-orange-400' : 'text-orange-600'} mr-3`} />
                       <div>
                         <p className="font-medium">FAQ</p>
-                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>View commonly asked questions</p>
+                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Common questions</p>
+                      </div>
+                    </Link>
+
+                    <Link
+                      href="https://legal.valtara.ai/privacy-policy"
+                      className={`flex items-center p-4 rounded-lg ${darkMode ? 'hover:bg-gray-700 border-gray-600' : 'hover:bg-gray-50 border-gray-200'
+                        } border transition-colors`}
+                    >
+                      <Shield className={`h-5 w-5 ${darkMode ? 'text-purple-400' : 'text-purple-600'} mr-3`} />
+                      <div>
+                        <p className="font-medium">Privacy Policy</p>
+                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Data protection</p>
+                      </div>
+                    </Link>
+
+                    <Link
+                      href="https://legal.valtara.ai/gdpr"
+                      className={`flex items-center p-4 rounded-lg ${darkMode ? 'hover:bg-gray-700 border-gray-600' : 'hover:bg-gray-50 border-gray-200'
+                        } border transition-colors`}
+                    >
+                      <FileText className={`h-5 w-5 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'} mr-3`} />
+                      <div>
+                        <p className="font-medium">GDPR</p>
+                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Compliance info</p>
+                      </div>
+                    </Link>
+
+                    <Link
+                      href="https://legal.valtara.ai/terms-of-service"
+                      className={`flex items-center p-4 rounded-lg ${darkMode ? 'hover:bg-gray-700 border-gray-600' : 'hover:bg-gray-50 border-gray-200'
+                        } border transition-colors`}
+                    >
+                      <FileText className={`h-5 w-5 ${darkMode ? 'text-red-400' : 'text-red-600'} mr-3`} />
+                      <div>
+                        <p className="font-medium">Terms of Service</p>
+                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Terms & conditions</p>
+                      </div>
+                    </Link>
+
+                    <Link
+                      href="https://legal.valtara.ai/cookies"
+                      className={`flex items-center p-4 rounded-lg ${darkMode ? 'hover:bg-gray-700 border-gray-600' : 'hover:bg-gray-50 border-gray-200'
+                        } border transition-colors`}
+                    >
+                      <FileText className={`h-5 w-5 ${darkMode ? 'text-yellow-400' : 'text-yellow-600'} mr-3`} />
+                      <div>
+                        <p className="font-medium">Cookie Policy</p>
+                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cookie usage</p>
                       </div>
                     </Link>
                   </div>

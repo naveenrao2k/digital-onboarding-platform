@@ -567,7 +567,7 @@ const UserDashboard = () => {
                     </Link>
 
                     <Link
-                      href="https://legal.valtara.ai/gdpr"
+                      href="https://legal.valtara.ai/gdpr-compliance"
                       className={`flex items-center p-4 rounded-lg ${darkMode ? 'hover:bg-gray-700 border-gray-600' : 'hover:bg-gray-50 border-gray-200'
                         } border transition-colors`}
                     >
@@ -591,7 +591,7 @@ const UserDashboard = () => {
                     </Link>
 
                     <Link
-                      href="https://legal.valtara.ai/cookies"
+                      href="https://legal.valtara.ai/cookies-policy"
                       className={`flex items-center p-4 rounded-lg ${darkMode ? 'hover:bg-gray-700 border-gray-600' : 'hover:bg-gray-50 border-gray-200'
                         } border transition-colors`}
                     >

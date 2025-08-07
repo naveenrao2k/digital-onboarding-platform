@@ -825,7 +825,7 @@ class DojahService {
               documentTypeMismatchNote = `Document type mismatch: Expected ${documentType}, but extracted ${analysisResult.documentType.documentName}`;
               documentStatus = VerificationStatusEnum.REQUIRES_REUPLOAD;
             }
-          } else if (!analysisResult.isValid) {
+          } else if (!analysisResult.isValid && !isUtilityBill) {
             documentTypeMismatchNote = 'Document is invalid';
             console.log(`Document is invalid`);
             documentStatus = VerificationStatusEnum.REQUIRES_REUPLOAD;
